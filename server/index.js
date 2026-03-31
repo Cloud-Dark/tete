@@ -328,6 +328,11 @@ app.get('/api/files', (req, res) => {
 // Serve static files from client directory
 app.use(express.static(path.join(__dirname, '../client')));
 
+// Serve AGENT.md for AI agent documentation
+app.get('/AGENT.md', (req, res) => {
+  res.sendFile(path.join(__dirname, '../AGENT.md'));
+});
+
 // Serve index.html for root route
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, '../client/index.html'));

@@ -53,6 +53,7 @@ pm2 restart tete
 | POST | `/file/:id/verify` | Verify password |
 | DELETE | `/file/:id` | Delete file |
 | GET | `/api/files` | List all files |
+| GET | `/AGENT.md` | Get agent documentation |
 
 ---
 

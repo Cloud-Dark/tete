@@ -229,7 +229,7 @@ curl -X DELETE http://10.0.24.23:3232/file/550e8400-e29b-41d4-a716-446655440000
 
 ---
 
-### 7. List All Files
+### 8. List All Files
 
 Get a list of all uploaded files.
 
@@ -255,6 +255,21 @@ curl http://10.0.24.23:3232/api/files
   }
 ]
 ```
+
+---
+
+### 9. Get Agent Documentation
+
+Get the AGENT.md file for AI agent context.
+
+**Endpoint:** `GET /AGENT.md`
+
+**Request:**
+```bash
+curl http://10.0.24.23:3232/AGENT.md
+```
+
+**Response:** Plain text markdown content of the AGENT.md file.
 
 ---
 
