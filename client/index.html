@@ -456,6 +456,7 @@
       <button class="tab-btn active" onclick="switchTab('upload')">Upload</button>
       <button class="tab-btn" onclick="switchTab('files')">Files</button>
       <button class="tab-btn" onclick="switchTab('docs')">API Docs</button>
+      <button class="tab-btn" onclick="switchTab('agent')">Agent</button>
     </div>
 
     <!-- Upload Tab -->
@@ -563,6 +564,20 @@
         </div>
       </div>
     </div>
+
+    <!-- Agent Tab -->
+    <div id="agent-tab" class="tab-content">
+      <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+          <h3 style="font-size: 1rem;">🤖 Agent Documentation</h3>
+          <button class="btn btn-ghost btn-sm" onclick="copyAgentDocs()">📋 Copy All</button>
+        </div>
+        <p style="color: #666; font-size: 0.9rem; margin-bottom: 15px;">
+          Complete project documentation for AI agents. Contains all information needed to understand and work with TETE.
+        </p>
+        <textarea id="agentContent" readonly style="min-height: 500px; font-family: 'Consolas', monospace; font-size: 0.85rem; background: #fafafa;"></textarea>
+      </div>
+    </div>
   </div>
 
   <div id="toast" class="toast"></div>
@@ -631,7 +646,7 @@
     function switchTab(tab) {
       document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
       document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-      
+
       if (tab === 'upload') {
         document.querySelectorAll('.tab-btn')[0].classList.add('active');
         document.getElementById('upload-tab').classList.add('active');
@@ -639,9 +654,49 @@
         document.querySelectorAll('.tab-btn')[1].classList.add('active');
         document.getElementById('files-tab').classList.add('active');
         loadFiles();
-      } else {
+      } else if (tab === 'docs') {
         document.querySelectorAll('.tab-btn')[2].classList.add('active');
         document.getElementById('docs-tab').classList.add('active');
+      } else if (tab === 'agent') {
+        document.querySelectorAll('.tab-btn')[3].classList.add('active');
+        document.getElementById('agent-tab').classList.add('active');
+        loadAgentDocs();
+      }
+    }
+
+    async function loadAgentDocs() {
+      const textarea = document.getElementById('agentContent');
+      if (textarea.value) return; // Already loaded
+      
+      try {
+        const response = await fetch('AGENT.md');
+        const text = await response.text();
+        textarea.value = text;
+      } catch (error) {
+        textarea.value = '# TETE - Transient Endpoint for Transfer & Encryption\n\nLoading failed. See AGENT.md file in repository.';
+      }
+    }
+
+    function copyAgentDocs() {
+      const textarea = document.getElementById('agentContent');
+      if (!textarea.value) {
+        showToast('Loading documentation...');
+        loadAgentDocs();
+        setTimeout(() => {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(textarea.value).then(() => {
+              showToast('Agent documentation copied');
+            });
+          }
+        }, 500);
+      } else {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(textarea.value).then(() => {
+            showToast('Agent documentation copied');
+          });
+        } else {
+          fallbackCopy(textarea.value);
+        }
       }
     }
 

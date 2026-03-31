@@ -1,12 +1,16 @@
-# Temp Share API Documentation
+# TETE - Transient Endpoint for Transfer & Encryption
 
-Simple file sharing server like temp.sh
+## API Documentation
+
+Simple, secure file sharing server with password protection. Self-hosted alternative to temp.sh.
 
 ## Server Info
 
 - **Default Port**: 3232
 - **Host**: 0.0.0.0 (all interfaces)
 - **Base URL**: `http://10.0.24.23:3232` (adjust to your server IP)
+- **File ID Format**: 6-character hex (e.g., `a1b2c3`)
+- **Password Hashing**: SHA-256
 
 ---
 

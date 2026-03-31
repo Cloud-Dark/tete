@@ -1,6 +1,6 @@
-# tete - Transient Endpoint for Transfer & Encryption
+# TETE - Transient Endpoint for Transfer & Encryption
 
-Simple, secure file sharing server with password protection. Like temp.sh but self-hosted.
+Simple, secure file sharing server with password protection. Self-hosted alternative to temp.sh.
 
 ## Features
 
@@ -11,6 +11,7 @@ Simple, secure file sharing server with password protection. Like temp.sh but se
 - 🔗 **Short URLs** - 6-character hex IDs (e.g., `/file/a1b2c3`)
 - 📱 **Responsive UI** - Clean, minimalist design
 - 🚀 **API Access** - Full REST API for automation
+- 🛡️ **Security** - SHA-256 password hashing for locked files
 
 ## Quick Start
 
@@ -75,18 +76,25 @@ curl -X DELETE http://localhost:3232/file/a1b2c3
 curl http://localhost:3232/api/files
 ```
 
+**Verify password:**
+```bash
+curl -X POST -H "Content-Type: application/json" \
+  -d '{"password": "mysecret"}' \
+  http://localhost:3232/file/a1b2c3/verify
+```
+
 ## API Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/api` | Upload single file |
-| POST | `/api/upload` | Upload multiple files |
-| POST | `/api/text` | Upload text content |
-| GET | `/file/:id` | Get file information |
-| GET | `/file/:id/download` | Download file |
+| POST | `/api` | Upload single file (with optional `password` field) |
+| POST | `/api/upload` | Upload multiple files (with optional `password` field) |
+| POST | `/api/text` | Upload text content (with optional `password` field) |
+| GET | `/file/:id` | Get file information (includes `locked` status) |
+| GET | `/file/:id/download` | Download file (add `?password=xxx` for locked files) |
 | POST | `/file/:id/verify` | Verify password for locked file |
 | DELETE | `/file/:id` | Delete file |
-| GET | `/api/files` | List all files |
+| GET | `/api/files` | List all uploaded files |
 
 ## Configuration
 
@@ -94,18 +102,20 @@ curl http://localhost:3232/api/files
 - **Host**: 0.0.0.0 (all interfaces)
 - **Max file size**: 100MB
 - **File ID length**: 6 characters (hex)
+- **Password hashing**: SHA-256
 
 ## Project Structure
 
 ```
 tete/
 ├── server/
-│   └── index.js      # Express server
+│   └── index.js      # Express server with file handling
 ├── client/
-│   └── index.html    # Web UI
-├── uploads/          # Uploaded files (auto-created)
+│   └── index.html    # Web UI (single page application)
+├── uploads/          # Uploaded files (auto-created, gitignored)
 ├── package.json
 ├── API.md            # Full API documentation
+├── AGENT.md          # AI agent documentation
 └── README.md
 ```
 
@@ -132,6 +142,7 @@ pm2 save
 - Locked files require password for download
 - Files are stored on disk until manually deleted
 - No file encryption (password protects download only)
+- Metadata stored in-memory (lost on server restart)
 
 ## License
 
