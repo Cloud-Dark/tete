@@ -50,12 +50,12 @@ curl -H "Content-Type: application/json" \
   http://localhost:3232/api/text
 ```
 
-**Download a file:**
+**Download a file (public):**
 ```bash
 curl -O http://localhost:3232/file/a1b2c3/download
 ```
 
-**Download locked file:**
+**Download a locked file:**
 ```bash
 curl -O "http://localhost:3232/file/a1b2c3/download?password=mysecret"
 ```

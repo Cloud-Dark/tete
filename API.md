@@ -24,18 +24,24 @@ curl -X POST -F "file=@xyz.txt" http://10.0.24.23:3232/api
 curl -X POST -F "file=@file1.txt" -F "file=@file2.txt" http://10.0.24.23:3232/api
 ```
 
+**Upload with password protection:**
+```bash
+curl -X POST -F "file=@secret.txt" -F "password=mysecret123" http://10.0.24.23:3232/api
+```
+
 **Response:**
 ```json
 {
-  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "id": "a1b2c3",
   "originalName": "xyz.txt",
-  "filename": "550e8400-e29b-41d4-a716-446655440000.txt",
+  "filename": "a1b2c3.txt",
   "mimeType": "text/plain",
   "size": 1024,
   "uploadedAt": "2024-01-15T10:30:00.000Z",
-  "url": "http://10.0.24.23:3232/file/550e8400-e29b-41d4-a716-446655440000",
-  "downloadUrl": "http://10.0.24.23:3232/file/550e8400-e29b-41d4-a716-446655440000/download",
-  "deleteUrl": "http://10.0.24.23:3232/file/550e8400-e29b-41d4-a716-446655440000"
+  "locked": true,
+  "url": "http://10.0.24.23:3232/file/a1b2c3",
+  "downloadUrl": "http://10.0.24.23:3232/file/a1b2c3/download",
+  "deleteUrl": "http://10.0.24.23:3232/file/a1b2c3"
 }
 ```
 
@@ -143,18 +149,62 @@ Direct download of a file.
 
 **Endpoint:** `GET /file/:id/download`
 
-**Request:**
+**Request (public file):**
 ```bash
-curl -O http://10.0.24.23:3232/file/550e8400-e29b-41d4-a716-446655440000/download
+curl -O http://10.0.24.23:3232/file/a1b2c3/download
 # or
-wget http://10.0.24.23:3232/file/550e8400-e29b-41d4-a716-446655440000/download
+wget http://10.0.24.23:3232/file/a1b2c3/download
+```
+
+**Request (locked file with password):**
+```bash
+curl -O "http://10.0.24.23:3232/file/a1b2c3/download?password=mysecret123"
+# or
+wget "http://10.0.24.23:3232/file/a1b2c3/download?password=mysecret123"
+```
+
+**Response (locked file, no password):**
+```json
+{
+  "error": "Password required"
+}
 ```
 
 **Response:** Binary file download with appropriate Content-Type and Content-Disposition headers.
 
 ---
 
-### 6. Delete File
+### 6. Verify Password (for locked files)
+
+Verify password for a password-protected file.
+
+**Endpoint:** `POST /file/:id/verify`
+
+**Request:**
+```bash
+curl -X POST -H "Content-Type: application/json" \
+  -d '{"password": "mysecret123"}' \
+  http://10.0.24.23:3232/file/a1b2c3/verify
+```
+
+**Response (correct password):**
+```json
+{
+  "success": true,
+  "message": "Password correct"
+}
+```
+
+**Response (wrong password):**
+```json
+{
+  "error": "Invalid password"
+}
+```
+
+---
+
+### 7. Delete File
 
 Delete an uploaded file.
 
@@ -209,7 +259,9 @@ curl http://10.0.24.23:3232/api/files
 | Purpose | URL Pattern | Example |
 |---------|-------------|---------|
 | File Info | `/file/:id` | `http://10.0.24.23:3232/file/abc123` |
-| Direct Download | `/file/:id/download` | `http://10.0.24.23:3232/file/abc123/download` |
+| Direct Download (public) | `/file/:id/download` | `http://10.0.24.23:3232/file/abc123/download` |
+| Direct Download (locked) | `/file/:id/download?password=xxx` | `http://10.0.24.23:3232/file/abc123/download?password=secret` |
+| Verify Password | `POST /file/:id/verify` | `curl -X POST -d '{"password":"xxx"}' ...` |
 | Delete (API) | `DELETE /file/:id` | `curl -X DELETE http://10.0.24.23:3232/file/abc123` |
 
 ---
@@ -218,18 +270,28 @@ curl http://10.0.24.23:3232/api/files
 
 ### Start the server:
 ```bash
-cd /home/syahdan/temp/temp-share
+cd /home/syahdan/temp/tete
 node server/index.js
 ```
 
-### Upload a file:
+### Upload a file (public):
 ```bash
 curl -F "file=@myfile.txt" http://10.0.24.23:3232/api
 ```
 
-### Download a file:
+### Upload a file (locked with password):
 ```bash
-curl -O http://10.0.24.23:3232/file/:id/download
+curl -F "file=@secret.txt" -F "password=mysecret123" http://10.0.24.23:3232/api
+```
+
+### Download a file (public):
+```bash
+curl -O http://10.0.24.23:3232/file/abc123/download
+```
+
+### Download a file (locked):
+```bash
+curl -O "http://10.0.24.23:3232/file/abc123/download?password=mysecret123"
 ```
 
 ### Open in browser:
