@@ -1,0 +1,20 @@
+{
+  "name": "temp-share",
+  "version": "1.0.0",
+  "description": "Simple file sharing server like temp.sh",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node server/index.js"
+  },
+  "keywords": ["file-sharing", "upload", "temp"],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "multer": "^2.1.1",
+    "uuid": "^13.0.0"
+  }
+}

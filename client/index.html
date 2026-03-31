@@ -1,0 +1,1042 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Temp Share</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #fafafa;
+      color: #1a1a1a;
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 40px 20px;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+    header h1 {
+      font-size: 2rem;
+      font-weight: 600;
+      color: #1a1a1a;
+      margin-bottom: 8px;
+    }
+    header p {
+      color: #888;
+      font-size: 0.95rem;
+    }
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid #e0e0e0;
+      margin-bottom: 30px;
+    }
+    .tab-btn {
+      padding: 12px 24px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 0.95rem;
+      color: #666;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      transition: all 0.2s;
+    }
+    .tab-btn:hover {
+      color: #1a1a1a;
+    }
+    .tab-btn.active {
+      color: #1a1a1a;
+      border-bottom-color: #1a1a1a;
+    }
+    .tab-content {
+      display: none;
+    }
+    .tab-content.active {
+      display: block;
+    }
+    .card {
+      background: white;
+      border: 1px solid #e8e8e8;
+      border-radius: 8px;
+      padding: 24px;
+    }
+    .upload-area {
+      border: 2px dashed #e0e0e0;
+      border-radius: 8px;
+      padding: 60px 40px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: #fafafa;
+    }
+    .upload-area:hover, .upload-area.dragover {
+      border-color: #1a1a1a;
+      background: #f5f5f5;
+    }
+    .upload-area-icon {
+      font-size: 3rem;
+      margin-bottom: 15px;
+    }
+    .upload-area p {
+      color: #666;
+      margin-bottom: 5px;
+    }
+    .upload-area small {
+      color: #999;
+      font-size: 0.85rem;
+    }
+    .upload-area input[type="file"] {
+      display: none;
+    }
+    .btn {
+      background: #1a1a1a;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 6px;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn:hover {
+      background: #333;
+    }
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .btn-sm {
+      padding: 6px 12px;
+      font-size: 0.85rem;
+    }
+    .btn-ghost {
+      background: transparent;
+      color: #666;
+      border: 1px solid #e0e0e0;
+    }
+    .btn-ghost:hover {
+      background: #f5f5f5;
+      color: #1a1a1a;
+    }
+    .input-group {
+      margin-bottom: 16px;
+    }
+    .input-group label {
+      display: block;
+      margin-bottom: 6px;
+      color: #333;
+      font-size: 0.9rem;
+      font-weight: 500;
+    }
+    .input-group input[type="text"],
+    .input-group input[type="password"] {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      font-size: 0.95rem;
+    }
+    .input-group input[type="text"]:focus,
+    .input-group input[type="password"]:focus {
+      outline: none;
+      border-color: #1a1a1a;
+    }
+    textarea {
+      width: 100%;
+      min-height: 180px;
+      padding: 12px;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      font-size: 0.95rem;
+      font-family: inherit;
+      resize: vertical;
+    }
+    textarea:focus {
+      outline: none;
+      border-color: #1a1a1a;
+    }
+    .file-list {
+      list-style: none;
+    }
+    .file-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px;
+      border: 1px solid #e8e8e8;
+      border-radius: 6px;
+      margin-bottom: 10px;
+      background: white;
+    }
+    .file-info {
+      flex: 1;
+      min-width: 0;
+    }
+    .file-name {
+      font-weight: 500;
+      color: #1a1a1a;
+      margin-bottom: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .file-meta {
+      font-size: 0.8rem;
+      color: #888;
+    }
+    
+    /* Dropdown Menu */
+    .dropdown {
+      position: relative;
+    }
+    .dropdown-menu {
+      position: absolute;
+      right: 0;
+      top: 100%;
+      margin-top: 4px;
+      background: white;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      min-width: 180px;
+      z-index: 100;
+      display: none;
+    }
+    .dropdown-menu.show {
+      display: block;
+    }
+    .dropdown-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      color: #333;
+      text-decoration: none;
+      font-size: 0.9rem;
+      cursor: pointer;
+      border: none;
+      background: none;
+      width: 100%;
+      text-align: left;
+    }
+    .dropdown-item:hover {
+      background: #f5f5f5;
+    }
+    .dropdown-item:first-child {
+      border-radius: 6px 6px 0 0;
+    }
+    .dropdown-item:last-child {
+      border-radius: 0 0 6px 6px;
+    }
+    .dropdown-item.danger {
+      color: #dc3545;
+    }
+    .dropdown-item.danger:hover {
+      background: #fef2f2;
+    }
+    .dropdown-icon {
+      width: 18px;
+      text-align: center;
+    }
+    .result-box {
+      background: #f5f5f5;
+      border: 1px solid #e8e8e8;
+      border-radius: 6px;
+      padding: 16px;
+      margin-top: 20px;
+    }
+    .result-box h3 {
+      font-size: 0.95rem;
+      margin-bottom: 12px;
+    }
+    .result-link {
+      background: white;
+      padding: 12px;
+      border-radius: 4px;
+      margin-bottom: 10px;
+      word-break: break-all;
+    }
+    .result-link strong {
+      display: block;
+      margin-bottom: 6px;
+    }
+    .result-link a {
+      color: #1a1a1a;
+      text-decoration: underline;
+    }
+    .result-link code {
+      display: block;
+      font-size: 0.8rem;
+      color: #666;
+      margin-top: 8px;
+      background: #fafafa;
+      padding: 8px;
+      border-radius: 4px;
+    }
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #888;
+    }
+    .empty-state-icon {
+      font-size: 3rem;
+      margin-bottom: 15px;
+      opacity: 0.5;
+    }
+    .api-docs {
+      background: #1a1a1a;
+      color: #e0e0e0;
+      border-radius: 8px;
+      padding: 24px;
+    }
+    .api-docs h3 {
+      color: white;
+      margin-bottom: 16px;
+      font-size: 1rem;
+    }
+    .api-docs .endpoint-group {
+      margin-bottom: 24px;
+    }
+    .api-docs .endpoint-item {
+      margin-bottom: 16px;
+    }
+    .api-docs .method {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      margin-right: 8px;
+    }
+    .api-docs .post { background: #22c55e; color: white; }
+    .api-docs .get { background: #3b82f6; color: white; }
+    .api-docs .delete { background: #ef4444; color: white; }
+    .api-docs .path {
+      font-family: 'Consolas', monospace;
+      color: #93c5fd;
+      font-size: 0.85rem;
+    }
+    .api-docs code {
+      display: block;
+      background: #0a0a0a;
+      padding: 12px;
+      border-radius: 6px;
+      margin-top: 8px;
+      font-family: 'Consolas', monospace;
+      font-size: 0.8rem;
+      overflow-x: auto;
+    }
+    .api-docs .desc {
+      color: #888;
+      font-size: 0.85rem;
+      margin-top: 4px;
+    }
+    .loading {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid #f3f3f3;
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-right: 8px;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #1a1a1a;
+      color: white;
+      padding: 12px 24px;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      z-index: 1000;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .toast.show {
+      opacity: 1;
+    }
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+    }
+    .modal-overlay.show {
+      display: flex;
+    }
+    .modal {
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      max-width: 400px;
+      width: 90%;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    }
+    .modal h3 {
+      margin-bottom: 10px;
+      font-size: 1.2rem;
+    }
+    .modal p {
+      color: #666;
+      margin-bottom: 20px;
+      font-size: 0.9rem;
+    }
+    .modal input[type="password"] {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      font-size: 1rem;
+      margin-bottom: 15px;
+      box-sizing: border-box;
+    }
+    .modal input[type="password"]:focus {
+      outline: none;
+      border-color: #1a1a1a;
+    }
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+    .selected-files {
+      margin: 16px 0;
+    }
+    .selected-file {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 12px;
+      background: #fafafa;
+      border-radius: 4px;
+      margin-bottom: 6px;
+      font-size: 0.9rem;
+    }
+    .selected-file-name {
+      color: #333;
+    }
+    .selected-file-size {
+      color: #888;
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Temp Share</h1>
+      <p>Simple file sharing server</p>
+    </header>
+
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('upload')">Upload</button>
+      <button class="tab-btn" onclick="switchTab('files')">Files</button>
+      <button class="tab-btn" onclick="switchTab('docs')">API Docs</button>
+    </div>
+
+    <!-- Upload Tab -->
+    <div id="upload-tab" class="tab-content active">
+      <div class="card">
+        <div class="upload-area" id="dropZone" onclick="document.getElementById('fileInput').click()">
+          <div class="upload-area-icon">📁</div>
+          <p>Drag & drop files here or click to browse</p>
+          <small>Max 100MB per file</small>
+          <input type="file" id="fileInput" multiple onchange="handleFilesSelected(this.files)">
+        </div>
+
+        <div id="selectedFiles" class="selected-files"></div>
+
+        <div class="input-group" style="margin-top: 16px;">
+          <label for="uploadPassword">🔒 Password (optional, for lock)</label>
+          <input type="password" id="uploadPassword" placeholder="Leave empty for public file">
+        </div>
+
+        <div style="text-align: right; margin-top: 16px;">
+          <button class="btn" onclick="uploadFiles()" id="uploadBtn" disabled>
+            Upload Files
+          </button>
+        </div>
+
+        <div id="uploadResult"></div>
+      </div>
+
+      <div class="card" style="margin-top: 20px;">
+        <h3 style="margin-bottom: 16px; font-size: 1rem;">Upload Text</h3>
+        <div class="input-group">
+          <label for="filename">Filename (optional)</label>
+          <input type="text" id="filename" placeholder="example.txt">
+        </div>
+        <div class="input-group">
+          <label for="textPassword">🔒 Password (optional, for lock)</label>
+          <input type="password" id="textPassword" placeholder="Leave empty for public text">
+        </div>
+        <textarea id="textContent" placeholder="Paste or type your text content here..."></textarea>
+        <div style="text-align: right; margin-top: 16px;">
+          <button class="btn" onclick="uploadText()" id="uploadTextBtn">
+            Upload Text
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Files Tab -->
+    <div id="files-tab" class="tab-content">
+      <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+          <h3 style="font-size: 1rem;">Uploaded Files</h3>
+          <button class="btn btn-ghost btn-sm" onclick="loadFiles()">🔄 Refresh</button>
+        </div>
+        <ul class="file-list" id="fileList">
+          <li class="empty-state">
+            <div class="empty-state-icon">📄</div>
+            <p>No files uploaded yet</p>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- API Docs Tab -->
+    <div id="docs-tab" class="tab-content">
+      <div class="card">
+        <div class="api-docs">
+          <h3>Upload Endpoints</h3>
+          <div class="endpoint-group">
+            <div class="endpoint-item">
+              <div><span class="method post">POST</span><span class="path">/api</span></div>
+              <div class="desc">Upload single file</div>
+              <code>curl -F "file=@myfile.txt" http://10.0.24.23:3232/api</code>
+            </div>
+            <div class="endpoint-item">
+              <div><span class="method post">POST</span><span class="path">/api/upload</span></div>
+              <div class="desc">Upload multiple files</div>
+              <code>curl -F "files=@file1.txt" -F "files=@file2.txt" http://10.0.24.23:3232/api/upload</code>
+            </div>
+            <div class="endpoint-item">
+              <div><span class="method post">POST</span><span class="path">/api/text</span></div>
+              <div class="desc">Upload text content</div>
+              <code>curl -H "Content-Type: application/json" -d '{"text": "Hello", "filename": "test.txt"}' http://10.0.24.23:3232/api/text</code>
+            </div>
+          </div>
+
+          <h3>Download & Info</h3>
+          <div class="endpoint-group">
+            <div class="endpoint-item">
+              <div><span class="method get">GET</span><span class="path">/file/:id</span></div>
+              <div class="desc">Get file information</div>
+              <code>curl http://10.0.24.23:3232/file/abc-123-def</code>
+            </div>
+            <div class="endpoint-item">
+              <div><span class="method get">GET</span><span class="path">/file/:id/download</span></div>
+              <div class="desc">Direct download</div>
+              <code>curl -O http://10.0.24.23:3232/file/abc-123-def/download</code>
+            </div>
+            <div class="endpoint-item">
+              <div><span class="method delete">DELETE</span><span class="path">/file/:id</span></div>
+              <div class="desc">Delete file</div>
+              <code>curl -X DELETE http://10.0.24.23:3232/file/abc-123-def</code>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <div id="passwordModal" class="modal-overlay">
+    <div class="modal">
+      <h3>🔒 This file is locked</h3>
+      <p>Enter password to download</p>
+      <input type="password" id="modalPassword" placeholder="Password">
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closePasswordModal()">Cancel</button>
+        <button class="btn" onclick="submitPassword()">Unlock & Download</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = window.location.origin;
+    let selectedFiles = [];
+    let openDropdown = null;
+    let pendingDownloadUrl = null;
+
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2000);
+    }
+
+    function openPasswordModal(url) {
+      pendingDownloadUrl = url;
+      document.getElementById('modalPassword').value = '';
+      document.getElementById('passwordModal').classList.add('show');
+      document.getElementById('modalPassword').focus();
+    }
+
+    function closePasswordModal() {
+      pendingDownloadUrl = null;
+      document.getElementById('passwordModal').classList.remove('show');
+    }
+
+    function submitPassword() {
+      const password = document.getElementById('modalPassword').value;
+      if (!password) {
+        showToast('Please enter password');
+        return;
+      }
+      if (pendingDownloadUrl) {
+        const lockedUrl = `${pendingDownloadUrl}?password=${encodeURIComponent(password)}`;
+        window.open(lockedUrl, '_blank');
+      }
+      closePasswordModal();
+    }
+
+    // Handle Enter key in password modal
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && document.getElementById('passwordModal').classList.contains('show')) {
+        submitPassword();
+      }
+      if (e.key === 'Escape') {
+        closePasswordModal();
+        closeAllDropdowns();
+      }
+    });
+
+    function switchTab(tab) {
+      document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      
+      if (tab === 'upload') {
+        document.querySelectorAll('.tab-btn')[0].classList.add('active');
+        document.getElementById('upload-tab').classList.add('active');
+      } else if (tab === 'files') {
+        document.querySelectorAll('.tab-btn')[1].classList.add('active');
+        document.getElementById('files-tab').classList.add('active');
+        loadFiles();
+      } else {
+        document.querySelectorAll('.tab-btn')[2].classList.add('active');
+        document.getElementById('docs-tab').classList.add('active');
+      }
+    }
+
+    // Close dropdowns when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.dropdown')) {
+        closeAllDropdowns();
+      }
+    });
+
+    function closeAllDropdowns() {
+      document.querySelectorAll('.dropdown-menu').forEach(menu => {
+        menu.classList.remove('show');
+      });
+      openDropdown = null;
+    }
+
+    function toggleDropdown(id) {
+      const menu = document.getElementById(id);
+      if (openDropdown && openDropdown !== menu) {
+        closeAllDropdowns();
+      }
+      menu.classList.toggle('show');
+      openDropdown = menu.classList.contains('show') ? menu : null;
+    }
+
+    // Drag and drop
+    const dropZone = document.getElementById('dropZone');
+    
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('dragover');
+    });
+
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('dragover');
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      handleFilesSelected(e.dataTransfer.files);
+    });
+
+    function handleFilesSelected(files) {
+      selectedFiles = Array.from(files);
+      const container = document.getElementById('selectedFiles');
+      
+      if (selectedFiles.length > 0) {
+        container.innerHTML = selectedFiles.map(f => 
+          `<div class="selected-file">
+            <span class="selected-file-name">${f.name}</span>
+            <span class="selected-file-size">${formatSize(f.size)}</span>
+          </div>`
+        ).join('');
+        document.getElementById('uploadBtn').disabled = false;
+      } else {
+        container.innerHTML = '';
+        document.getElementById('uploadBtn').disabled = true;
+      }
+    }
+
+    function formatSize(bytes) {
+      if (bytes === 0) return '0 B';
+      const k = 1024;
+      const sizes = ['B', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+    }
+
+    async function uploadFiles() {
+      if (selectedFiles.length === 0) return;
+
+      const btn = document.getElementById('uploadBtn');
+      const resultDiv = document.getElementById('uploadResult');
+      const password = document.getElementById('uploadPassword').value;
+
+      btn.disabled = true;
+      btn.innerHTML = '<span class="loading"></span> Uploading...';
+      resultDiv.innerHTML = '';
+
+      const formData = new FormData();
+      selectedFiles.forEach(file => {
+        formData.append('files', file);
+      });
+      if (password) {
+        formData.append('password', password);
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}/api/upload`, {
+          method: 'POST',
+          body: formData
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+          const results = Array.isArray(result) ? result : [result];
+          resultDiv.innerHTML = `
+            <div class="result-box">
+              <h3>✅ Upload Successful</h3>
+              ${results.map(r => `
+                <div class="result-link">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <strong>${r.originalName} ${r.locked ? '🔒' : ''}</strong>
+                    <div class="dropdown">
+                      <button class="btn btn-ghost btn-sm" onclick="toggleDropdown('result-menu-${r.id}')">
+                        ⋮
+                      </button>
+                      <div id="result-menu-${r.id}" class="dropdown-menu">
+                        <button class="dropdown-item" onclick="copyDownloadLink('${r.downloadUrl}', ${r.locked})">
+                          <span class="dropdown-icon">🔗</span>
+                          Copy Download Link
+                        </button>
+                        <button class="dropdown-item" onclick="copyDetails('${r.id}', '${r.originalName}', '${r.mimeType}', ${r.size}, '${r.uploadedAt}')">
+                          <span class="dropdown-icon">📋</span>
+                          Copy Details
+                        </button>
+                        <a href="${r.downloadUrl}" target="_blank" class="dropdown-item">
+                          <span class="dropdown-icon">⬇</span>
+                          Download
+                        </a>
+                        <a href="${r.url}" target="_blank" class="dropdown-item">
+                          <span class="dropdown-icon">👁</span>
+                          View Info
+                        </a>
+                        <button class="dropdown-item danger" onclick="deleteFile('${r.id}')">
+                          <span class="dropdown-icon">🗑</span>
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <code>${r.url}</code>
+                </div>
+              `).join('')}
+            </div>
+          `;
+          selectedFiles = [];
+          document.getElementById('selectedFiles').innerHTML = '';
+          document.getElementById('uploadBtn').disabled = true;
+          showToast('Files uploaded successfully');
+        } else {
+          resultDiv.innerHTML = `<div class="result-box" style="background: #fef2f2; border-color: #fecaca;">
+            <h3>❌ Upload Failed</h3>
+            <p>${result.message || 'Unknown error'}</p>
+          </div>`;
+        }
+      } catch (error) {
+        resultDiv.innerHTML = `<div class="result-box" style="background: #fef2f2; border-color: #fecaca;">
+          <h3>❌ Upload Failed</h3>
+          <p>${error.message}</p>
+        </div>`;
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = 'Upload Files';
+      }
+    }
+
+    async function uploadText() {
+      const text = document.getElementById('textContent').value;
+      const filename = document.getElementById('filename').value;
+      const password = document.getElementById('textPassword').value;
+      const btn = document.getElementById('uploadTextBtn');
+      const resultDiv = document.getElementById('uploadResult');
+
+      if (!text.trim()) {
+        showToast('Please enter some text');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.innerHTML = '<span class="loading"></span> Uploading...';
+      resultDiv.innerHTML = '';
+
+      try {
+        const response = await fetch(`${API_BASE}/api/text`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, filename, password })
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+          resultDiv.innerHTML = `
+            <div class="result-box">
+              <h3>✅ Upload Successful</h3>
+              <div class="result-link">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                  <strong>${result.originalName} ${result.locked ? '🔒' : ''}</strong>
+                  <div class="dropdown">
+                    <button class="btn btn-ghost btn-sm" onclick="toggleDropdown('result-menu-${result.id}')">
+                      ⋮
+                    </button>
+                    <div id="result-menu-${result.id}" class="dropdown-menu">
+                      <button class="dropdown-item" onclick="copyDownloadLink('${result.downloadUrl}', ${result.locked})">
+                        <span class="dropdown-icon">🔗</span>
+                        Copy Download Link
+                      </button>
+                      <button class="dropdown-item" onclick="copyDetails('${result.id}', '${result.originalName}', '${result.mimeType}', ${result.size}, '${result.uploadedAt}')">
+                        <span class="dropdown-icon">📋</span>
+                        Copy Details
+                      </button>
+                      <a href="${result.downloadUrl}" target="_blank" class="dropdown-item">
+                        <span class="dropdown-icon">⬇</span>
+                        Download
+                      </a>
+                      <a href="${result.url}" target="_blank" class="dropdown-item">
+                        <span class="dropdown-icon">👁</span>
+                        View Info
+                      </a>
+                      <button class="dropdown-item danger" onclick="deleteFile('${result.id}')">
+                        <span class="dropdown-icon">🗑</span>
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <code>${result.url}</code>
+              </div>
+            </div>
+          `;
+          document.getElementById('textContent').value = '';
+          document.getElementById('filename').value = '';
+          showToast('Text uploaded successfully');
+        } else {
+          resultDiv.innerHTML = `<div class="result-box" style="background: #fef2f2; border-color: #fecaca;">
+            <h3>❌ Upload Failed</h3>
+            <p>${result.message || 'Unknown error'}</p>
+          </div>`;
+        }
+      } catch (error) {
+        resultDiv.innerHTML = `<div class="result-box" style="background: #fef2f2; border-color: #fecaca;">
+          <h3>❌ Upload Failed</h3>
+          <p>${error.message}</p>
+        </div>`;
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = 'Upload Text';
+      }
+    }
+
+    async function loadFiles() {
+      const fileList = document.getElementById('fileList');
+      fileList.innerHTML = '<li class="empty-state"><p>Loading...</p></li>';
+
+      try {
+        const response = await fetch(`${API_BASE}/api/files`);
+        const files = await response.json();
+
+        if (files.length === 0) {
+          fileList.innerHTML = `
+            <li class="empty-state">
+              <div class="empty-state-icon">📄</div>
+              <p>No files uploaded yet</p>
+            </li>
+          `;
+          return;
+        }
+
+        fileList.innerHTML = files.map(file => `
+          <li class="file-item">
+            <div class="file-info">
+              <div class="file-name">${file.originalName} ${file.locked ? '🔒' : ''}</div>
+              <div class="file-meta">${file.mimeType} • ${formatSize(file.size)} • ${new Date(file.uploadedAt).toLocaleString()}</div>
+            </div>
+            <div class="dropdown">
+              <button class="btn btn-ghost btn-sm" onclick="toggleDropdown('menu-${file.id}')">
+                ⋮
+              </button>
+              <div id="menu-${file.id}" class="dropdown-menu">
+                <button class="dropdown-item" onclick="copyDownloadLink('${file.downloadUrl}', ${file.locked})">
+                  <span class="dropdown-icon">🔗</span>
+                  Copy Download Link
+                </button>
+                <button class="dropdown-item" onclick="copyDetails('${file.id}', '${file.originalName}', '${file.mimeType}', ${file.size}, '${file.uploadedAt}')">
+                  <span class="dropdown-icon">📋</span>
+                  Copy Details
+                </button>
+                <button class="dropdown-item" onclick="handleDownload('${file.downloadUrl}', ${file.locked})">
+                  <span class="dropdown-icon">⬇</span>
+                  Download
+                </button>
+                <a href="${file.url}" target="_blank" class="dropdown-item">
+                  <span class="dropdown-icon">👁</span>
+                  View Info
+                </a>
+                <button class="dropdown-item danger" onclick="deleteFile('${file.id}')">
+                  <span class="dropdown-icon">🗑</span>
+                  Delete
+                </button>
+              </div>
+            </div>
+          </li>
+        `).join('');
+      } catch (error) {
+        fileList.innerHTML = `<li class="empty-state"><p>Error loading files</p></li>`;
+      }
+    }
+
+    function copyDownloadLink(url, isLocked = false) {
+      if (isLocked) {
+        const password = prompt('This file is locked. Enter password:');
+        if (!password) {
+          closeAllDropdowns();
+          return;
+        }
+        const lockedUrl = `${url}?password=${encodeURIComponent(password)}`;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(lockedUrl).then(() => {
+            showToast('Download link with password copied');
+          }).catch(() => {
+            fallbackCopy(lockedUrl);
+          });
+        } else {
+          fallbackCopy(lockedUrl);
+        }
+      } else {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(url).then(() => {
+            showToast('Download link copied');
+          }).catch(() => {
+            fallbackCopy(url);
+          });
+        } else {
+          fallbackCopy(url);
+        }
+      }
+      closeAllDropdowns();
+    }
+
+    function handleDownload(url, isLocked = false) {
+      if (isLocked) {
+        openPasswordModal(url);
+      } else {
+        window.open(url, '_blank');
+      }
+      closeAllDropdowns();
+    }
+
+    function fallbackCopy(text) {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      try {
+        document.execCommand('copy');
+        showToast('Copied to clipboard');
+      } catch (e) {
+        showToast('Failed to copy');
+      }
+      document.body.removeChild(textarea);
+    }
+
+    function copyDetails(id, name, mime, size, uploadedAt) {
+      const detailsUrl = `${API_BASE}/file/${id}`;
+      
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(detailsUrl).then(() => {
+          showToast('Details URL copied');
+        }).catch(() => {
+          fallbackCopy(detailsUrl);
+        });
+      } else {
+        fallbackCopy(detailsUrl);
+      }
+      closeAllDropdowns();
+    }
+
+    async function deleteFile(id) {
+      if (!confirm('Delete this file?')) return;
+
+      try {
+        const response = await fetch(`${API_BASE}/file/${id}`, {
+          method: 'DELETE'
+        });
+
+        if (response.ok) {
+          showToast('File deleted');
+          loadFiles();
+        } else {
+          showToast('Failed to delete');
+        }
+      } catch (error) {
+        showToast('Error: ' + error.message);
+      }
+      closeAllDropdowns();
+    }
+
+    // Load files on initial files tab click
+    loadFiles();
+  </script>
+</body>
+</html>
