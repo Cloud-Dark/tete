@@ -340,8 +340,8 @@ app.get('/', (req, res) => {
 
 // Catch-all route for API info
 app.get('/api', (req, res) => {
-  res.json({ 
-    message: 'Temp Share API Server',
+  res.json({
+    message: 'TETE - Transient Endpoint for Transfer & Encryption',
     endpoints: {
       upload: 'POST /api/upload (multipart/form-data)',
       uploadText: 'POST /api/text (JSON: { text, filename })',
@@ -355,7 +355,7 @@ app.get('/api', (req, res) => {
 });
 
 app.listen(PORT, HOST, () => {
-  console.log(`Temp Share Server running at http://${HOST}:${PORT}`);
+  console.log(`TETE Server running at http://${HOST}:${PORT}`);
   console.log(`API endpoints:`);
   console.log(`  POST /api/upload - Upload multiple files`);
   console.log(`  POST /api/text   - Upload text content`);
