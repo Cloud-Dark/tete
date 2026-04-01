@@ -2,6 +2,10 @@
 
 Simple, secure file sharing server with password protection. Self-hosted alternative to temp.sh.
 
+## Screenshoot
+<img width="990" height="739" alt="image" src="https://github.com/user-attachments/assets/0f362dd3-98a3-47a5-9863-a44e96475f62" />
+
+
 ## Features
 
 - 📤 **Upload Files** - Drag & drop or click to browse
