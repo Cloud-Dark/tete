@@ -68,11 +68,24 @@ function initCustomDropdowns() {
     
     // Search functionality
     search.addEventListener('input', (e) => {
+      e.stopPropagation();
       const term = e.target.value.toLowerCase();
       Array.from(optionsList.children).forEach(item => {
         const text = item.textContent.toLowerCase();
         item.style.display = text.includes(term) ? 'block' : 'none';
       });
+    });
+
+    // Prevent search input from closing dropdown
+    search.addEventListener('click', (e) => {
+      e.stopPropagation();
+    });
+
+    // Focus search when dropdown opens
+    wrapper.addEventListener('click', (e) => {
+      if (wrapper.classList.contains('show')) {
+        search.focus();
+      }
     });
     
     // Assemble
