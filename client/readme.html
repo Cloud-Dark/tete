@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>README - TETE</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      line-height: 1.8;
+      color: #333;
+      background: #fafafa;
+      padding: 40px 20px;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    .readme-content {
+      background: white;
+      padding: 40px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .readme-content h1 {
+      font-size: 2rem;
+      font-weight: 600;
+      color: #1a1a1a;
+      margin: 24px 0 16px 0;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #e0e0e0;
+    }
+
+    .readme-content h2 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: #1a1a1a;
+      margin: 24px 0 12px 0;
+      padding-bottom: 6px;
+      border-bottom: 1px solid #e0e0e0;
+    }
+
+    .readme-content h3 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: #1a1a1a;
+      margin: 20px 0 10px 0;
+    }
+
+    .readme-content h4 {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #1a1a1a;
+      margin: 16px 0 8px 0;
+    }
+
+    .readme-content p {
+      margin: 12px 0;
+      color: #444;
+    }
+
+    .readme-content ul,
+    .readme-content ol {
+      margin: 12px 0;
+      padding-left: 24px;
+    }
+
+    .readme-content li {
+      margin: 6px 0;
+      color: #444;
+    }
+
+    .readme-content pre {
+      background: #f5f5f5;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      padding: 16px;
+      overflow-x: auto;
+      margin: 16px 0;
+    }
+
+    .readme-content pre code {
+      font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+      font-size: 0.85rem;
+      color: #333;
+      background: transparent;
+      padding: 0;
+    }
+
+    .readme-content code {
+      font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+      font-size: 0.85rem;
+      background: #f0f0f0;
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: #d32f2f;
+    }
+
+    .readme-content a {
+      color: #1976d2;
+      text-decoration: none;
+      border-bottom: 1px solid transparent;
+      transition: border-color 0.2s;
+    }
+
+    .readme-content a:hover {
+      border-bottom-color: #1976d2;
+    }
+
+    .readme-content img {
+      max-width: 100%;
+      height: auto;
+      border-radius: 6px;
+      margin: 16px 0;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .readme-content blockquote {
+      border-left: 4px solid #1976d2;
+      margin: 16px 0;
+      padding: 8px 16px;
+      background: #f5f5f5;
+      color: #666;
+      font-style: italic;
+    }
+
+    .readme-content hr {
+      border: none;
+      border-top: 1px solid #e0e0e0;
+      margin: 24px 0;
+    }
+
+    .readme-content table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0;
+      overflow-x: auto;
+      display: block;
+    }
+
+    .readme-content table tr,
+    .readme-content table th,
+    .readme-content table td {
+      border: 1px solid #e0e0e0;
+      padding: 8px 12px;
+      text-align: left;
+    }
+
+    .readme-content table th {
+      background: #f5f5f5;
+      font-weight: 600;
+    }
+
+    .readme-content table tr:nth-child(even) {
+      background: #fafafa;
+    }
+
+    .readme-content strong {
+      color: #1a1a1a;
+      font-weight: 600;
+    }
+
+    .readme-content em {
+      color: #666;
+      font-style: italic;
+    }
+
+    .readme-content del {
+      color: #999;
+      text-decoration: line-through;
+    }
+
+    /* Rendered code blocks */
+    .rendered-demo {
+      border: 2px solid #1976d2;
+      border-radius: 6px;
+      margin: 16px 0;
+      overflow: hidden;
+    }
+
+    .rendered-demo-header {
+      background: #1976d2;
+      color: white;
+      padding: 8px 16px;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+
+    .rendered-demo-content {
+      padding: 16px;
+      background: white;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #666;
+    }
+
+    .error {
+      text-align: center;
+      padding: 40px;
+      color: #dc3545;
+    }
+
+    .back-link {
+      display: inline-block;
+      margin-bottom: 20px;
+      color: #1976d2;
+      text-decoration: none;
+    }
+
+    .back-link:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <a href="/" class="back-link">← Back to App</a>
+  
+  <div class="readme-content" id="readmeContent">
+    <div class="loading">Loading README...</div>
+  </div>
+
+  <script>
+    // Fetch and render README.md with JavaScript support
+    async function loadReadme() {
+      const contentDiv = document.getElementById('readmeContent');
+      
+      try {
+        const response = await fetch('README.md');
+        let markdown = await response.text();
+        
+        // Replace localhost with actual base URL
+        const baseUrl = window.location.origin;
+        markdown = markdown.replace(/http:\/\/localhost:3232/g, baseUrl);
+        markdown = markdown.replace(/localhost:3232/g, window.location.host);
+        
+        // Parse markdown to HTML
+        const html = parseMarkdown(markdown);
+        contentDiv.innerHTML = html;
+        
+        // Execute JavaScript in rendered code blocks
+        executeRenderedScripts();
+        
+        // Dispatch DOMContentLoaded for scripts that need it
+        window.dispatchEvent(new Event('DOMContentLoaded'));
+      } catch (error) {
+        contentDiv.innerHTML = `<div class="error">Failed to load README: ${error.message}</div>`;
+      }
+    }
+
+    // Simple markdown parser with render block support
+    function parseMarkdown(md) {
+      let html = md;
+      
+      // Extract and protect code blocks
+      const codeBlocks = [];
+      html = html.replace(/```([\s\S]*?)```/gim, (match, code, lang) => {
+        const langMatch = match.match(/```(\w+)/);
+        const language = langMatch ? langMatch[1] : '';
+        
+        // Check if this is a render block
+        if (language === 'render' || language === 'render-babel') {
+          codeBlocks.push({ type: 'render', code: code, language });
+          return `%%RENDERBLOCK${codeBlocks.length - 1}%%`;
+        } else {
+          codeBlocks.push({ type: 'code', code: code, language });
+          return `%%CODEBLOCK${codeBlocks.length - 1}%%`;
+        }
+      });
+      
+      // Extract inline code
+      const inlineCodes = [];
+      html = html.replace(/`([^`]+)`/gim, (match, code) => {
+        inlineCodes.push(code);
+        return `%%INLINECODE${inlineCodes.length - 1}%%`;
+      });
+      
+      // Escape HTML
+      html = html
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+      
+      // Headers
+      html = html.replace(/^#### (.*$)/gim, '<h4>$1</h4>');
+      html = html.replace(/^### (.*$)/gim, '<h3>$1</h3>');
+      html = html.replace(/^## (.*$)/gim, '<h2>$1</h2>');
+      html = html.replace(/^# (.*$)/gim, '<h1>$1</h1>');
+      
+      // Bold
+      html = html.replace(/\*\*(.+?)\*\*/gim, '<strong>$1</strong>');
+      
+      // Italic
+      html = html.replace(/\*(.+?)\*/gim, '<em>$1</em>');
+      
+      // Links
+      html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/gim, '<a href="$2" target="_blank">$1</a>');
+      
+      // Images
+      html = html.replace(/!\[([^\]]+)\]\(([^)]+)\)/gim, '<img src="$2" alt="$1">');
+      
+      // Blockquotes
+      html = html.replace(/^> (.*$)/gim, '<blockquote>$1</blockquote>');
+      
+      // Horizontal rules
+      html = html.replace(/^---$/gim, '<hr>');
+      
+      // Lists
+      html = html.replace(/^\s*[-*+]\s+(.*$)/gim, '<li>$1</li>');
+      html = html.replace(/(<li>.*<\/li>\n?)+/gim, '<ul>$&</ul>');
+      
+      // Line breaks - handle paragraphs
+      const paragraphs = html.split(/\n\n+/);
+      html = paragraphs.map(p => {
+        p = p.trim();
+        if (!p) return '';
+        if (p.match(/^<(h[1-6]|ul|ol|li|blockquote|table|tr|td|th|pre|%%)/i)) {
+          return p.replace(/\n/gim, '<br>');
+        }
+        return `<p>${p.replace(/\n/gim, '<br>')}</p>`;
+      }).join('\n');
+      
+      // Restore code blocks
+      codeBlocks.forEach((block, index) => {
+        if (block.type === 'render') {
+          // Create rendered demo block
+          const demoHtml = `
+            <div class="rendered-demo">
+              <div class="rendered-demo-header">🚀 Live Demo</div>
+              <div class="rendered-demo-content" data-render-index="${index}">
+                ${block.code}
+              </div>
+            </div>
+          `;
+          html = html.replace(`%%RENDERBLOCK${index}%%`, demoHtml);
+        } else {
+          // Regular code block
+          const codeHtml = `<pre><code class="language-${block.language}">${block.code}</code></pre>`;
+          html = html.replace(`%%CODEBLOCK${index}%%`, codeHtml);
+        }
+      });
+      
+      // Restore inline codes
+      inlineCodes.forEach((code, index) => {
+        html = html.replace(`%%INLINECODE${index}%%`, `<code>${code}</code>`);
+      });
+      
+      // Clean up
+      html = html.replace(/(<br>){3,}/gim, '<br><br>');
+      
+      return html;
+    }
+
+    // Execute scripts in rendered blocks
+    function executeRenderedScripts() {
+      const renderBlocks = document.querySelectorAll('.rendered-demo-content');
+      
+      renderBlocks.forEach((block, index) => {
+        const scripts = block.querySelectorAll('script');
+        
+        scripts.forEach(script => {
+          const newScript = document.createElement('script');
+          
+          // Copy attributes
+          Array.from(script.attributes).forEach(attr => {
+            newScript.setAttribute(attr.name, attr.value);
+          });
+          
+          // Copy content
+          if (script.src) {
+            newScript.src = script.src;
+          } else {
+            newScript.textContent = script.textContent;
+          }
+          
+          // Replace old script
+          script.parentNode.replaceChild(newScript, script);
+        });
+      });
+    }
+
+    // Load on page load
+    document.addEventListener('DOMContentLoaded', loadReadme);
+  </script>
+</body>
+</html>

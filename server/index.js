@@ -29,7 +29,10 @@ const CONFIG_FILE = path.join(__dirname, '../db/config.json');
 let appConfig = {
   defaultExpiration: 3600000, // Default 1 hour in milliseconds
   adminPasswordHash: hashPassword('admin123'),
-  sessionSecret: null // Will be set on first run
+  sessionSecret: null, // Will be set on first run
+  maxFileSize: 100 * 1024 * 1024, // Default 100MB in bytes
+  maxFilesPerUpload: 100, // Default max files per upload
+  fileWhitelist: [] // Empty = allow all extensions, e.g. ['jpg','png','pdf','txt']
 };
 
 // Load config from file
@@ -38,7 +41,7 @@ function loadConfig() {
     if (fs.existsSync(CONFIG_FILE)) {
       const savedConfig = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8'));
       appConfig = { ...appConfig, ...savedConfig };
-      
+
       // Generate session secret if not exists
       if (!appConfig.sessionSecret) {
         appConfig.sessionSecret = crypto.randomBytes(32).toString('hex');
@@ -121,6 +124,113 @@ function hashPassword(password) {
   return crypto.createHash('sha256').update(password).digest('hex');
 }
 
+// ============================================
+// FULL ENCRYPTION IMPLEMENTATION (AES-256-GCM)
+// ============================================
+
+// Generate a random encryption key (32 bytes for AES-256)
+function generateEncryptionKey() {
+  return crypto.randomBytes(32);
+}
+
+// Derive encryption key from password using PBKDF2
+function deriveKeyFromPassword(password, salt) {
+  return crypto.pbkdf2Sync(password, salt, 100000, 32, 'sha256');
+}
+
+// Encrypt data using AES-256-GCM
+// Returns: { encryptedData, iv, authTag }
+function encryptData(data, key) {
+  const iv = crypto.randomBytes(12); // 12 bytes for GCM
+  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+  
+  let encrypted;
+  if (Buffer.isBuffer(data)) {
+    encrypted = Buffer.concat([cipher.update(data), cipher.final()]);
+  } else {
+    encrypted = Buffer.concat([cipher.update(Buffer.from(data, 'utf8')), cipher.final()]);
+  }
+  
+  const authTag = cipher.getAuthTag();
+  
+  return {
+    encryptedData: encrypted,
+    iv: iv,
+    authTag: authTag
+  };
+}
+
+// Decrypt data using AES-256-GCM
+function decryptData(encryptedData, iv, authTag, key) {
+  const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+  decipher.setAuthTag(authTag);
+  
+  const decrypted = Buffer.concat([decipher.update(encryptedData), decipher.final()]);
+  return decrypted;
+}
+
+// Encrypt file content and metadata
+function encryptFileContent(content, key) {
+  const result = encryptData(content, key);
+  return {
+    encryptedContent: result.encryptedData,
+    iv: result.iv,
+    authTag: result.authTag
+  };
+}
+
+// Decrypt file content
+function decryptFileContent(encryptedContent, iv, authTag, key) {
+  return decryptData(encryptedContent, iv, authTag, key);
+}
+
+// Encrypt filename
+function encryptFilename(filename, key) {
+  const result = encryptData(filename, key);
+  return {
+    encryptedFilename: result.encryptedData.toString('base64'),
+    iv: result.iv.toString('base64'),
+    authTag: result.authTag.toString('base64')
+  };
+}
+
+// Decrypt filename
+function decryptFilename(encryptedFilenameB64, ivB64, authTagB64, key) {
+  const encryptedFilename = Buffer.from(encryptedFilenameB64, 'base64');
+  const iv = Buffer.from(ivB64, 'base64');
+  const authTag = Buffer.from(authTagB64, 'base64');
+  
+  const decrypted = decryptData(encryptedFilename, iv, authTag, key);
+  return decrypted.toString('utf8');
+}
+
+// Wrap encryption key with password (encrypt key with password-derived key)
+function wrapEncryptionKey(encryptionKey, password) {
+  const salt = crypto.randomBytes(16);
+  const derivedKey = deriveKeyFromPassword(password, salt);
+  const wrapped = encryptData(encryptionKey, derivedKey);
+  
+  return {
+    wrappedKey: wrapped.encryptedData.toString('base64'),
+    keyIv: wrapped.iv.toString('base64'),
+    keyAuthTag: wrapped.authTag.toString('base64'),
+    salt: salt.toString('base64')
+  };
+}
+
+// Unwrap encryption key with password
+function unwrapEncryptionKey(wrappedKeyB64, keyIvB64, keyAuthTagB64, saltB64, password) {
+  const wrappedKey = Buffer.from(wrappedKeyB64, 'base64');
+  const keyIv = Buffer.from(keyIvB64, 'base64');
+  const keyAuthTag = Buffer.from(keyAuthTagB64, 'base64');
+  const salt = Buffer.from(saltB64, 'base64');
+  
+  const derivedKey = deriveKeyFromPassword(password, salt);
+  const unwrapped = decryptData(wrappedKey, keyIv, keyAuthTag, derivedKey);
+  
+  return unwrapped;
+}
+
 // Load config on startup
 loadConfig();
 
@@ -186,9 +296,30 @@ const storage = multer.diskStorage({
   }
 });
 
+// File filter for extension whitelist
+const fileFilter = (req, file, cb) => {
+  const ext = path.extname(file.originalname).toLowerCase().substring(1);
+  
+  // If whitelist is empty, allow all
+  if (!appConfig.fileWhitelist || appConfig.fileWhitelist.length === 0) {
+    return cb(null, true);
+  }
+  
+  // Check if extension is in whitelist
+  if (appConfig.fileWhitelist.includes(ext)) {
+    return cb(null, true);
+  } else {
+    return cb(new Error(`File extension .${ext} is not allowed. Allowed: ${appConfig.fileWhitelist.join(', ')}`), false);
+  }
+};
+
 const upload = multer({
   storage,
-  limits: { fileSize: 100 * 1024 * 1024 } // 100MB limit
+  fileFilter,
+  limits: { 
+    fileSize: appConfig.maxFileSize,
+    files: appConfig.maxFilesPerUpload
+  }
 });
 
 // Helper function to get file metadata
@@ -214,7 +345,7 @@ function getBaseUrl(req) {
 }
 
 // API: Upload files via multipart/form-data
-app.post('/api/upload', upload.array('files', 100), (req, res) => {
+app.post('/api/upload', upload.array('files', appConfig.maxFilesPerUpload), (req, res) => {
   try {
     const files = req.files || [];
     const password = req.body.password;
@@ -225,13 +356,15 @@ app.post('/api/upload', upload.array('files', 100), (req, res) => {
     files.forEach(file => {
       const id = generateShortId();
       const filePath = path.join(UPLOADS_DIR, file.filename);
+      const fileContent = fs.readFileSync(filePath);
       const stats = fs.statSync(filePath);
 
       const expTime = expiration !== null ? expiration : appConfig.defaultExpiration;
+      
+      // Base metadata
       const metadata = {
         id,
         originalName: file.originalname,
-        filename: file.filename,
         mimeType: file.mimetype,
         size: stats.size,
         uploadedAt: new Date().toISOString(),
@@ -240,6 +373,42 @@ app.post('/api/upload', upload.array('files', 100), (req, res) => {
         passwordHash: password ? hashPassword(password) : null,
         userId: userId
       };
+
+      // If password is set, encrypt the file content and filename
+      if (password) {
+        const encryptionKey = generateEncryptionKey();
+
+        // Encrypt file content
+        const encrypted = encryptFileContent(fileContent, encryptionKey);
+
+        // Encrypt original filename (not the generated ID)
+        const encryptedFilenameData = encryptFilename(file.originalname, encryptionKey);
+
+        // Wrap encryption key with password
+        const wrappedKeyData = wrapEncryptionKey(encryptionKey, password);
+
+        // Save encrypted content to file
+        const encryptedFilePath = path.join(UPLOADS_DIR, `${id}.enc`);
+        fs.writeFileSync(encryptedFilePath, encrypted.encryptedContent);
+
+        // Delete original unencrypted file
+        fs.unlinkSync(filePath);
+
+        // Update metadata with encryption info
+        metadata.filename = `${id}.enc`;
+        metadata.encrypted = true;
+        metadata.encryption = {
+          iv: encrypted.iv.toString('base64'),
+          authTag: encrypted.authTag.toString('base64'),
+          encryptedFilename: encryptedFilenameData.encryptedFilename,
+          filenameIv: encryptedFilenameData.iv,
+          filenameAuthTag: encryptedFilenameData.authTag,
+          wrappedKey: wrappedKeyData.wrappedKey,
+          keyIv: wrappedKeyData.keyIv,
+          keyAuthTag: wrappedKeyData.keyAuthTag,
+          salt: wrappedKeyData.salt
+        };
+      }
 
       saveFileMetadata(id, metadata);
 
@@ -250,6 +419,7 @@ app.post('/api/upload', upload.array('files', 100), (req, res) => {
         downloadUrl: `${baseUrl}/file/${id}/download`,
         deleteUrl: `${baseUrl}/file/${id}`,
         locked: !!password,
+        encrypted: !!password,
         expiresAt: metadata.expiresAt,
         ...metadata
       });
@@ -280,22 +450,57 @@ app.post('/api/text', (req, res) => {
     const fileName = `${id}.txt`;
     const filePath = path.join(UPLOADS_DIR, fileName);
 
-    fs.writeFileSync(filePath, text, 'utf-8');
-    const stats = fs.statSync(filePath);
-
     const expTime = expiration !== undefined && expiration !== '' ? parseInt(expiration) : appConfig.defaultExpiration;
+    
+    // Base metadata
     const metadata = {
       id,
       originalName: filename || `${id}.txt`,
-      filename: fileName,
       mimeType: 'text/plain',
-      size: stats.size,
+      size: Buffer.byteLength(text, 'utf8'),
       uploadedAt: new Date().toISOString(),
       expiresAt: expTime ? Date.now() + expTime : null,
       locked: !!password,
       passwordHash: password ? hashPassword(password) : null,
       userId: userId
     };
+
+    // If password is set, encrypt the content and filename
+    if (password) {
+      const encryptionKey = generateEncryptionKey();
+      const fileContent = Buffer.from(text, 'utf8');
+
+      // Encrypt file content
+      const encrypted = encryptFileContent(fileContent, encryptionKey);
+
+      // Encrypt original filename (from metadata)
+      const encryptedFilenameData = encryptFilename(metadata.originalName, encryptionKey);
+
+      // Wrap encryption key with password
+      const wrappedKeyData = wrapEncryptionKey(encryptionKey, password);
+
+      // Save encrypted content to file
+      const encryptedFilePath = path.join(UPLOADS_DIR, `${id}.enc`);
+      fs.writeFileSync(encryptedFilePath, encrypted.encryptedContent);
+
+      // Update metadata with encryption info
+      metadata.filename = `${id}.enc`;
+      metadata.encrypted = true;
+      metadata.encryption = {
+        iv: encrypted.iv.toString('base64'),
+        authTag: encrypted.authTag.toString('base64'),
+        encryptedFilename: encryptedFilenameData.encryptedFilename,
+        filenameIv: encryptedFilenameData.iv,
+        filenameAuthTag: encryptedFilenameData.authTag,
+        wrappedKey: wrappedKeyData.wrappedKey,
+        keyIv: wrappedKeyData.keyIv,
+        keyAuthTag: wrappedKeyData.keyAuthTag,
+        salt: wrappedKeyData.salt
+      };
+    } else {
+      // No password - save unencrypted
+      fs.writeFileSync(filePath, text, 'utf-8');
+    }
 
     saveFileMetadata(id, metadata);
 
@@ -306,6 +511,7 @@ app.post('/api/text', (req, res) => {
       downloadUrl: `${baseUrl}/file/${id}/download`,
       deleteUrl: `${baseUrl}/file/${id}`,
       locked: !!password,
+      encrypted: !!password,
       expiresAt: metadata.expiresAt,
       ...metadata
     };
@@ -329,13 +535,15 @@ app.post('/api', upload.single('file'), (req, res) => {
     const userId = req.userId;
     const id = generateShortId();
     const filePath = path.join(UPLOADS_DIR, req.file.filename);
+    const fileContent = fs.readFileSync(filePath);
     const stats = fs.statSync(filePath);
 
     const expTime = expiration !== null ? expiration : appConfig.defaultExpiration;
+    
+    // Base metadata
     const metadata = {
       id,
       originalName: req.uploadedOriginalName || req.file.originalname,
-      filename: req.file.filename,
       mimeType: req.file.mimetype,
       size: stats.size,
       uploadedAt: new Date().toISOString(),
@@ -344,6 +552,42 @@ app.post('/api', upload.single('file'), (req, res) => {
       passwordHash: password ? hashPassword(password) : null,
       userId: userId
     };
+
+    // If password is set, encrypt the file content and filename
+    if (password) {
+      const encryptionKey = generateEncryptionKey();
+
+      // Encrypt file content
+      const encrypted = encryptFileContent(fileContent, encryptionKey);
+
+      // Encrypt original filename (not the generated ID)
+      const encryptedFilenameData = encryptFilename(req.uploadedOriginalName || req.file.originalname, encryptionKey);
+
+      // Wrap encryption key with password
+      const wrappedKeyData = wrapEncryptionKey(encryptionKey, password);
+
+      // Save encrypted content to file
+      const encryptedFilePath = path.join(UPLOADS_DIR, `${id}.enc`);
+      fs.writeFileSync(encryptedFilePath, encrypted.encryptedContent);
+
+      // Delete original unencrypted file
+      fs.unlinkSync(filePath);
+
+      // Update metadata with encryption info
+      metadata.filename = `${id}.enc`;
+      metadata.encrypted = true;
+      metadata.encryption = {
+        iv: encrypted.iv.toString('base64'),
+        authTag: encrypted.authTag.toString('base64'),
+        encryptedFilename: encryptedFilenameData.encryptedFilename,
+        filenameIv: encryptedFilenameData.iv,
+        filenameAuthTag: encryptedFilenameData.authTag,
+        wrappedKey: wrappedKeyData.wrappedKey,
+        keyIv: wrappedKeyData.keyIv,
+        keyAuthTag: wrappedKeyData.keyAuthTag,
+        salt: wrappedKeyData.salt
+      };
+    }
 
     saveFileMetadata(id, metadata);
 
@@ -354,6 +598,7 @@ app.post('/api', upload.single('file'), (req, res) => {
       downloadUrl: `${baseUrl}/file/${id}/download`,
       deleteUrl: `${baseUrl}/file/${id}`,
       locked: !!password,
+      encrypted: !!password,
       expiresAt: metadata.expiresAt,
       ...metadata
     };
@@ -382,6 +627,7 @@ app.get('/file/:id', (req, res) => {
     size: metadata.size,
     uploadedAt: metadata.uploadedAt,
     locked: metadata.locked || false,
+    encrypted: metadata.encrypted || false,
     url: `${baseUrl}/file/${id}`,
     downloadUrl: `${baseUrl}/file/${id}/download`,
     deleteUrl: `${baseUrl}/file/${id}`
@@ -424,25 +670,75 @@ app.get('/file/:id/download', (req, res) => {
     return res.status(404).json({ error: 'File not found' });
   }
 
-  // Check if file is locked
-  if (metadata.locked) {
-    const password = req.query.password;
-    if (!password || hashPassword(password) !== metadata.passwordHash) {
-      return res.status(401).json({ error: 'Password required' });
-    }
-  }
-
+  const password = req.query.password;
   const filePath = path.join(UPLOADS_DIR, metadata.filename);
 
   if (!fs.existsSync(filePath)) {
     return res.status(404).json({ error: 'File not found on disk' });
   }
 
-  res.setHeader('Content-Type', metadata.mimeType);
-  res.setHeader('Content-Disposition', `attachment; filename="${metadata.originalName}"`);
-  res.setHeader('Content-Length', metadata.size);
+  // If file is encrypted, decrypt it before sending
+  if (metadata.encrypted && metadata.encryption) {
+    // For encrypted files, verify password by attempting to unwrap key
+    if (!password) {
+      return res.status(401).json({ error: 'Encryption key required' });
+    }
+    
+    try {
+      // Unwrap encryption key with password
+      const encryptionKey = unwrapEncryptionKey(
+        metadata.encryption.wrappedKey,
+        metadata.encryption.keyIv,
+        metadata.encryption.keyAuthTag,
+        metadata.encryption.salt,
+        password
+      );
 
-  res.sendFile(filePath);
+      // Read encrypted file content
+      const encryptedContent = fs.readFileSync(filePath);
+
+      // Decrypt file content
+      const iv = Buffer.from(metadata.encryption.iv, 'base64');
+      const authTag = Buffer.from(metadata.encryption.authTag, 'base64');
+      const decryptedContent = decryptFileContent(encryptedContent, iv, authTag, encryptionKey);
+
+      // Decrypt original filename for Content-Disposition header
+      let downloadFilename = metadata.originalName;
+      try {
+        downloadFilename = decryptFilename(
+          metadata.encryption.encryptedFilename,
+          metadata.encryption.filenameIv,
+          metadata.encryption.filenameAuthTag,
+          encryptionKey
+        );
+      } catch (e) {
+        console.log('Filename decryption failed, using originalName:', e.message);
+      }
+
+      res.setHeader('Content-Type', metadata.mimeType);
+      res.setHeader('Content-Disposition', `attachment; filename="${downloadFilename}"`);
+      res.setHeader('Content-Length', decryptedContent.length);
+
+      res.send(decryptedContent);
+    } catch (error) {
+      // Wrong password - unwrap/decrypt failed
+      console.log('Decryption failed:', error.message);
+      return res.status(401).json({ error: 'Invalid encryption key' });
+    }
+  } else {
+    // File is not encrypted - check password for locked files
+    if (metadata.locked) {
+      if (!password || hashPassword(password) !== metadata.passwordHash) {
+        return res.status(401).json({ error: 'Password required' });
+      }
+    }
+
+    res.setHeader('Content-Type', metadata.mimeType);
+    res.setHeader('Content-Disposition', `attachment; filename="${metadata.originalName}"`);
+    res.setHeader('Content-Length', metadata.size);
+
+    res.sendFile(filePath);
+  }
 });
 
 // API: Delete file
@@ -485,6 +781,7 @@ app.get('/api/files', (req, res) => {
     uploadedAt: metadata.uploadedAt,
     expiresAt: metadata.expiresAt,
     locked: metadata.locked || false,
+    encrypted: metadata.encrypted || false,
     url: `${baseUrl}/file/${metadata.id}`,
     downloadUrl: `${baseUrl}/file/${metadata.id}/download`,
     deleteUrl: `${baseUrl}/file/${metadata.id}`
@@ -592,7 +889,11 @@ app.get('/api/config', (req, res) => {
     return res.status(403).json({ error: 'Admin access required' });
   }
   res.json({
-    defaultExpiration: appConfig.defaultExpiration
+    defaultExpiration: appConfig.defaultExpiration,
+    maxFileSize: appConfig.maxFileSize,
+    maxFileSizeMB: Math.round(appConfig.maxFileSize / 1024 / 1024),
+    maxFilesPerUpload: appConfig.maxFilesPerUpload,
+    fileWhitelist: appConfig.fileWhitelist
   });
 });
 
@@ -600,7 +901,7 @@ app.get('/api/config', (req, res) => {
 app.post('/api/config', (req, res) => {
   const session = req.session;
   const isAdmin = session && session.isAdmin;
-  
+
   // Log session info for debugging
   console.log('POST /api/config:', {
     sessionId: req.sessionID,
@@ -609,20 +910,46 @@ app.post('/api/config', (req, res) => {
     sessionKeys: session ? Object.keys(session) : [],
     cookie: req.headers.cookie ? 'present' : 'missing'
   });
-  
+
   if (!isAdmin) {
     return res.status(403).json({ error: 'Admin access required' });
   }
 
-  const { defaultExpiration } = req.body;
+  const { defaultExpiration, maxFileSize, maxFilesPerUpload, fileWhitelist } = req.body;
 
   if (defaultExpiration !== undefined) {
     appConfig.defaultExpiration = parseInt(defaultExpiration);
-    saveConfig();
   }
+  
+  if (maxFileSize !== undefined) {
+    // Convert MB to bytes if needed
+    const sizeInBytes = parseInt(maxFileSize);
+    appConfig.maxFileSize = sizeInBytes > 1000 ? sizeInBytes : sizeInBytes * 1024 * 1024;
+  }
+  
+  if (maxFilesPerUpload !== undefined) {
+    appConfig.maxFilesPerUpload = parseInt(maxFilesPerUpload);
+  }
+  
+  if (fileWhitelist !== undefined) {
+    // Parse whitelist - can be string "jpg,png" or array
+    if (typeof fileWhitelist === 'string') {
+      appConfig.fileWhitelist = fileWhitelist.split(',').map(ext => ext.trim().toLowerCase()).filter(ext => ext);
+    } else if (Array.isArray(fileWhitelist)) {
+      appConfig.fileWhitelist = fileWhitelist.map(ext => ext.toString().toLowerCase().replace('.', ''));
+    } else {
+      appConfig.fileWhitelist = [];
+    }
+  }
+  
+  saveConfig();
 
   res.json({
-    defaultExpiration: appConfig.defaultExpiration
+    defaultExpiration: appConfig.defaultExpiration,
+    maxFileSize: appConfig.maxFileSize,
+    maxFileSizeMB: Math.round(appConfig.maxFileSize / 1024 / 1024),
+    maxFilesPerUpload: appConfig.maxFilesPerUpload,
+    fileWhitelist: appConfig.fileWhitelist
   });
 });
 
@@ -631,7 +958,7 @@ app.post('/api/config', (req, res) => {
 app.get('/AGENT.md', (req, res) => {
   const baseUrl = getBaseUrl(req);
   const agentPath = path.join(__dirname, '../AGENT.md');
-  
+
   try {
     let content = fs.readFileSync(agentPath, 'utf-8');
     // Replace all occurrences of {{BASE_URL}} with actual base URL
@@ -644,6 +971,30 @@ app.get('/AGENT.md', (req, res) => {
     console.error('Error serving AGENT.md:', error);
     res.status(500).send('Error loading AGENT.md');
   }
+});
+
+// Serve README.md for documentation (BEFORE static files)
+// Auto-replace localhost:3232 with actual server URL
+app.get('/README.md', (req, res) => {
+  const baseUrl = getBaseUrl(req);
+  const readmePath = path.join(__dirname, '../README.md');
+
+  try {
+    let content = fs.readFileSync(readmePath, 'utf-8');
+    // Replace all occurrences of localhost:3232 with actual base URL (including in code blocks)
+    content = content.replace(/http:\/\/localhost:3232/g, baseUrl);
+    content = content.replace(/localhost:3232/g, baseUrl.replace('http://', ''));
+    res.setHeader('Content-Type', 'text/markdown');
+    res.send(content);
+  } catch (error) {
+    console.error('Error serving README.md:', error);
+    res.status(500).send('Error loading README.md');
+  }
+});
+
+// Serve README with JavaScript rendering support
+app.get('/readme', (req, res) => {
+  res.sendFile(path.join(__dirname, '../client/readme.html'));
 });
 
 // Serve static files from client directory

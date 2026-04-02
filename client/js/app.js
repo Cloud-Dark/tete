@@ -3,6 +3,7 @@ const API_BASE = window.location.origin;
 let selectedFiles = [];
 let openDropdown = null;
 let pendingDownloadUrl = null;
+let pendingDownloadIsEncrypted = false;
 let isAdmin = false;
 
 // Custom Dropdown with Search
@@ -138,8 +139,9 @@ function showToast(message) {
 }
 
 // Password modal functions
-function openPasswordModal(url) {
+function openPasswordModal(url, isEncrypted = false) {
   pendingDownloadUrl = url;
+  pendingDownloadIsEncrypted = isEncrypted;
   document.getElementById('modalPassword').value = '';
   document.getElementById('passwordModal').classList.add('show');
   document.getElementById('modalPassword').focus();
@@ -147,6 +149,7 @@ function openPasswordModal(url) {
 
 function closePasswordModal() {
   pendingDownloadUrl = null;
+  pendingDownloadIsEncrypted = false;
   document.getElementById('passwordModal').classList.remove('show');
 }
 
@@ -158,9 +161,50 @@ function submitPassword() {
   }
   if (pendingDownloadUrl) {
     const lockedUrl = `${pendingDownloadUrl}?password=${encodeURIComponent(password)}`;
-    window.open(lockedUrl, '_blank');
+    if (pendingDownloadIsEncrypted) {
+      // For encrypted files, download via fetch to handle decryption
+      downloadEncryptedFile(lockedUrl);
+    } else {
+      window.open(lockedUrl, '_blank');
+    }
   }
   closePasswordModal();
+}
+
+// Download encrypted file
+async function downloadEncryptedFile(url) {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      const error = await response.json();
+      showToast(error.error || 'Download failed');
+      return;
+    }
+    
+    // Get filename from Content-Disposition header
+    const contentDisposition = response.headers.get('Content-Disposition');
+    let filename = 'downloaded_file';
+    if (contentDisposition) {
+      const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
+      if (filenameMatch) {
+        filename = filenameMatch[1];
+      }
+    }
+    
+    // Download the blob
+    const blob = await response.blob();
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = downloadUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(downloadUrl);
+    showToast('File downloaded successfully');
+  } catch (error) {
+    showToast('Download error: ' + error.message);
+  }
 }
 
 // Admin authentication functions
@@ -223,6 +267,50 @@ async function logoutAdmin() {
   }
 }
 
+async function saveUploadConfig() {
+  if (!isAdmin) {
+    showToast('Admin access required');
+    return;
+  }
+
+  const btn = document.getElementById('saveUploadConfigBtn');
+  const maxFileSize = document.getElementById('maxFileSize').value;
+  const maxFilesPerUpload = document.getElementById('maxFilesPerUpload').value;
+  const fileWhitelist = document.getElementById('fileWhitelist').value;
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="loading"></span> Saving...';
+
+  try {
+    const response = await fetch(`${API_BASE}/api/config`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      credentials: 'same-origin',
+      body: JSON.stringify({
+        maxFileSize: maxFileSize ? parseInt(maxFileSize) : 100,
+        maxFilesPerUpload: maxFilesPerUpload ? parseInt(maxFilesPerUpload) : 100,
+        fileWhitelist: fileWhitelist.trim()
+      })
+    });
+
+    const result = await response.json();
+
+    if (response.ok) {
+      showToast('Upload limits saved');
+    } else {
+      showToast(result.error || 'Failed to save upload limits');
+    }
+  } catch (error) {
+    showToast('Save error: ' + error.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = 'Save Upload Limits';
+  }
+}
+
 function updateAdminStatus() {
   const adminStatus = document.getElementById('adminStatus');
   const adminBtn = document.getElementById('adminBtn');
@@ -268,15 +356,16 @@ function switchTab(tab) {
     document.querySelectorAll('.tab-btn')[2].classList.add('active');
     document.getElementById('config-tab').classList.add('active');
     loadConfig();
-  } else if (tab === 'docs') {
+  } else if (tab === 'readme') {
     document.querySelectorAll('.tab-btn')[3].classList.add('active');
-    document.getElementById('docs-tab').classList.add('active');
+    document.getElementById('readme-tab').classList.add('active');
+    loadReadmeDocs();
   } else if (tab === 'agent') {
     document.querySelectorAll('.tab-btn')[4].classList.add('active');
     document.getElementById('agent-tab').classList.add('active');
     loadAgentDocs();
   }
-  
+
   // Re-initialize custom dropdowns after switching tabs
   setTimeout(initCustomDropdowns, 50);
 }
@@ -294,6 +383,26 @@ function startFileRefresh() {
   }, 60000);
 }
 
+// Load README documentation
+async function loadReadmeDocs() {
+  const contentDiv = document.getElementById('readmeContent');
+  if (contentDiv.innerHTML && contentDiv.innerHTML.length > 100) return; // Already loaded
+
+  try {
+    const response = await fetch('README.md');
+    let text = await response.text();
+    
+    // Replace localhost:3232 with actual base URL
+    text = text.replace(/http:\/\/localhost:3232/g, API_BASE);
+    text = text.replace(/localhost:3232/g, window.location.host);
+    
+    // Simple markdown to HTML conversion
+    contentDiv.innerHTML = markdownToHtml(text);
+  } catch (error) {
+    contentDiv.innerHTML = '<p style="color: #dc3545;">Failed to load README. Please check the README.md file.</p>';
+  }
+}
+
 // Load agent documentation
 async function loadAgentDocs() {
   const textarea = document.getElementById('agentContent');
@@ -301,11 +410,136 @@ async function loadAgentDocs() {
 
   try {
     const response = await fetch('AGENT.md');
-    const text = await response.text();
+    let text = await response.text();
+    
+    // Replace localhost:3232 with actual base URL
+    text = text.replace(/http:\/\/localhost:3232/g, API_BASE);
+    text = text.replace(/localhost:3232/g, window.location.host);
+    
     textarea.value = text;
   } catch (error) {
     textarea.value = '# TETE - Transient Endpoint for Transfer & Encryption\n\nLoading failed. See AGENT.md file in repository.';
   }
+}
+
+// Improved markdown to HTML converter
+function markdownToHtml(md) {
+  let html = md;
+  
+  // Store code blocks to protect them from other transformations
+  const codeBlocks = [];
+  html = html.replace(/```([\s\S]*?)```/gim, (match, code) => {
+    codeBlocks.push(code);
+    return `%%CODEBLOCK${codeBlocks.length - 1}%%`;
+  });
+  
+  // Store inline code to protect them
+  const inlineCodes = [];
+  html = html.replace(/`([^`]+)`/gim, (match, code) => {
+    inlineCodes.push(code);
+    return `%%INLINECODE${inlineCodes.length - 1}%%`;
+  });
+  
+  // Escape HTML (but not in code blocks which are already extracted)
+  html = html
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+  
+  // Headers (with better styling classes)
+  html = html.replace(/^#### (.*$)/gim, '<h4 class="readme-h4">$1</h4>');
+  html = html.replace(/^### (.*$)/gim, '<h3 class="readme-h3">$1</h3>');
+  html = html.replace(/^## (.*$)/gim, '<h2 class="readme-h2">$1</h2>');
+  html = html.replace(/^# (.*$)/gim, '<h1 class="readme-h1">$1</h1>');
+  
+  // Bold
+  html = html.replace(/\*\*(.+?)\*\*/gim, '<strong>$1</strong>');
+  
+  // Italic
+  html = html.replace(/\*(.+?)\*/gim, '<em>$1</em>');
+  
+  // Strikethrough
+  html = html.replace(/~~(.+?)~~/gim, '<del>$1</del>');
+  
+  // Links
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/gim, '<a href="$2" target="_blank" class="readme-link">$1</a>');
+  
+  // Images
+  html = html.replace(/!\[([^\]]+)\]\(([^)]+)\)/gim, '<img src="$2" alt="$1" class="readme-image">');
+  
+  // Blockquotes
+  html = html.replace(/^> (.*$)/gim, '<blockquote class="readme-blockquote">$1</blockquote>');
+  
+  // Horizontal rules
+  html = html.replace(/^---$/gim, '<hr class="readme-hr">');
+  
+  // Tables (basic support)
+  html = html.replace(/^\|(.+)\|$/gim, (match, content) => {
+    const cells = content.split('|').map(cell => cell.trim());
+    const tag = cells[0].match(/^---/) ? 'th' : 'td';
+    return `<tr>${cells.map(c => `<${tag}>${c}</${tag}>`).join('')}</tr>`;
+  });
+  html = html.replace(/(<tr>.+<\/tr>\n?)+/gim, '<table class="readme-table">$&</table>');
+  
+  // Unordered lists - improved handling
+  html = html.replace(/^\s*[-*+]\s+(.*$)/gim, '<li class="readme-li">$1</li>');
+  html = html.replace(/(<li class="readme-li">.*<\/li>\n?)+/gim, '<ul class="readme-ul">$&</ul>');
+  
+  // Ordered lists
+  html = html.replace(/^\s*\d+\.\s+(.*$)/gim, '<li class="readme-li">$1</li>');
+  
+  // Task lists
+  html = html.replace(/^\s*[-*+]\s+\[x\]\s+(.*$)/gim, '<li class="readme-li task-done">✅ $1</li>');
+  html = html.replace(/^\s*[-*+]\s+\[ \]\s+(.*$)/gim, '<li class="readme-li task">$1</li>');
+  
+  // Line breaks (preserve paragraph structure)
+  const paragraphs = html.split(/\n\n+/);
+  html = paragraphs.map(p => {
+    p = p.trim();
+    if (!p) return '';
+    // Don't wrap headers, lists, blockquotes, tables, or code
+    if (p.match(/^<(h[1-6]|ul|ol|li|blockquote|table|tr|td|th|pre|%%CODEBLOCK)/i)) {
+      return p.replace(/\n/gim, '<br>');
+    }
+    return `<p class="readme-p">${p.replace(/\n/gim, '<br>')}</p>`;
+  }).join('\n');
+  
+  // Restore code blocks
+  codeBlocks.forEach((code, index) => {
+    html = html.replace(`%%CODEBLOCK${index + 1}%%`, `<pre class="readme-pre"><code>${code}</code></pre>`);
+  });
+  
+  // Restore inline codes
+  inlineCodes.forEach((code, index) => {
+    html = html.replace(`%%INLINECODE${index + 1}%%`, `<code class="readme-code">${code}</code>`);
+  });
+  
+  // Clean up multiple br tags
+  html = html.replace(/(<br>){3,}/gim, '<br><br>');
+  
+  // Clean up empty paragraphs
+  html = html.replace(/<p class="readme-p"><\/p>/gim, '');
+  
+  return html;
+}
+
+// Copy README docs
+function copyReadmeDocs() {
+  const content = document.getElementById('readmeContent');
+  const text = content.innerText;
+  navigator.clipboard.writeText(text).then(() => {
+    showToast('README copied to clipboard');
+  }).catch(() => {
+    showToast('Failed to copy README');
+  });
+}
+
+// Copy agent docs
+function copyAgentDocs() {
+  const textarea = document.getElementById('agentContent');
+  textarea.select();
+  document.execCommand('copy');
+  showToast('Agent docs copied to clipboard');
 }
 
 // Config functions
@@ -320,6 +554,17 @@ async function loadConfig() {
     });
     const config = await response.json();
     document.getElementById('defaultExpiration').value = config.defaultExpiration.toString();
+    
+    // Load upload limits config
+    if (config.maxFileSizeMB) {
+      document.getElementById('maxFileSize').value = config.maxFileSizeMB;
+    }
+    if (config.maxFilesPerUpload) {
+      document.getElementById('maxFilesPerUpload').value = config.maxFilesPerUpload;
+    }
+    if (config.fileWhitelist) {
+      document.getElementById('fileWhitelist').value = config.fileWhitelist.join(',');
+    }
   } catch (error) {
     console.error('Error loading config:', error);
     showToast('Failed to load config');
@@ -340,11 +585,11 @@ async function saveConfig() {
 
   try {
     console.log('Saving config:', expiration);
-    
+
     // Use XMLHttpRequest for better cookie handling
     const response = await fetch(`${API_BASE}/api/config`, {
       method: 'POST',
-      headers: { 
+      headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       },
@@ -615,7 +860,7 @@ async function uploadFiles() {
           ${results.map(r => `
             <div class="result-link">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                <strong>${r.originalName} ${r.locked ? '🔒' : ''}</strong>
+                <strong>${r.originalName} ${r.locked ? '🔒' : ''} ${r.encrypted ? '🔐' : ''}</strong>
                 <div class="dropdown">
                   <button class="btn btn-ghost btn-sm" onclick="toggleDropdown('result-menu-${r.id}')">
                     ⋮
@@ -629,10 +874,17 @@ async function uploadFiles() {
                       <span class="dropdown-icon">📋</span>
                       Copy Details
                     </button>
+                    ${r.locked ? `
+                    <button class="dropdown-item" onclick="openPasswordModal('${r.downloadUrl}', ${r.encrypted})">
+                      <span class="dropdown-icon">⬇</span>
+                      Download
+                    </button>
+                    ` : `
                     <a href="${r.downloadUrl}" target="_blank" class="dropdown-item">
                       <span class="dropdown-icon">⬇</span>
                       Download
                     </a>
+                    `}
                     <a href="${r.url}" target="_blank" class="dropdown-item">
                       <span class="dropdown-icon">👁</span>
                       View Info
@@ -703,7 +955,7 @@ async function uploadText() {
           <h3>✅ Upload Successful</h3>
           <div class="result-link">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-              <strong>${result.originalName} ${result.locked ? '🔒' : ''}</strong>
+              <strong>${result.originalName} ${result.locked ? '🔒' : ''} ${result.encrypted ? '🔐' : ''}</strong>
               <div class="dropdown">
                 <button class="btn btn-ghost btn-sm" onclick="toggleDropdown('result-menu-${result.id}')">
                   ⋮
@@ -717,10 +969,17 @@ async function uploadText() {
                     <span class="dropdown-icon">📋</span>
                     Copy Details
                   </button>
+                  ${result.locked ? `
+                  <button class="dropdown-item" onclick="openPasswordModal('${result.downloadUrl}', ${result.encrypted})">
+                    <span class="dropdown-icon">⬇</span>
+                    Download
+                  </button>
+                  ` : `
                   <a href="${result.downloadUrl}" target="_blank" class="dropdown-item">
                     <span class="dropdown-icon">⬇</span>
                     Download
                   </a>
+                  `}
                   <a href="${result.url}" target="_blank" class="dropdown-item">
                     <span class="dropdown-icon">👁</span>
                     View Info
@@ -810,7 +1069,7 @@ async function loadFiles() {
     fileList.innerHTML = files.map(f => `
       <li class="file-item">
         <div class="file-info">
-          <div class="file-name">${f.originalName} ${f.locked ? '🔒' : ''}</div>
+          <div class="file-name">${f.originalName} ${f.locked ? '🔒' : ''} ${f.encrypted ? '🔐' : ''}</div>
           <div class="file-meta">${formatSize(f.size)} • Uploaded: ${new Date(f.uploadedAt).toLocaleString()} • ${formatExpiration(f.expiresAt)}</div>
         </div>
         <div class="dropdown">
@@ -826,10 +1085,17 @@ async function loadFiles() {
               <span class="dropdown-icon">📋</span>
               Copy Details
             </button>
+            ${f.locked ? `
+            <button class="dropdown-item" onclick="openPasswordModal('${f.downloadUrl}', ${f.encrypted})">
+              <span class="dropdown-icon">⬇</span>
+              Download
+            </button>
+            ` : `
             <a href="${f.downloadUrl}" target="_blank" class="dropdown-item">
               <span class="dropdown-icon">⬇</span>
               Download
             </a>
+            `}
             <a href="${f.url}" target="_blank" class="dropdown-item">
               <span class="dropdown-icon">👁</span>
               View Info

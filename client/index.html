@@ -23,8 +23,8 @@
       <button class="tab-btn active" onclick="switchTab('upload')">Upload</button>
       <button class="tab-btn" onclick="switchTab('files')">Files</button>
       <button class="tab-btn" onclick="switchTab('config')" id="configTabBtn" style="display: none;">Config</button>
-      <button class="tab-btn" onclick="switchTab('docs')">API Docs</button>
-      <button class="tab-btn" onclick="switchTab('agent')">Agent</button>
+      <button class="tab-btn" onclick="switchTab('readme')">📖 README</button>
+      <button class="tab-btn" onclick="switchTab('agent')">🤖 Agent</button>
     </div>
 
     <!-- Upload Tab -->
@@ -41,8 +41,9 @@
 
         <div class="form-row-3" style="margin-top: 16px;">
           <div class="input-group">
-            <label for="uploadPassword">🔒 Password</label>
-            <input type="password" id="uploadPassword" placeholder="Optional">
+            <label for="uploadPassword">🔐 Encryption Key</label>
+            <input type="password" id="uploadPassword" placeholder="Enter encryption key (optional)">
+            <small style="color: #dc3545; font-size: 0.75rem; margin-top: 4px; display: block;">⚠️ WARNING: Encryption is one-way. If you lose this key, your file cannot be recovered!</small>
           </div>
           <div class="input-group">
             <label for="uploadExpiration">⏱️ Expiration</label>
@@ -79,8 +80,9 @@
             <input type="text" id="filename" placeholder="example.txt">
           </div>
           <div class="input-group">
-            <label for="textPassword">🔒 Password</label>
-            <input type="password" id="textPassword" placeholder="Optional">
+            <label for="textPassword">🔐 Encryption Key</label>
+            <input type="password" id="textPassword" placeholder="Enter encryption key (optional)">
+            <small style="color: #dc3545; font-size: 0.75rem; margin-top: 4px; display: block;">⚠️ WARNING: Encryption is one-way. If you lose this key, your content cannot be recovered!</small>
           </div>
           <div class="input-group">
             <label for="textExpiration">⏱️ Expiration</label>
@@ -162,69 +164,58 @@
       </div>
 
       <div class="card">
+        <h3 style="font-size: 1rem; margin-bottom: 20px;">📁 Upload Limits Configuration</h3>
+        <div class="form-row-3">
+          <div class="input-group">
+            <label for="maxFileSize">Max File Size (MB)</label>
+            <input type="number" id="maxFileSize" placeholder="100" min="1" max="1000">
+            <small style="color: #666; font-size: 0.75rem;">Maximum size per file in MB</small>
+          </div>
+          <div class="input-group">
+            <label for="maxFilesPerUpload">Max Files per Upload</label>
+            <input type="number" id="maxFilesPerUpload" placeholder="100" min="1" max="500">
+            <small style="color: #666; font-size: 0.75rem;">Maximum files per upload request</small>
+          </div>
+          <div class="input-group">
+            <label for="fileWhitelist">File Extensions Whitelist</label>
+            <input type="text" id="fileWhitelist" placeholder="jpg,png,pdf,txt (empty = all allowed)">
+            <small style="color: #666; font-size: 0.75rem;">Comma-separated extensions (empty = allow all)</small>
+          </div>
+        </div>
+        <div style="text-align: right; margin-top: 16px;">
+          <button class="btn" onclick="saveUploadConfig()" id="saveUploadConfigBtn">
+            Save Upload Limits
+          </button>
+        </div>
+      </div>
+
+      <div class="card">
         <h3 style="font-size: 1rem; margin-bottom: 20px;">🔐 Change Admin Password</h3>
         <div class="input-group">
-          <label for="currentPassword">Current Password</label>
-          <input type="password" id="currentPassword" placeholder="Enter current password">
+          <label for="currentPassword">🔑 Current Admin Password</label>
+          <input type="password" id="currentPassword" placeholder="Enter current admin password">
         </div>
         <div class="input-group">
-          <label for="newPassword">New Password</label>
-          <input type="password" id="newPassword" placeholder="Enter new password">
+          <label for="newPassword">🔑 New Admin Password</label>
+          <input type="password" id="newPassword" placeholder="Enter new admin password (min 4 characters)">
         </div>
         <div class="input-group">
-          <label for="confirmPassword">Confirm New Password</label>
-          <input type="password" id="confirmPassword" placeholder="Confirm new password">
+          <label for="confirmPassword">🔑 Confirm New Admin Password</label>
+          <input type="password" id="confirmPassword" placeholder="Confirm new admin password">
         </div>
         <div style="text-align: right; margin-top: 16px;">
           <button class="btn" onclick="changePassword()" id="changePasswordBtn">
-            Change Password
+            Change Admin Password
           </button>
         </div>
       </div>
     </div>
 
-    <!-- API Docs Tab -->
-    <div id="docs-tab" class="tab-content">
+    <!-- README Tab -->
+    <div id="readme-tab" class="tab-content">
       <div class="card">
-        <div class="api-docs">
-          <h3>Upload Endpoints</h3>
-          <div class="endpoint-group">
-            <div class="endpoint-item">
-              <div><span class="method post">POST</span><span class="path">/api</span></div>
-              <div class="desc">Upload single file</div>
-              <code>curl -F "file=@myfile.txt" <span class="base-url"></span>/api</code>
-            </div>
-            <div class="endpoint-item">
-              <div><span class="method post">POST</span><span class="path">/api/upload</span></div>
-              <div class="desc">Upload multiple files</div>
-              <code>curl -F "files=@file1.txt" -F "files=@file2.txt" <span class="base-url"></span>/api/upload</code>
-            </div>
-            <div class="endpoint-item">
-              <div><span class="method post">POST</span><span class="path">/api/text</span></div>
-              <div class="desc">Upload text content</div>
-              <code>curl -H "Content-Type: application/json" -d '{"text": "Hello", "filename": "test.txt"}' <span class="base-url"></span>/api/text</code>
-            </div>
-          </div>
-
-          <h3>Download & Info</h3>
-          <div class="endpoint-group">
-            <div class="endpoint-item">
-              <div><span class="method get">GET</span><span class="path">/file/:id</span></div>
-              <div class="desc">Get file information</div>
-              <code>curl <span class="base-url"></span>/file/abc123</code>
-            </div>
-            <div class="endpoint-item">
-              <div><span class="method get">GET</span><span class="path">/file/:id/download</span></div>
-              <div class="desc">Direct download</div>
-              <code>curl -O <span class="base-url"></span>/file/abc123/download</code>
-            </div>
-            <div class="endpoint-item">
-              <div><span class="method delete">DELETE</span><span class="path">/file/:id</span></div>
-              <div class="desc">Delete file</div>
-              <code>curl -X DELETE <span class="base-url"></span>/file/abc123</code>
-            </div>
-          </div>
-        </div>
+        <h3 style="font-size: 1rem; margin-bottom: 20px;">📖 README</h3>
+        <div id="readmeContent" style="line-height: 1.8; color: #333;"></div>
       </div>
     </div>
 
@@ -249,12 +240,12 @@
   <!-- Password Modal -->
   <div id="passwordModal" class="modal-overlay">
     <div class="modal">
-      <h3>🔒 This file is locked</h3>
-      <p>Enter password to download</p>
-      <input type="password" id="modalPassword" placeholder="Password">
+      <h3>🔐 This file is encrypted</h3>
+      <p>Enter encryption key to decrypt and download</p>
+      <input type="password" id="modalPassword" placeholder="Encryption key">
       <div class="modal-actions">
         <button class="btn btn-ghost" onclick="closePasswordModal()">Cancel</button>
-        <button class="btn" onclick="submitPassword()">Unlock & Download</button>
+        <button class="btn" onclick="submitPassword()">Decrypt & Download</button>
       </div>
     </div>
   </div>
@@ -263,7 +254,7 @@
   <div id="adminModal" class="modal-overlay">
     <div class="modal">
       <h3>🔐 Admin Login</h3>
-      <p>Enter admin password to access all files</p>
+      <p>Enter admin password to access all files and configuration</p>
       <input type="password" id="adminPassword" placeholder="Admin password">
       <div class="modal-actions">
         <button class="btn btn-ghost" onclick="closeAdminModal()">Cancel</button>

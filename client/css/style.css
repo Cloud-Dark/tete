@@ -706,3 +706,164 @@ textarea:focus {
 .select2-container--open .select2-dropdown {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
+
+/* README Content Styling */
+#readmeContent {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+  line-height: 1.8;
+  color: #333;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+#readmeContent .readme-h1 {
+  font-size: 2rem;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 24px 0 16px 0;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #e0e0e0;
+}
+
+#readmeContent .readme-h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 24px 0 12px 0;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+#readmeContent .readme-h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 20px 0 10px 0;
+}
+
+#readmeContent .readme-h4 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 16px 0 8px 0;
+}
+
+#readmeContent .readme-p {
+  margin: 12px 0;
+  color: #444;
+}
+
+#readmeContent .readme-ul,
+#readmeContent .readme-ol {
+  margin: 12px 0;
+  padding-left: 24px;
+}
+
+#readmeContent .readme-li {
+  margin: 6px 0;
+  color: #444;
+}
+
+#readmeContent .readme-li.task-done {
+  color: #2e7d32;
+}
+
+#readmeContent .readme-pre {
+  background: #f5f5f5;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 16px;
+  overflow-x: auto;
+  margin: 16px 0;
+}
+
+#readmeContent .readme-pre code {
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 0.85rem;
+  color: #333;
+  background: transparent;
+  padding: 0;
+}
+
+#readmeContent .readme-code {
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 0.85rem;
+  background: #f0f0f0;
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: #d32f2f;
+}
+
+#readmeContent .readme-link {
+  color: #1976d2;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.2s;
+}
+
+#readmeContent .readme-link:hover {
+  border-bottom-color: #1976d2;
+}
+
+#readmeContent .readme-image {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+  margin: 16px 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+#readmeContent .readme-blockquote {
+  border-left: 4px solid #1976d2;
+  margin: 16px 0;
+  padding: 8px 16px;
+  background: #f5f5f5;
+  color: #666;
+  font-style: italic;
+}
+
+#readmeContent .readme-hr {
+  border: none;
+  border-top: 1px solid #e0e0e0;
+  margin: 24px 0;
+}
+
+#readmeContent .readme-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+  overflow-x: auto;
+  display: block;
+}
+
+#readmeContent .readme-table tr,
+#readmeContent .readme-table th,
+#readmeContent .readme-table td {
+  border: 1px solid #e0e0e0;
+  padding: 8px 12px;
+  text-align: left;
+}
+
+#readmeContent .readme-table th {
+  background: #f5f5f5;
+  font-weight: 600;
+}
+
+#readmeContent .readme-table tr:nth-child(even) {
+  background: #fafafa;
+}
+
+#readmeContent strong {
+  color: #1a1a1a;
+  font-weight: 600;
+}
+
+#readmeContent em {
+  color: #666;
+  font-style: italic;
+}
+
+#readmeContent del {
+  color: #999;
+  text-decoration: line-through;
+}

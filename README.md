@@ -11,13 +11,13 @@
 ### Core Features
 - 📤 **File Upload** - Drag & drop or click to browse (max 100MB per file)
 - 📝 **Text Upload** - Paste text content directly
-- 🔒 **Password Protection** - Lock files with password (SHA-256 hashed)
+- 🔐 **Full Encryption** - AES-256-GCM encryption for file content AND filename (one-way encryption)
 - ⏱️ **Auto-Delete** - Configurable expiration time for files
 - 📋 **File Management** - View, download, delete uploaded files
 - 🔗 **Short URLs** - 6-character hex IDs (e.g., `/file/a1b2c3`)
 - 📱 **Responsive UI** - Clean, minimalist design
 - 🚀 **REST API** - Full API for automation
-- 🛡️ **Security** - SHA-256 password hashing
+- 🛡️ **Security** - SHA-256 password hashing + AES-256-GCM file encryption
 
 ### Admin Features
 - 👑 **Admin Dashboard** - View all files (not just yours)
@@ -321,17 +321,20 @@ tete/
 
 ## 🛡️ Security Features
 
-### Password Protection
-- ✅ Passwords hashed with SHA-256 before storage
-- ✅ Locked files require password query parameter
-- ✅ Password verification endpoint
-- ✅ Admin password change with current password verification
+### Encryption & Password Protection
+- ✅ **Full File Encryption** - Files encrypted with AES-256-GCM when encryption key is set
+- ✅ **Filename Encryption** - Original filenames also encrypted (not visible on disk)
+- ✅ **One-Way Encryption** - Lost encryption key = file cannot be recovered (by design!)
+- ✅ **Password Verification** - SHA-256 hash for access control
+- ✅ **Locked Files** - Require encryption key for download
+- ✅ **Admin Cannot Decrypt** - Even admins cannot view encrypted file content or names
 
 ### File Security
-- ⚠️ Files stored unencrypted on disk
-- ⚠️ Password protects download only (not encryption)
-- ⚠️ Metadata stored in-memory (lost on restart)
-- ⚠️ Anyone with file ID can access/delete (no ownership)
+- ✅ Files stored encrypted on disk (content + filename)
+- ✅ Encryption key wrapped with password-derived key (PBKDF2)
+- ✅ Only users with encryption key can decrypt and view files
+- ⚠️ Metadata stored in-memory (lost on server restart)
+- ⚠️ Anyone with file ID can attempt download (but need encryption key)
 
 ### Admin Security
 - ✅ Session-based authentication
