@@ -171,6 +171,16 @@
       outline: none;
       border-color: #1a1a1a;
     }
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    @media (max-width: 600px) {
+      .form-row {
+        grid-template-columns: 1fr;
+      }
+    }
     textarea {
       width: 100%;
       min-height: 180px;
@@ -495,27 +505,29 @@
 
         <div id="selectedFiles" class="selected-files"></div>
 
-        <div class="input-group" style="margin-top: 16px;">
-          <label for="uploadPassword">🔒 Password (optional, for lock)</label>
-          <input type="password" id="uploadPassword" placeholder="Leave empty for public file">
-        </div>
+        <div class="form-row" style="margin-top: 16px;">
+          <div class="input-group">
+            <label for="uploadPassword">🔒 Password (optional, for lock)</label>
+            <input type="password" id="uploadPassword" placeholder="Leave empty for public">
+          </div>
 
-        <div class="input-group" style="margin-top: 16px;">
-          <label for="uploadExpiration">⏱️ Expiration (optional, uses default if not set)</label>
-          <select id="uploadExpiration" style="width: 100%; padding: 10px 12px; border: 1px solid #e0e0e0; border-radius: 6px; font-size: 0.95rem; background: white;">
-            <option value="">Use default</option>
-            <option value="0">No expiration</option>
-            <option value="1800000">30 minutes</option>
-            <option value="3600000">1 hour</option>
-            <option value="7200000">2 hours</option>
-            <option value="10800000">3 hours</option>
-            <option value="14400000">4 hours</option>
-            <option value="28800000">8 hours</option>
-            <option value="43200000">12 hours</option>
-            <option value="86400000">24 hours</option>
-            <option value="172800000">2 days</option>
-            <option value="604800000">7 days</option>
-          </select>
+          <div class="input-group">
+            <label for="uploadExpiration">⏱️ Expiration (optional)</label>
+            <select id="uploadExpiration" style="width: 100%; padding: 10px 12px; border: 1px solid #e0e0e0; border-radius: 6px; font-size: 0.95rem; background: white;">
+              <option value="">Use default</option>
+              <option value="0">No expiration</option>
+              <option value="1800000">30 minutes</option>
+              <option value="3600000">1 hour</option>
+              <option value="7200000">2 hours</option>
+              <option value="10800000">3 hours</option>
+              <option value="14400000">4 hours</option>
+              <option value="28800000">8 hours</option>
+              <option value="43200000">12 hours</option>
+              <option value="86400000">24 hours</option>
+              <option value="172800000">2 days</option>
+              <option value="604800000">7 days</option>
+            </select>
+          </div>
         </div>
 
         <div style="text-align: right; margin-top: 16px;">
@@ -533,26 +545,28 @@
           <label for="filename">Filename (optional)</label>
           <input type="text" id="filename" placeholder="example.txt">
         </div>
-        <div class="input-group">
-          <label for="textPassword">🔒 Password (optional, for lock)</label>
-          <input type="password" id="textPassword" placeholder="Leave empty for public text">
-        </div>
-        <div class="input-group">
-          <label for="textExpiration">⏱️ Expiration (optional, uses default if not set)</label>
-          <select id="textExpiration" style="width: 100%; padding: 10px 12px; border: 1px solid #e0e0e0; border-radius: 6px; font-size: 0.95rem; background: white;">
-            <option value="">Use default</option>
-            <option value="0">No expiration</option>
-            <option value="1800000">30 minutes</option>
-            <option value="3600000">1 hour</option>
-            <option value="7200000">2 hours</option>
-            <option value="10800000">3 hours</option>
-            <option value="14400000">4 hours</option>
-            <option value="28800000">8 hours</option>
-            <option value="43200000">12 hours</option>
-            <option value="86400000">24 hours</option>
-            <option value="172800000">2 days</option>
-            <option value="604800000">7 days</option>
-          </select>
+        <div class="form-row">
+          <div class="input-group">
+            <label for="textPassword">🔒 Password (optional, for lock)</label>
+            <input type="password" id="textPassword" placeholder="Leave empty for public">
+          </div>
+          <div class="input-group">
+            <label for="textExpiration">⏱️ Expiration (optional)</label>
+            <select id="textExpiration" style="width: 100%; padding: 10px 12px; border: 1px solid #e0e0e0; border-radius: 6px; font-size: 0.95rem; background: white;">
+              <option value="">Use default</option>
+              <option value="0">No expiration</option>
+              <option value="1800000">30 minutes</option>
+              <option value="3600000">1 hour</option>
+              <option value="7200000">2 hours</option>
+              <option value="10800000">3 hours</option>
+              <option value="14400000">4 hours</option>
+              <option value="28800000">8 hours</option>
+              <option value="43200000">12 hours</option>
+              <option value="86400000">24 hours</option>
+              <option value="172800000">2 days</option>
+              <option value="604800000">7 days</option>
+            </select>
+          </div>
         </div>
         <textarea id="textContent" placeholder="Paste or type your text content here..."></textarea>
         <div style="text-align: right; margin-top: 16px;">
