@@ -506,13 +506,13 @@ app.post('/api/config', (req, res) => {
   });
 });
 
-// Serve static files from client directory
-app.use(express.static(path.join(__dirname, '../client')));
-
-// Serve AGENT.md for AI agent documentation
+// Serve AGENT.md for AI agent documentation (BEFORE static files)
 app.get('/AGENT.md', (req, res) => {
   res.sendFile(path.join(__dirname, '../AGENT.md'));
 });
+
+// Serve static files from client directory
+app.use(express.static(path.join(__dirname, '../client')));
 
 // Serve index.html for root route
 app.get('/', (req, res) => {
