@@ -23,8 +23,7 @@
       <button class="tab-btn active" onclick="switchTab('upload')">Upload</button>
       <button class="tab-btn" onclick="switchTab('files')">Files</button>
       <button class="tab-btn" onclick="switchTab('config')" id="configTabBtn" style="display: none;">Config</button>
-      <button class="tab-btn" onclick="switchTab('readme')">📖 README</button>
-      <button class="tab-btn" onclick="switchTab('agent')">🤖 Agent</button>
+      <button class="tab-btn" onclick="switchTab('docs')">📚 Docs</button>
     </div>
 
     <!-- Upload Tab -->
@@ -211,25 +210,38 @@
       </div>
     </div>
 
-    <!-- README Tab -->
-    <div id="readme-tab" class="tab-content">
+    <!-- Docs Tab with Sub-tabs -->
+    <div id="docs-tab" class="tab-content">
       <div class="card">
-        <h3 style="font-size: 1rem; margin-bottom: 20px;">📖 README</h3>
-        <div id="readmeContent" style="line-height: 1.8; color: #333;"></div>
-      </div>
-    </div>
-
-    <!-- Agent Tab -->
-    <div id="agent-tab" class="tab-content">
-      <div class="card">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-          <h3 style="font-size: 1rem;">🤖 Agent Documentation</h3>
-          <button class="btn btn-ghost btn-sm" onclick="copyAgentDocs()">📋 Copy All</button>
+        <div class="sub-tabs">
+          <button class="sub-tab-btn active" onclick="switchSubTab('readme')">📖 README.md</button>
+          <button class="sub-tab-btn" onclick="switchSubTab('agent')">🤖 AGENT.md</button>
+          <button class="sub-tab-btn" onclick="switchSubTab('api')">📝 API DOCS.md</button>
         </div>
-        <p style="color: #666; font-size: 0.9rem; margin-bottom: 15px;">
-          Complete project documentation for AI agents. Contains all information needed to understand and work with TETE.
-        </p>
-        <textarea id="agentContent" readonly style="min-height: 500px; font-family: 'Consolas', monospace; font-size: 0.85rem; background: #fafafa;"></textarea>
+        
+        <div id="readme-subtab" class="sub-tab-content active">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <h3 style="font-size: 1rem;">README.md</h3>
+            <button class="btn btn-ghost btn-sm" onclick="copyDocContent('readmeContent')">📋 Copy</button>
+          </div>
+          <textarea id="readmeContent" readonly style="width: 100%; min-height: 600px; font-family: 'Consolas', monospace; font-size: 0.85rem; background: #fafafa; padding: 12px; border: 1px solid #e0e0e0; border-radius: 6px; resize: vertical;"></textarea>
+        </div>
+        
+        <div id="agent-subtab" class="sub-tab-content">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <h3 style="font-size: 1rem;">AGENT.md</h3>
+            <button class="btn btn-ghost btn-sm" onclick="copyDocContent('agentContent')">📋 Copy</button>
+          </div>
+          <textarea id="agentContent" readonly style="width: 100%; min-height: 600px; font-family: 'Consolas', monospace; font-size: 0.85rem; background: #fafafa; padding: 12px; border: 1px solid #e0e0e0; border-radius: 6px; resize: vertical;"></textarea>
+        </div>
+        
+        <div id="api-subtab" class="sub-tab-content">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <h3 style="font-size: 1rem;">API DOCS.md</h3>
+            <button class="btn btn-ghost btn-sm" onclick="copyDocContent('apiContent')">📋 Copy</button>
+          </div>
+          <textarea id="apiContent" readonly style="width: 100%; min-height: 600px; font-family: 'Consolas', monospace; font-size: 0.85rem; background: #fafafa; padding: 12px; border: 1px solid #e0e0e0; border-radius: 6px; resize: vertical;"></textarea>
+        </div>
       </div>
     </div>
   </div>

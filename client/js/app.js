@@ -356,18 +356,36 @@ function switchTab(tab) {
     document.querySelectorAll('.tab-btn')[2].classList.add('active');
     document.getElementById('config-tab').classList.add('active');
     loadConfig();
-  } else if (tab === 'readme') {
+  } else if (tab === 'docs') {
     document.querySelectorAll('.tab-btn')[3].classList.add('active');
-    document.getElementById('readme-tab').classList.add('active');
-    loadReadmeDocs();
-  } else if (tab === 'agent') {
-    document.querySelectorAll('.tab-btn')[4].classList.add('active');
-    document.getElementById('agent-tab').classList.add('active');
-    loadAgentDocs();
+    document.getElementById('docs-tab').classList.add('active');
+    // Load first sub-tab by default
+    switchSubTab('readme');
   }
 
   // Re-initialize custom dropdowns after switching tabs
   setTimeout(initCustomDropdowns, 50);
+}
+
+// Sub-tab switching for Docs
+function switchSubTab(subTab) {
+  // Update sub-tab buttons
+  document.querySelectorAll('.sub-tab-btn').forEach(btn => btn.classList.remove('active'));
+  document.querySelectorAll('.sub-tab-content').forEach(content => content.classList.remove('active'));
+  
+  if (subTab === 'readme') {
+    document.querySelectorAll('.sub-tab-btn')[0].classList.add('active');
+    document.getElementById('readme-subtab').classList.add('active');
+    loadReadmeDoc();
+  } else if (subTab === 'agent') {
+    document.querySelectorAll('.sub-tab-btn')[1].classList.add('active');
+    document.getElementById('agent-subtab').classList.add('active');
+    loadAgentDoc();
+  } else if (subTab === 'api') {
+    document.querySelectorAll('.sub-tab-btn')[2].classList.add('active');
+    document.getElementById('api-subtab').classList.add('active');
+    loadApiDoc();
+  }
 }
 
 // File refresh interval
@@ -384,9 +402,9 @@ function startFileRefresh() {
 }
 
 // Load README documentation
-async function loadReadmeDocs() {
-  const contentDiv = document.getElementById('readmeContent');
-  if (contentDiv.innerHTML && contentDiv.innerHTML.length > 100) return; // Already loaded
+async function loadReadmeDoc() {
+  const textarea = document.getElementById('readmeContent');
+  if (textarea.value) return; // Already loaded
 
   try {
     const response = await fetch('README.md');
@@ -396,15 +414,14 @@ async function loadReadmeDocs() {
     text = text.replace(/http:\/\/localhost:3232/g, API_BASE);
     text = text.replace(/localhost:3232/g, window.location.host);
     
-    // Simple markdown to HTML conversion
-    contentDiv.innerHTML = markdownToHtml(text);
+    textarea.value = text;
   } catch (error) {
-    contentDiv.innerHTML = '<p style="color: #dc3545;">Failed to load README. Please check the README.md file.</p>';
+    textarea.value = '# Failed to load README.md\n\nError: ' + error.message;
   }
 }
 
-// Load agent documentation
-async function loadAgentDocs() {
+// Load AGENT documentation
+async function loadAgentDoc() {
   const textarea = document.getElementById('agentContent');
   if (textarea.value) return;
 
@@ -418,128 +435,35 @@ async function loadAgentDocs() {
     
     textarea.value = text;
   } catch (error) {
-    textarea.value = '# TETE - Transient Endpoint for Transfer & Encryption\n\nLoading failed. See AGENT.md file in repository.';
+    textarea.value = '# Failed to load AGENT.md\n\nError: ' + error.message;
   }
 }
 
-// Improved markdown to HTML converter
-function markdownToHtml(md) {
-  let html = md;
-  
-  // Store code blocks to protect them from other transformations
-  const codeBlocks = [];
-  html = html.replace(/```([\s\S]*?)```/gim, (match, code) => {
-    codeBlocks.push(code);
-    return `%%CODEBLOCK${codeBlocks.length - 1}%%`;
-  });
-  
-  // Store inline code to protect them
-  const inlineCodes = [];
-  html = html.replace(/`([^`]+)`/gim, (match, code) => {
-    inlineCodes.push(code);
-    return `%%INLINECODE${inlineCodes.length - 1}%%`;
-  });
-  
-  // Escape HTML (but not in code blocks which are already extracted)
-  html = html
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-  
-  // Headers (with better styling classes)
-  html = html.replace(/^#### (.*$)/gim, '<h4 class="readme-h4">$1</h4>');
-  html = html.replace(/^### (.*$)/gim, '<h3 class="readme-h3">$1</h3>');
-  html = html.replace(/^## (.*$)/gim, '<h2 class="readme-h2">$1</h2>');
-  html = html.replace(/^# (.*$)/gim, '<h1 class="readme-h1">$1</h1>');
-  
-  // Bold
-  html = html.replace(/\*\*(.+?)\*\*/gim, '<strong>$1</strong>');
-  
-  // Italic
-  html = html.replace(/\*(.+?)\*/gim, '<em>$1</em>');
-  
-  // Strikethrough
-  html = html.replace(/~~(.+?)~~/gim, '<del>$1</del>');
-  
-  // Links
-  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/gim, '<a href="$2" target="_blank" class="readme-link">$1</a>');
-  
-  // Images
-  html = html.replace(/!\[([^\]]+)\]\(([^)]+)\)/gim, '<img src="$2" alt="$1" class="readme-image">');
-  
-  // Blockquotes
-  html = html.replace(/^> (.*$)/gim, '<blockquote class="readme-blockquote">$1</blockquote>');
-  
-  // Horizontal rules
-  html = html.replace(/^---$/gim, '<hr class="readme-hr">');
-  
-  // Tables (basic support)
-  html = html.replace(/^\|(.+)\|$/gim, (match, content) => {
-    const cells = content.split('|').map(cell => cell.trim());
-    const tag = cells[0].match(/^---/) ? 'th' : 'td';
-    return `<tr>${cells.map(c => `<${tag}>${c}</${tag}>`).join('')}</tr>`;
-  });
-  html = html.replace(/(<tr>.+<\/tr>\n?)+/gim, '<table class="readme-table">$&</table>');
-  
-  // Unordered lists - improved handling
-  html = html.replace(/^\s*[-*+]\s+(.*$)/gim, '<li class="readme-li">$1</li>');
-  html = html.replace(/(<li class="readme-li">.*<\/li>\n?)+/gim, '<ul class="readme-ul">$&</ul>');
-  
-  // Ordered lists
-  html = html.replace(/^\s*\d+\.\s+(.*$)/gim, '<li class="readme-li">$1</li>');
-  
-  // Task lists
-  html = html.replace(/^\s*[-*+]\s+\[x\]\s+(.*$)/gim, '<li class="readme-li task-done">✅ $1</li>');
-  html = html.replace(/^\s*[-*+]\s+\[ \]\s+(.*$)/gim, '<li class="readme-li task">$1</li>');
-  
-  // Line breaks (preserve paragraph structure)
-  const paragraphs = html.split(/\n\n+/);
-  html = paragraphs.map(p => {
-    p = p.trim();
-    if (!p) return '';
-    // Don't wrap headers, lists, blockquotes, tables, or code
-    if (p.match(/^<(h[1-6]|ul|ol|li|blockquote|table|tr|td|th|pre|%%CODEBLOCK)/i)) {
-      return p.replace(/\n/gim, '<br>');
-    }
-    return `<p class="readme-p">${p.replace(/\n/gim, '<br>')}</p>`;
-  }).join('\n');
-  
-  // Restore code blocks
-  codeBlocks.forEach((code, index) => {
-    html = html.replace(`%%CODEBLOCK${index + 1}%%`, `<pre class="readme-pre"><code>${code}</code></pre>`);
-  });
-  
-  // Restore inline codes
-  inlineCodes.forEach((code, index) => {
-    html = html.replace(`%%INLINECODE${index + 1}%%`, `<code class="readme-code">${code}</code>`);
-  });
-  
-  // Clean up multiple br tags
-  html = html.replace(/(<br>){3,}/gim, '<br><br>');
-  
-  // Clean up empty paragraphs
-  html = html.replace(/<p class="readme-p"><\/p>/gim, '');
-  
-  return html;
+// Load API DOCS documentation
+async function loadApiDoc() {
+  const textarea = document.getElementById('apiContent');
+  if (textarea.value) return;
+
+  try {
+    const response = await fetch('API.md');
+    let text = await response.text();
+    
+    // Replace localhost:3232 with actual base URL
+    text = text.replace(/http:\/\/localhost:3232/g, API_BASE);
+    text = text.replace(/localhost:3232/g, window.location.host);
+    
+    textarea.value = text;
+  } catch (error) {
+    textarea.value = '# Failed to load API.md\n\nError: ' + error.message;
+  }
 }
 
-// Copy README docs
-function copyReadmeDocs() {
-  const content = document.getElementById('readmeContent');
-  const text = content.innerText;
-  navigator.clipboard.writeText(text).then(() => {
-    showToast('README copied to clipboard');
-  }).catch(() => {
-    showToast('Failed to copy README');
-  });
-}
-
-// Copy agent docs
-function copyAgentDocs() {
-  const textarea = document.getElementById('agentContent');
+// Copy document content
+function copyDocContent(elementId) {
+  const textarea = document.getElementById(elementId);
   textarea.select();
   document.execCommand('copy');
-  showToast('Agent docs copied to clipboard');
+  showToast('Copied to clipboard');
 }
 
 // Config functions
