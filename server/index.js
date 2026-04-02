@@ -4,6 +4,8 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const cookieParser = require('cookie-parser');
+const session = require('express-session');
 
 const app = express();
 const PORT = 3232;
@@ -17,6 +19,10 @@ if (!fs.existsSync(UPLOADS_DIR)) {
 
 // Metadata storage (in-memory, for persistence use a database)
 const fileMetadata = new Map();
+
+// Admin password (change this in production!)
+const ADMIN_PASSWORD = 'admin123';
+const ADMIN_PASSWORD_HASH = hashPassword(ADMIN_PASSWORD);
 
 // Config storage
 const CONFIG_FILE = path.join(__dirname, 'config.json');
@@ -71,15 +77,50 @@ function generateShortId() {
   return crypto.randomBytes(3).toString('hex');
 }
 
+// Generate user ID (for cookie-based tracking)
+function generateUserId() {
+  return crypto.randomBytes(16).toString('hex');
+}
+
 // Hash password
 function hashPassword(password) {
   return crypto.createHash('sha256').update(password).digest('hex');
 }
 
 // Middleware
-app.use(cors());
+app.use(cookieParser());
+app.use(session({
+  secret: crypto.randomBytes(32).toString('hex'),
+  resave: false,
+  saveUninitialized: true,
+  cookie: { 
+    secure: false, // Set to true in production with HTTPS
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  }
+}));
+app.use(cors({
+  origin: true,
+  credentials: true
+}));
 app.use(express.json());
 app.use(express.text());
+
+// Middleware to assign user ID cookie if not exists
+app.use((req, res, next) => {
+  if (!req.cookies.userId) {
+    const userId = generateUserId();
+    res.cookie('userId', userId, { 
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+      httpOnly: true,
+      sameSite: 'lax'
+    });
+    req.userId = userId;
+  } else {
+    req.userId = req.cookies.userId;
+  }
+  next();
+});
 
 // Multer configuration for file uploads
 const storage = multer.diskStorage({
@@ -128,6 +169,7 @@ app.post('/api/upload', upload.array('files', 100), (req, res) => {
     const files = req.files || [];
     const password = req.body.password;
     const expiration = req.body.expiration ? parseInt(req.body.expiration) : null;
+    const userId = req.userId;
     const results = [];
 
     files.forEach(file => {
@@ -145,7 +187,8 @@ app.post('/api/upload', upload.array('files', 100), (req, res) => {
         uploadedAt: new Date().toISOString(),
         expiresAt: expTime ? Date.now() + expTime : null,
         locked: !!password,
-        passwordHash: password ? hashPassword(password) : null
+        passwordHash: password ? hashPassword(password) : null,
+        userId: userId
       };
 
       saveFileMetadata(id, metadata);
@@ -177,6 +220,7 @@ app.post('/api/upload', upload.array('files', 100), (req, res) => {
 app.post('/api/text', (req, res) => {
   try {
     const { text, filename, password, expiration } = req.body;
+    const userId = req.userId;
 
     if (!text) {
       return res.status(400).json({ error: 'Text content is required' });
@@ -199,7 +243,8 @@ app.post('/api/text', (req, res) => {
       uploadedAt: new Date().toISOString(),
       expiresAt: expTime ? Date.now() + expTime : null,
       locked: !!password,
-      passwordHash: password ? hashPassword(password) : null
+      passwordHash: password ? hashPassword(password) : null,
+      userId: userId
     };
 
     saveFileMetadata(id, metadata);
@@ -231,6 +276,7 @@ app.post('/api', upload.single('file'), (req, res) => {
 
     const password = req.body.password;
     const expiration = req.body.expiration ? parseInt(req.body.expiration) : null;
+    const userId = req.userId;
     const id = generateShortId();
     const filePath = path.join(UPLOADS_DIR, req.file.filename);
     const stats = fs.statSync(filePath);
@@ -245,7 +291,8 @@ app.post('/api', upload.single('file'), (req, res) => {
       uploadedAt: new Date().toISOString(),
       expiresAt: expTime ? Date.now() + expTime : null,
       locked: !!password,
-      passwordHash: password ? hashPassword(password) : null
+      passwordHash: password ? hashPassword(password) : null,
+      userId: userId
     };
 
     saveFileMetadata(id, metadata);
@@ -358,7 +405,7 @@ app.delete('/file/:id', (req, res) => {
   }
 
   const filePath = path.join(UPLOADS_DIR, metadata.filename);
-  
+
   if (fs.existsSync(filePath)) {
     fs.unlinkSync(filePath);
   }
@@ -367,40 +414,93 @@ app.delete('/file/:id', (req, res) => {
   res.json({ success: true, message: 'File deleted successfully' });
 });
 
-// API: List all files
+// API: List all files (filtered by user for non-admin, all files for admin)
 app.get('/api/files', (req, res) => {
   const baseUrl = getBaseUrl(req);
-  const files = Array.from(fileMetadata.values()).map(metadata => ({
+  const isAdmin = req.session && req.session.isAdmin;
+  const userId = req.userId;
+  
+  let files = Array.from(fileMetadata.values());
+  
+  // Filter by userId if not admin
+  if (!isAdmin) {
+    files = files.filter(f => f.userId === userId);
+  }
+  
+  const result = files.map(metadata => ({
     id: metadata.id,
     originalName: metadata.originalName,
     mimeType: metadata.mimeType,
     size: metadata.size,
     uploadedAt: metadata.uploadedAt,
     expiresAt: metadata.expiresAt,
+    locked: metadata.locked || false,
     url: `${baseUrl}/file/${metadata.id}`,
     downloadUrl: `${baseUrl}/file/${metadata.id}/download`,
     deleteUrl: `${baseUrl}/file/${metadata.id}`
   }));
 
-  res.json(files);
+  res.json(result);
 });
 
-// API: Get config
+// API: Admin login
+app.post('/api/admin/login', (req, res) => {
+  const { password } = req.body;
+  
+  if (!password) {
+    return res.status(400).json({ error: 'Password required' });
+  }
+  
+  const hashedPassword = hashPassword(password);
+  
+  if (hashedPassword === ADMIN_PASSWORD_HASH) {
+    req.session.isAdmin = true;
+    res.json({ success: true, message: 'Login successful' });
+  } else {
+    res.status(401).json({ error: 'Invalid password' });
+  }
+});
+
+// API: Admin logout
+app.post('/api/admin/logout', (req, res) => {
+  if (req.session) {
+    req.session.isAdmin = false;
+  }
+  res.json({ success: true, message: 'Logout successful' });
+});
+
+// API: Check admin status
+app.get('/api/admin/status', (req, res) => {
+  res.json({
+    isAdmin: req.session && req.session.isAdmin ? true : false
+  });
+});
+
+// API: Get config (admin only)
 app.get('/api/config', (req, res) => {
+  const isAdmin = req.session && req.session.isAdmin;
+  if (!isAdmin) {
+    return res.status(403).json({ error: 'Admin access required' });
+  }
   res.json({
     defaultExpiration: appConfig.defaultExpiration
   });
 });
 
-// API: Update config
+// API: Update config (admin only)
 app.post('/api/config', (req, res) => {
-  const { defaultExpiration } = req.body;
+  const isAdmin = req.session && req.session.isAdmin;
+  if (!isAdmin) {
+    return res.status(403).json({ error: 'Admin access required' });
+  }
   
+  const { defaultExpiration } = req.body;
+
   if (defaultExpiration !== undefined) {
     appConfig.defaultExpiration = parseInt(defaultExpiration);
     saveConfig();
   }
-  
+
   res.json({
     defaultExpiration: appConfig.defaultExpiration
   });

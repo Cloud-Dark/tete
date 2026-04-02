@@ -7,13 +7,19 @@
     "start": "node server/index.js",
     "dev": "node server/index.js"
   },
-  "keywords": ["file-sharing", "upload", "temp"],
+  "keywords": [
+    "file-sharing",
+    "upload",
+    "temp"
+  ],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "express": "^5.2.1",
+    "express-session": "^1.19.0",
     "multer": "^2.1.1",
     "uuid": "^13.0.0"
   }

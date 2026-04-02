@@ -36,6 +36,25 @@
       color: #888;
       font-size: 0.95rem;
     }
+    .header-actions {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .admin-badge {
+      background: #1a1a1a;
+      color: white;
+      padding: 4px 12px;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      font-weight: 500;
+    }
+    .user-info {
+      color: #666;
+      font-size: 0.85rem;
+    }
     .tabs {
       display: flex;
       border-bottom: 1px solid #e0e0e0;
@@ -448,6 +467,10 @@
 <body>
   <div class="container">
     <header>
+      <div class="header-actions">
+        <div id="adminStatus" class="user-info"></div>
+        <button id="adminBtn" class="btn btn-sm btn-ghost" onclick="toggleAdminAuth()">🔐 Admin Login</button>
+      </div>
       <h1>TETE</h1>
       <p>Transient Endpoint for Transfer & Encryption</p>
     </header>
@@ -455,7 +478,7 @@
     <div class="tabs">
       <button class="tab-btn active" onclick="switchTab('upload')">Upload</button>
       <button class="tab-btn" onclick="switchTab('files')">Files</button>
-      <button class="tab-btn" onclick="switchTab('config')">Config</button>
+      <button class="tab-btn" onclick="switchTab('config')" id="configTabBtn" style="display: none;">Config</button>
       <button class="tab-btn" onclick="switchTab('docs')">API Docs</button>
       <button class="tab-btn" onclick="switchTab('agent')">Agent</button>
     </div>
@@ -667,11 +690,24 @@
     </div>
   </div>
 
+  <div id="adminModal" class="modal-overlay">
+    <div class="modal">
+      <h3>🔐 Admin Login</h3>
+      <p>Enter admin password to access all files</p>
+      <input type="password" id="adminPassword" placeholder="Admin password">
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeAdminModal()">Cancel</button>
+        <button class="btn" onclick="submitAdminLogin()">Login</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     const API_BASE = window.location.origin;
     let selectedFiles = [];
     let openDropdown = null;
     let pendingDownloadUrl = null;
+    let isAdmin = false;
 
     function showToast(message) {
       const toast = document.getElementById('toast');
@@ -704,6 +740,100 @@
       }
       closePasswordModal();
     }
+
+    // Admin authentication functions
+    function toggleAdminAuth() {
+      if (isAdmin) {
+        // Logout
+        logoutAdmin();
+      } else {
+        // Login
+        document.getElementById('adminPassword').value = '';
+        document.getElementById('adminModal').classList.add('show');
+        document.getElementById('adminPassword').focus();
+      }
+    }
+
+    function closeAdminModal() {
+      document.getElementById('adminModal').classList.remove('show');
+    }
+
+    async function submitAdminLogin() {
+      const password = document.getElementById('adminPassword').value;
+      if (!password) {
+        showToast('Please enter password');
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}/api/admin/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ password })
+        });
+
+        if (response.ok) {
+          isAdmin = true;
+          showToast('Login successful');
+          closeAdminModal();
+          updateAdminStatus();
+          loadFiles(); // Reload files to show all
+        } else {
+          const result = await response.json();
+          showToast(result.error || 'Login failed');
+        }
+      } catch (error) {
+        showToast('Login error: ' + error.message);
+      }
+    }
+
+    async function logoutAdmin() {
+      try {
+        await fetch(`${API_BASE}/api/admin/logout`, {
+          method: 'POST',
+          credentials: 'include'
+        });
+        isAdmin = false;
+        showToast('Logged out');
+        updateAdminStatus();
+        loadFiles(); // Reload files to show only user's files
+      } catch (error) {
+        showToast('Logout error: ' + error.message);
+      }
+    }
+
+    function updateAdminStatus() {
+      const adminStatus = document.getElementById('adminStatus');
+      const adminBtn = document.getElementById('adminBtn');
+      const configTabBtn = document.getElementById('configTabBtn');
+
+      if (isAdmin) {
+        adminStatus.innerHTML = '<span class="admin-badge">👑 Admin</span>';
+        adminBtn.textContent = '🚪 Logout';
+        configTabBtn.style.display = 'block';
+      } else {
+        adminStatus.textContent = '';
+        adminBtn.textContent = '🔐 Admin Login';
+        configTabBtn.style.display = 'none';
+      }
+    }
+
+    async function checkAdminStatus() {
+      try {
+        const response = await fetch(`${API_BASE}/api/admin/status`, {
+          credentials: 'include'
+        });
+        const result = await response.json();
+        isAdmin = result.isAdmin;
+        updateAdminStatus();
+      } catch (error) {
+        console.error('Error checking admin status:', error);
+      }
+    }
+
+    // Check admin status on page load
+    checkAdminStatus();
 
     // Handle Enter key in password modal
     document.addEventListener('keydown', (e) => {
@@ -770,8 +900,14 @@
     }
 
     async function loadConfig() {
+      if (!isAdmin) {
+        showToast('Admin access required');
+        return;
+      }
       try {
-        const response = await fetch(`${API_BASE}/api/config`);
+        const response = await fetch(`${API_BASE}/api/config`, {
+          credentials: 'include'
+        });
         const config = await response.json();
         document.getElementById('defaultExpiration').value = config.defaultExpiration.toString();
       } catch (error) {
@@ -781,19 +917,25 @@
     }
 
     async function saveConfig() {
+      if (!isAdmin) {
+        showToast('Admin access required');
+        return;
+      }
+      
       const btn = document.getElementById('saveConfigBtn');
       const expiration = document.getElementById('defaultExpiration').value;
-      
+
       btn.disabled = true;
       btn.innerHTML = '<span class="loading"></span> Saving...';
-      
+
       try {
         const response = await fetch(`${API_BASE}/api/config`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify({ defaultExpiration: parseInt(expiration) })
         });
-        
+
         if (response.ok) {
           showToast('Configuration saved');
         } else {
@@ -1104,7 +1246,9 @@
       fileList.innerHTML = '<li class="empty-state"><p>Loading...</p></li>';
 
       try {
-        const response = await fetch(`${API_BASE}/api/files`);
+        const response = await fetch(`${API_BASE}/api/files`, {
+          credentials: 'include'
+        });
         const files = await response.json();
 
         if (files.length === 0) {
