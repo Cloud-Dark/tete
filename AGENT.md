@@ -18,7 +18,7 @@
 ```bash
 npm install
 npm start
-# Server runs on http://localhost:3232
+# Server runs on {{BASE_URL}}
 ```
 
 ### Run with PM2
@@ -61,46 +61,46 @@ pm2 restart tete
 
 ### Upload File (Public)
 ```bash
-curl -F "file=@myfile.txt" http://localhost:3232/api
+curl -F "file=@myfile.txt" {{BASE_URL}}/api
 ```
 
 ### Upload File (Locked)
 ```bash
-curl -F "file=@secret.txt" -F "password=mysecret" http://localhost:3232/api
+curl -F "file=@secret.txt" -F "password=mysecret" {{BASE_URL}}/api
 ```
 
 ### Upload Text
 ```bash
 curl -H "Content-Type: application/json" \
   -d '{"text": "Hello World", "filename": "test.txt"}' \
-  http://localhost:3232/api/text
+  {{BASE_URL}}/api/text
 ```
 
 ### Download (Public)
 ```bash
-curl -O http://localhost:3232/file/a1b2c3/download
+curl -O {{BASE_URL}}/file/a1b2c3/download
 ```
 
 ### Download (Locked)
 ```bash
-curl -O "http://localhost:3232/file/a1b2c3/download?password=mysecret"
+curl -O "{{BASE_URL}}/file/a1b2c3/download?password=mysecret"
 ```
 
 ### Get File Info
 ```bash
-curl http://localhost:3232/file/a1b2c3
+curl {{BASE_URL}}/file/a1b2c3
 ```
 
 ### Delete File
 ```bash
-curl -X DELETE http://localhost:3232/file/a1b2c3
+curl -X DELETE {{BASE_URL}}/file/a1b2c3
 ```
 
 ### Verify Password
 ```bash
 curl -X POST -H "Content-Type: application/json" \
   -d '{"password": "mysecret"}' \
-  http://localhost:3232/file/a1b2c3/verify
+  {{BASE_URL}}/file/a1b2c3/verify
 ```
 
 ---
@@ -117,9 +117,9 @@ curl -X POST -H "Content-Type: application/json" \
   "size": 1024,
   "uploadedAt": "2024-01-15T10:30:00.000Z",
   "locked": true,
-  "url": "http://localhost:3232/file/a1b2c3",
-  "downloadUrl": "http://localhost:3232/file/a1b2c3/download",
-  "deleteUrl": "http://localhost:3232/file/a1b2c3"
+  "url": "{{BASE_URL}}/file/a1b2c3",
+  "downloadUrl": "{{BASE_URL}}/file/a1b2c3/download",
+  "deleteUrl": "{{BASE_URL}}/file/a1b2c3"
 }
 ```
 
@@ -132,9 +132,9 @@ curl -X POST -H "Content-Type: application/json" \
   "size": 1024,
   "uploadedAt": "2024-01-15T10:30:00.000Z",
   "locked": true,
-  "url": "http://localhost:3232/file/a1b2c3",
-  "downloadUrl": "http://localhost:3232/file/a1b2c3/download",
-  "deleteUrl": "http://localhost:3232/file/a1b2c3"
+  "url": "{{BASE_URL}}/file/a1b2c3",
+  "downloadUrl": "{{BASE_URL}}/file/a1b2c3/download",
+  "deleteUrl": "{{BASE_URL}}/file/a1b2c3"
 }
 ```
 
@@ -233,27 +233,27 @@ tete/
 
 ### 1. Share Public File
 ```bash
-curl -F "file=@document.pdf" http://localhost:3232/api
+curl -F "file=@document.pdf" {{BASE_URL}}/api
 # Returns: {"url": "...", "downloadUrl": "..."}
 ```
 
 ### 2. Share Secret File
 ```bash
-curl -F "file=@secret.pdf" -F "password=pass123" http://localhost:3232/api
-# Share: http://localhost:3232/file/abc123/download?password=pass123
+curl -F "file=@secret.pdf" -F "password=pass123" {{BASE_URL}}/api
+# Share: {{BASE_URL}}/file/abc123/download?password=pass123
 ```
 
 ### 3. Share Text Snippet
 ```bash
 curl -H "Content-Type: application/json" \
   -d '{"text": "Sensitive data here", "password": "secret"}' \
-  http://localhost:3232/api/text
+  {{BASE_URL}}/api/text
 ```
 
 ### 4. Automate Backup
 ```bash
 tar czf backup.tar.gz /data
-curl -F "file=@backup.tar.gz" -F "password=backup123" http://localhost:3232/api
+curl -F "file=@backup.tar.gz" -F "password=backup123" {{BASE_URL}}/api
 # Save the downloadUrl for retrieval
 ```
 

@@ -507,8 +507,23 @@ app.post('/api/config', (req, res) => {
 });
 
 // Serve AGENT.md for AI agent documentation (BEFORE static files)
+// Auto-replace {{BASE_URL}} placeholder with actual server URL
 app.get('/AGENT.md', (req, res) => {
-  res.sendFile(path.join(__dirname, '../AGENT.md'));
+  const baseUrl = getBaseUrl(req);
+  const agentPath = path.join(__dirname, '../AGENT.md');
+  
+  try {
+    let content = fs.readFileSync(agentPath, 'utf-8');
+    // Replace all occurrences of {{BASE_URL}} with actual base URL
+    content = content.replace(/{{BASE_URL}}/g, baseUrl);
+    // Also replace localhost:3232 for backward compatibility
+    content = content.replace(/http:\/\/localhost:3232/g, baseUrl);
+    res.setHeader('Content-Type', 'text/markdown');
+    res.send(content);
+  } catch (error) {
+    console.error('Error serving AGENT.md:', error);
+    res.status(500).send('Error loading AGENT.md');
+  }
 });
 
 // Serve static files from client directory
