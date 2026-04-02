@@ -176,8 +176,13 @@
       grid-template-columns: 1fr 1fr;
       gap: 16px;
     }
+    .form-row-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 16px;
+    }
     @media (max-width: 600px) {
-      .form-row {
+      .form-row, .form-row-3 {
         grid-template-columns: 1fr;
       }
     }
@@ -545,13 +550,13 @@
           <label for="filename">Filename (optional)</label>
           <input type="text" id="filename" placeholder="example.txt">
         </div>
-        <div class="form-row">
+        <div class="form-row-3" style="margin-top: 16px;">
           <div class="input-group">
-            <label for="textPassword">🔒 Password (optional, for lock)</label>
-            <input type="password" id="textPassword" placeholder="Leave empty for public">
+            <label for="textPassword">🔒 Password (optional)</label>
+            <input type="password" id="textPassword" placeholder="Leave empty">
           </div>
           <div class="input-group">
-            <label for="textExpiration">⏱️ Expiration (optional)</label>
+            <label for="textExpiration">⏱️ Expiration</label>
             <select id="textExpiration" style="width: 100%; padding: 10px 12px; border: 1px solid #e0e0e0; border-radius: 6px; font-size: 0.95rem; background: white;">
               <option value="">Use default</option>
               <option value="0">No expiration</option>
