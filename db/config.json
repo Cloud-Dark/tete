@@ -1,0 +1,10 @@
+{
+  "port": 3232,
+  "host": "0.0.0.0",
+  "maxFileSize": 104857600,
+  "maxFilesPerUpload": 100,
+  "idLength": 6,
+  "defaultExpiration": 3600000,
+  "enableExpiration": true,
+  "adminPasswordHash": "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918"
+}

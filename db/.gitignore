@@ -1,0 +1,10 @@
+# Keep config and structure
+!config.json
+!memory.json
+
+# Sensitive data - ignore
+admin.json
+sessions.json
+
+# Lock file
+*.lock
