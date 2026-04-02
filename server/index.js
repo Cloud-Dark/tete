@@ -506,6 +506,11 @@ app.post('/api/admin/login', (req, res) => {
 
   if (hashedPassword === config.adminPasswordHash) {
     req.session.isAdmin = true;
+    console.log('Admin login - session set:', {
+      sessionId: req.sessionID,
+      isAdmin: req.session.isAdmin,
+      keys: Object.keys(req.session)
+    });
     res.json({ success: true, message: 'Login successful' });
   } else {
     res.status(401).json({ error: 'Invalid password' });
@@ -522,6 +527,12 @@ app.post('/api/admin/logout', (req, res) => {
 
 // API: Check admin status
 app.get('/api/admin/status', (req, res) => {
+  console.log('Admin status check:', {
+    sessionId: req.sessionID,
+    hasSession: !!req.session,
+    isAdmin: req.session?.isAdmin,
+    keys: req.session ? Object.keys(req.session) : []
+  });
   res.json({
     isAdmin: req.session && req.session.isAdmin ? true : false
   });
@@ -571,6 +582,12 @@ app.post('/api/admin/change-password', (req, res) => {
 // API: Get config (admin only)
 app.get('/api/config', (req, res) => {
   const isAdmin = req.session && req.session.isAdmin;
+  console.log('GET /api/config:', {
+    sessionId: req.sessionID,
+    hasSession: !!req.session,
+    isAdmin: isAdmin,
+    keys: req.session ? Object.keys(req.session) : []
+  });
   if (!isAdmin) {
     return res.status(403).json({ error: 'Admin access required' });
   }
@@ -586,6 +603,7 @@ app.post('/api/config', (req, res) => {
   
   // Log session info for debugging
   console.log('POST /api/config:', {
+    sessionId: req.sessionID,
     hasSession: !!session,
     isAdmin: isAdmin,
     sessionKeys: session ? Object.keys(session) : [],

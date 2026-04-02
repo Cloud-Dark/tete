@@ -189,7 +189,7 @@ async function submitAdminLogin() {
     const response = await fetch(`${API_BASE}/api/admin/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
+      credentials: 'same-origin',
       body: JSON.stringify({ password })
     });
 
@@ -212,7 +212,7 @@ async function logoutAdmin() {
   try {
     await fetch(`${API_BASE}/api/admin/logout`, {
       method: 'POST',
-      credentials: 'include'
+      credentials: 'same-origin'
     });
     isAdmin = false;
     showToast('Logged out');
@@ -242,7 +242,7 @@ function updateAdminStatus() {
 async function checkAdminStatus() {
   try {
     const response = await fetch(`${API_BASE}/api/admin/status`, {
-      credentials: 'include'
+      credentials: 'same-origin'
     });
     const result = await response.json();
     isAdmin = result.isAdmin;
@@ -316,7 +316,7 @@ async function loadConfig() {
   }
   try {
     const response = await fetch(`${API_BASE}/api/config`, {
-      credentials: 'include'
+      credentials: 'same-origin'
     });
     const config = await response.json();
     document.getElementById('defaultExpiration').value = config.defaultExpiration.toString();
@@ -341,10 +341,14 @@ async function saveConfig() {
   try {
     console.log('Saving config:', expiration);
     
+    // Use XMLHttpRequest for better cookie handling
     const response = await fetch(`${API_BASE}/api/config`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include', // Important: send cookies
+      headers: { 
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      credentials: 'same-origin', // Send cookies to same origin
       body: JSON.stringify({ defaultExpiration: parseInt(expiration) })
     });
 
@@ -360,7 +364,7 @@ async function saveConfig() {
       if (result.error === 'Admin access required') {
         console.log('Checking admin status...');
         const statusResponse = await fetch(`${API_BASE}/api/admin/status`, {
-          credentials: 'include'
+          credentials: 'same-origin'
         });
         const status = await statusResponse.json();
         console.log('Admin status:', status);
@@ -409,7 +413,7 @@ async function changePassword() {
     const verifyResponse = await fetch(`${API_BASE}/api/admin/verify-password`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
+      credentials: 'same-origin',
       body: JSON.stringify({ password: currentPassword })
     });
 
@@ -423,7 +427,7 @@ async function changePassword() {
     const response = await fetch(`${API_BASE}/api/admin/change-password`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
+      credentials: 'same-origin',
       body: JSON.stringify({ newPassword })
     });
 
@@ -794,7 +798,7 @@ async function loadFiles() {
 
   try {
     const response = await fetch(`${API_BASE}/api/files`, {
-      credentials: 'include'
+      credentials: 'same-origin'
     });
     const files = await response.json();
 
