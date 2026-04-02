@@ -339,17 +339,37 @@ async function saveConfig() {
   btn.innerHTML = '<span class="loading"></span> Saving...';
 
   try {
+    console.log('Saving config:', expiration);
+    
     const response = await fetch(`${API_BASE}/api/config`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
+      credentials: 'include', // Important: send cookies
       body: JSON.stringify({ defaultExpiration: parseInt(expiration) })
     });
+
+    console.log('Response status:', response.status);
+    const result = await response.json();
+    console.log('Response:', result);
 
     if (response.ok) {
       showToast('Configuration saved');
     } else {
-      showToast('Failed to save config');
+      showToast(result.error || 'Failed to save config');
+      // If admin access required, check admin status
+      if (result.error === 'Admin access required') {
+        console.log('Checking admin status...');
+        const statusResponse = await fetch(`${API_BASE}/api/admin/status`, {
+          credentials: 'include'
+        });
+        const status = await statusResponse.json();
+        console.log('Admin status:', status);
+        if (!status.isAdmin) {
+          showToast('Session expired, please login again');
+          isAdmin = false;
+          updateAdminStatus();
+        }
+      }
     }
   } catch (error) {
     console.error('Error saving config:', error);

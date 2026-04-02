@@ -571,7 +571,16 @@ app.get('/api/config', (req, res) => {
 
 // API: Update config (admin only)
 app.post('/api/config', (req, res) => {
-  const isAdmin = req.session && req.session.isAdmin;
+  const session = req.session;
+  const isAdmin = session && session.isAdmin;
+  
+  // Log session info for debugging
+  console.log('POST /api/config:', {
+    hasSession: !!session,
+    isAdmin: isAdmin,
+    sessionKeys: session ? Object.keys(session) : [],
+    cookie: req.headers.cookie ? 'present' : 'missing'
+  });
   
   if (!isAdmin) {
     return res.status(403).json({ error: 'Admin access required' });
