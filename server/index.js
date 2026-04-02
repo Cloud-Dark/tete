@@ -18,6 +18,54 @@ if (!fs.existsSync(UPLOADS_DIR)) {
 // Metadata storage (in-memory, for persistence use a database)
 const fileMetadata = new Map();
 
+// Config storage
+const CONFIG_FILE = path.join(__dirname, 'config.json');
+let appConfig = {
+  defaultExpiration: 3600000 // Default 1 hour in milliseconds
+};
+
+// Load config from file
+function loadConfig() {
+  try {
+    if (fs.existsSync(CONFIG_FILE)) {
+      const savedConfig = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8'));
+      appConfig = { ...appConfig, ...savedConfig };
+    }
+  } catch (error) {
+    console.error('Error loading config:', error);
+  }
+}
+
+// Save config to file
+function saveConfig() {
+  try {
+    fs.writeFileSync(CONFIG_FILE, JSON.stringify(appConfig, null, 2), 'utf-8');
+  } catch (error) {
+    console.error('Error saving config:', error);
+  }
+}
+
+// Load config on startup
+loadConfig();
+
+// Auto-delete expired files
+function deleteExpiredFiles() {
+  const now = Date.now();
+  fileMetadata.forEach((metadata, id) => {
+    if (metadata.expiresAt && metadata.expiresAt <= now) {
+      const filePath = path.join(UPLOADS_DIR, metadata.filename);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+      fileMetadata.delete(id);
+      console.log(`Auto-deleted expired file: ${id}`);
+    }
+  });
+}
+
+// Check for expired files every minute
+setInterval(deleteExpiredFiles, 60000);
+
 // Generate short 6-character hex ID
 function generateShortId() {
   return crypto.randomBytes(3).toString('hex');
@@ -79,6 +127,7 @@ app.post('/api/upload', upload.array('files', 100), (req, res) => {
   try {
     const files = req.files || [];
     const password = req.body.password;
+    const expiration = req.body.expiration ? parseInt(req.body.expiration) : null;
     const results = [];
 
     files.forEach(file => {
@@ -86,6 +135,7 @@ app.post('/api/upload', upload.array('files', 100), (req, res) => {
       const filePath = path.join(UPLOADS_DIR, file.filename);
       const stats = fs.statSync(filePath);
 
+      const expTime = expiration !== null ? expiration : appConfig.defaultExpiration;
       const metadata = {
         id,
         originalName: file.originalname,
@@ -93,6 +143,7 @@ app.post('/api/upload', upload.array('files', 100), (req, res) => {
         mimeType: file.mimetype,
         size: stats.size,
         uploadedAt: new Date().toISOString(),
+        expiresAt: expTime ? Date.now() + expTime : null,
         locked: !!password,
         passwordHash: password ? hashPassword(password) : null
       };
@@ -106,6 +157,7 @@ app.post('/api/upload', upload.array('files', 100), (req, res) => {
         downloadUrl: `${baseUrl}/file/${id}/download`,
         deleteUrl: `${baseUrl}/file/${id}`,
         locked: !!password,
+        expiresAt: metadata.expiresAt,
         ...metadata
       });
     });
@@ -124,7 +176,7 @@ app.post('/api/upload', upload.array('files', 100), (req, res) => {
 // API: Upload text content
 app.post('/api/text', (req, res) => {
   try {
-    const { text, filename, password } = req.body;
+    const { text, filename, password, expiration } = req.body;
 
     if (!text) {
       return res.status(400).json({ error: 'Text content is required' });
@@ -137,6 +189,7 @@ app.post('/api/text', (req, res) => {
     fs.writeFileSync(filePath, text, 'utf-8');
     const stats = fs.statSync(filePath);
 
+    const expTime = expiration !== undefined && expiration !== '' ? parseInt(expiration) : appConfig.defaultExpiration;
     const metadata = {
       id,
       originalName: filename || `${id}.txt`,
@@ -144,6 +197,7 @@ app.post('/api/text', (req, res) => {
       mimeType: 'text/plain',
       size: stats.size,
       uploadedAt: new Date().toISOString(),
+      expiresAt: expTime ? Date.now() + expTime : null,
       locked: !!password,
       passwordHash: password ? hashPassword(password) : null
     };
@@ -157,6 +211,7 @@ app.post('/api/text', (req, res) => {
       downloadUrl: `${baseUrl}/file/${id}/download`,
       deleteUrl: `${baseUrl}/file/${id}`,
       locked: !!password,
+      expiresAt: metadata.expiresAt,
       ...metadata
     };
 
@@ -175,10 +230,12 @@ app.post('/api', upload.single('file'), (req, res) => {
     }
 
     const password = req.body.password;
+    const expiration = req.body.expiration ? parseInt(req.body.expiration) : null;
     const id = generateShortId();
     const filePath = path.join(UPLOADS_DIR, req.file.filename);
     const stats = fs.statSync(filePath);
 
+    const expTime = expiration !== null ? expiration : appConfig.defaultExpiration;
     const metadata = {
       id,
       originalName: req.uploadedOriginalName || req.file.originalname,
@@ -186,6 +243,7 @@ app.post('/api', upload.single('file'), (req, res) => {
       mimeType: req.file.mimetype,
       size: stats.size,
       uploadedAt: new Date().toISOString(),
+      expiresAt: expTime ? Date.now() + expTime : null,
       locked: !!password,
       passwordHash: password ? hashPassword(password) : null
     };
@@ -199,6 +257,7 @@ app.post('/api', upload.single('file'), (req, res) => {
       downloadUrl: `${baseUrl}/file/${id}/download`,
       deleteUrl: `${baseUrl}/file/${id}`,
       locked: !!password,
+      expiresAt: metadata.expiresAt,
       ...metadata
     };
 
@@ -317,12 +376,34 @@ app.get('/api/files', (req, res) => {
     mimeType: metadata.mimeType,
     size: metadata.size,
     uploadedAt: metadata.uploadedAt,
+    expiresAt: metadata.expiresAt,
     url: `${baseUrl}/file/${metadata.id}`,
     downloadUrl: `${baseUrl}/file/${metadata.id}/download`,
     deleteUrl: `${baseUrl}/file/${metadata.id}`
   }));
 
   res.json(files);
+});
+
+// API: Get config
+app.get('/api/config', (req, res) => {
+  res.json({
+    defaultExpiration: appConfig.defaultExpiration
+  });
+});
+
+// API: Update config
+app.post('/api/config', (req, res) => {
+  const { defaultExpiration } = req.body;
+  
+  if (defaultExpiration !== undefined) {
+    appConfig.defaultExpiration = parseInt(defaultExpiration);
+    saveConfig();
+  }
+  
+  res.json({
+    defaultExpiration: appConfig.defaultExpiration
+  });
 });
 
 // Serve static files from client directory

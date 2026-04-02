@@ -455,6 +455,7 @@
     <div class="tabs">
       <button class="tab-btn active" onclick="switchTab('upload')">Upload</button>
       <button class="tab-btn" onclick="switchTab('files')">Files</button>
+      <button class="tab-btn" onclick="switchTab('config')">Config</button>
       <button class="tab-btn" onclick="switchTab('docs')">API Docs</button>
       <button class="tab-btn" onclick="switchTab('agent')">Agent</button>
     </div>
@@ -476,6 +477,24 @@
           <input type="password" id="uploadPassword" placeholder="Leave empty for public file">
         </div>
 
+        <div class="input-group" style="margin-top: 16px;">
+          <label for="uploadExpiration">⏱️ Expiration (optional, uses default if not set)</label>
+          <select id="uploadExpiration" style="width: 100%; padding: 10px 12px; border: 1px solid #e0e0e0; border-radius: 6px; font-size: 0.95rem; background: white;">
+            <option value="">Use default</option>
+            <option value="0">No expiration</option>
+            <option value="1800000">30 minutes</option>
+            <option value="3600000">1 hour</option>
+            <option value="7200000">2 hours</option>
+            <option value="10800000">3 hours</option>
+            <option value="14400000">4 hours</option>
+            <option value="28800000">8 hours</option>
+            <option value="43200000">12 hours</option>
+            <option value="86400000">24 hours</option>
+            <option value="172800000">2 days</option>
+            <option value="604800000">7 days</option>
+          </select>
+        </div>
+
         <div style="text-align: right; margin-top: 16px;">
           <button class="btn" onclick="uploadFiles()" id="uploadBtn" disabled>
             Upload Files
@@ -494,6 +513,23 @@
         <div class="input-group">
           <label for="textPassword">🔒 Password (optional, for lock)</label>
           <input type="password" id="textPassword" placeholder="Leave empty for public text">
+        </div>
+        <div class="input-group">
+          <label for="textExpiration">⏱️ Expiration (optional, uses default if not set)</label>
+          <select id="textExpiration" style="width: 100%; padding: 10px 12px; border: 1px solid #e0e0e0; border-radius: 6px; font-size: 0.95rem; background: white;">
+            <option value="">Use default</option>
+            <option value="0">No expiration</option>
+            <option value="1800000">30 minutes</option>
+            <option value="3600000">1 hour</option>
+            <option value="7200000">2 hours</option>
+            <option value="10800000">3 hours</option>
+            <option value="14400000">4 hours</option>
+            <option value="28800000">8 hours</option>
+            <option value="43200000">12 hours</option>
+            <option value="86400000">24 hours</option>
+            <option value="172800000">2 days</option>
+            <option value="604800000">7 days</option>
+          </select>
         </div>
         <textarea id="textContent" placeholder="Paste or type your text content here..."></textarea>
         <div style="text-align: right; margin-top: 16px;">
@@ -517,6 +553,43 @@
             <p>No files uploaded yet</p>
           </li>
         </ul>
+      </div>
+    </div>
+
+    <!-- Config Tab -->
+    <div id="config-tab" class="tab-content">
+      <div class="card">
+        <h3 style="font-size: 1rem; margin-bottom: 20px;">⚙️ Auto-Delete Configuration</h3>
+        <div class="input-group">
+          <label for="defaultExpiration">Default Expiration Time</label>
+          <select id="defaultExpiration" style="width: 100%; padding: 10px 12px; border: 1px solid #e0e0e0; border-radius: 6px; font-size: 0.95rem; background: white;">
+            <option value="0">No expiration (never delete)</option>
+            <option value="1800000">30 minutes</option>
+            <option value="3600000">1 hour</option>
+            <option value="7200000">2 hours</option>
+            <option value="10800000">3 hours</option>
+            <option value="14400000">4 hours</option>
+            <option value="28800000">8 hours</option>
+            <option value="43200000">12 hours</option>
+            <option value="86400000">24 hours</option>
+            <option value="172800000">2 days</option>
+            <option value="604800000">7 days</option>
+          </select>
+        </div>
+        <div style="text-align: right; margin-top: 16px;">
+          <button class="btn" onclick="saveConfig()" id="saveConfigBtn">
+            Save Configuration
+          </button>
+        </div>
+        <div style="margin-top: 20px; padding: 16px; background: #f5f5f5; border-radius: 6px;">
+          <h4 style="font-size: 0.9rem; margin-bottom: 8px;">ℹ️ How it works</h4>
+          <ul style="color: #666; font-size: 0.85rem; line-height: 1.8; padding-left: 20px;">
+            <li>Files will be automatically deleted after the expiration time</li>
+            <li>You can set different expiration times for each file during upload</li>
+            <li>Default expiration applies to files without a specific expiration setting</li>
+            <li>Expired files are checked and deleted every minute</li>
+          </ul>
+        </div>
       </div>
     </div>
 
@@ -654,26 +727,84 @@
         document.querySelectorAll('.tab-btn')[1].classList.add('active');
         document.getElementById('files-tab').classList.add('active');
         loadFiles();
-      } else if (tab === 'docs') {
+      } else if (tab === 'config') {
         document.querySelectorAll('.tab-btn')[2].classList.add('active');
+        document.getElementById('config-tab').classList.add('active');
+        loadConfig();
+      } else if (tab === 'docs') {
+        document.querySelectorAll('.tab-btn')[3].classList.add('active');
         document.getElementById('docs-tab').classList.add('active');
       } else if (tab === 'agent') {
-        document.querySelectorAll('.tab-btn')[3].classList.add('active');
+        document.querySelectorAll('.tab-btn')[4].classList.add('active');
         document.getElementById('agent-tab').classList.add('active');
         loadAgentDocs();
       }
     }
 
+    // Auto-refresh file list every minute to update expiration times
+    let fileRefreshInterval = null;
+    
+    function startFileRefresh() {
+      if (fileRefreshInterval) clearInterval(fileRefreshInterval);
+      fileRefreshInterval = setInterval(() => {
+        const filesTab = document.getElementById('files-tab');
+        if (filesTab.classList.contains('active')) {
+          loadFiles();
+        }
+      }, 60000);
+    }
+    
+    startFileRefresh();
+
     async function loadAgentDocs() {
       const textarea = document.getElementById('agentContent');
       if (textarea.value) return; // Already loaded
-      
+
       try {
         const response = await fetch('AGENT.md');
         const text = await response.text();
         textarea.value = text;
       } catch (error) {
         textarea.value = '# TETE - Transient Endpoint for Transfer & Encryption\n\nLoading failed. See AGENT.md file in repository.';
+      }
+    }
+
+    async function loadConfig() {
+      try {
+        const response = await fetch(`${API_BASE}/api/config`);
+        const config = await response.json();
+        document.getElementById('defaultExpiration').value = config.defaultExpiration.toString();
+      } catch (error) {
+        console.error('Error loading config:', error);
+        showToast('Failed to load config');
+      }
+    }
+
+    async function saveConfig() {
+      const btn = document.getElementById('saveConfigBtn');
+      const expiration = document.getElementById('defaultExpiration').value;
+      
+      btn.disabled = true;
+      btn.innerHTML = '<span class="loading"></span> Saving...';
+      
+      try {
+        const response = await fetch(`${API_BASE}/api/config`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ defaultExpiration: parseInt(expiration) })
+        });
+        
+        if (response.ok) {
+          showToast('Configuration saved');
+        } else {
+          showToast('Failed to save config');
+        }
+      } catch (error) {
+        console.error('Error saving config:', error);
+        showToast('Failed to save config');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Save Configuration';
       }
     }
 
@@ -767,12 +898,35 @@
       return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
     }
 
+    function formatExpiration(expiresAt) {
+      if (!expiresAt) return 'No expiration';
+      const expires = new Date(expiresAt);
+      const now = new Date();
+      const diff = expires - now;
+      
+      if (diff <= 0) return 'Expired';
+      
+      const minutes = Math.floor(diff / 60000);
+      const hours = Math.floor(minutes / 60);
+      
+      if (hours > 24) {
+        const days = Math.floor(hours / 24);
+        return `Expires in ${days} day${days > 1 ? 's' : ''}`;
+      } else if (hours > 0) {
+        const remainingMinutes = minutes % 60;
+        return `Expires in ${hours}h ${remainingMinutes}m`;
+      } else {
+        return `Expires in ${minutes}m`;
+      }
+    }
+
     async function uploadFiles() {
       if (selectedFiles.length === 0) return;
 
       const btn = document.getElementById('uploadBtn');
       const resultDiv = document.getElementById('uploadResult');
       const password = document.getElementById('uploadPassword').value;
+      const expiration = document.getElementById('uploadExpiration').value;
 
       btn.disabled = true;
       btn.innerHTML = '<span class="loading"></span> Uploading...';
@@ -784,6 +938,9 @@
       });
       if (password) {
         formData.append('password', password);
+      }
+      if (expiration) {
+        formData.append('expiration', expiration);
       }
 
       try {
@@ -861,6 +1018,7 @@
       const text = document.getElementById('textContent').value;
       const filename = document.getElementById('filename').value;
       const password = document.getElementById('textPassword').value;
+      const expiration = document.getElementById('textExpiration').value;
       const btn = document.getElementById('uploadTextBtn');
       const resultDiv = document.getElementById('uploadResult');
 
@@ -877,7 +1035,7 @@
         const response = await fetch(`${API_BASE}/api/text`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text, filename, password })
+          body: JSON.stringify({ text, filename, password, expiration })
         });
 
         const result = await response.json();
@@ -964,6 +1122,7 @@
             <div class="file-info">
               <div class="file-name">${file.originalName} ${file.locked ? '🔒' : ''}</div>
               <div class="file-meta">${file.mimeType} • ${formatSize(file.size)} • ${new Date(file.uploadedAt).toLocaleString()}</div>
+              <div class="file-meta" style="color: ${file.expiresAt && new Date(file.expiresAt) <= new Date() ? '#dc3545' : '#888'}">${formatExpiration(file.expiresAt)}</div>
             </div>
             <div class="dropdown">
               <button class="btn btn-ghost btn-sm" onclick="toggleDropdown('menu-${file.id}')">
