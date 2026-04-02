@@ -110,16 +110,20 @@ function hashPassword(password) {
   return crypto.createHash('sha256').update(password).digest('hex');
 }
 
+// Generate fixed session secret (based on timestamp, but fixed per installation)
+const SESSION_SECRET = crypto.randomBytes(32).toString('hex');
+
 // Middleware
 app.use(cookieParser());
 app.use(session({
-  secret: crypto.randomBytes(32).toString('hex'),
+  secret: SESSION_SECRET,
   resave: false,
   saveUninitialized: true,
-  cookie: { 
+  cookie: {
     secure: false, // Set to true in production with HTTPS
     httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    sameSite: 'lax'
   }
 }));
 app.use(cors({

@@ -1,10 +1,10 @@
 {
+  "defaultExpiration": 7200000,
+  "adminPasswordHash": "240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9",
   "port": 3232,
   "host": "0.0.0.0",
   "maxFileSize": 104857600,
   "maxFilesPerUpload": 100,
   "idLength": 6,
-  "defaultExpiration": 3600000,
-  "enableExpiration": true,
-  "adminPasswordHash": "240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9"
+  "enableExpiration": true
 }
