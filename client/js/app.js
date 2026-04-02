@@ -5,6 +5,21 @@ let openDropdown = null;
 let pendingDownloadUrl = null;
 let isAdmin = false;
 
+// Initialize Select2
+function initSelect2() {
+  if (typeof $ !== 'undefined' && $.fn.select2) {
+    // Destroy existing Select2 instances first
+    $('select.select2-hidden-accessible').select2('destroy');
+    
+    $('select').select2({
+      theme: 'default',
+      minimumResultsForSearch: -1,
+      width: '100%',
+      dropdownParent: $('body')
+    });
+  }
+}
+
 // Toast notification
 function showToast(message) {
   const toast = document.getElementById('toast');
@@ -152,6 +167,9 @@ function switchTab(tab) {
     document.getElementById('agent-tab').classList.add('active');
     loadAgentDocs();
   }
+  
+  // Re-initialize Select2 after switching tabs
+  setTimeout(initSelect2, 50);
 }
 
 // File refresh interval
@@ -737,13 +755,7 @@ document.addEventListener('keydown', (e) => {
 document.addEventListener('DOMContentLoaded', () => {
   checkAdminStatus();
   startFileRefresh();
-
-  // Initialize Select2 on all select elements
-  if (typeof $ !== 'undefined' && $.fn.select2) {
-    $('select').select2({
-      theme: 'default',
-      minimumResultsForSearch: -1,
-      width: '100%'
-    });
-  }
+  
+  // Initialize Select2 with a small delay to ensure jQuery is ready
+  setTimeout(initSelect2, 100);
 });
