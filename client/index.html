@@ -633,6 +633,27 @@
           </ul>
         </div>
       </div>
+
+      <div class="card" style="margin-top: 20px;">
+        <h3 style="font-size: 1rem; margin-bottom: 20px;">🔐 Change Admin Password</h3>
+        <div class="input-group">
+          <label for="currentPassword">Current Password</label>
+          <input type="password" id="currentPassword" placeholder="Enter current password">
+        </div>
+        <div class="input-group">
+          <label for="newPassword">New Password</label>
+          <input type="password" id="newPassword" placeholder="Enter new password">
+        </div>
+        <div class="input-group">
+          <label for="confirmPassword">Confirm New Password</label>
+          <input type="password" id="confirmPassword" placeholder="Confirm new password">
+        </div>
+        <div style="text-align: right; margin-top: 16px;">
+          <button class="btn" onclick="changePassword()" id="changePasswordBtn">
+            Change Password
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- API Docs Tab -->
@@ -966,6 +987,72 @@
       } finally {
         btn.disabled = false;
         btn.textContent = 'Save Configuration';
+      }
+    }
+
+    async function changePassword() {
+      const currentPassword = document.getElementById('currentPassword').value;
+      const newPassword = document.getElementById('newPassword').value;
+      const confirmPassword = document.getElementById('confirmPassword').value;
+
+      if (!currentPassword || !newPassword || !confirmPassword) {
+        showToast('All fields are required');
+        return;
+      }
+
+      if (newPassword !== confirmPassword) {
+        showToast('New passwords do not match');
+        return;
+      }
+
+      if (newPassword.length < 4) {
+        showToast('Password must be at least 4 characters');
+        return;
+      }
+
+      const btn = document.getElementById('changePasswordBtn');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="loading"></span> Changing...';
+
+      try {
+        // First verify current password
+        const verifyResponse = await fetch(`${API_BASE}/api/admin/verify-password`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ password: currentPassword })
+        });
+
+        if (!verifyResponse.ok) {
+          showToast('Current password is incorrect');
+          btn.disabled = false;
+          btn.textContent = 'Change Password';
+          return;
+        }
+
+        // Change password
+        const response = await fetch(`${API_BASE}/api/admin/change-password`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ newPassword })
+        });
+
+        if (response.ok) {
+          showToast('Password changed successfully');
+          document.getElementById('currentPassword').value = '';
+          document.getElementById('newPassword').value = '';
+          document.getElementById('confirmPassword').value = '';
+        } else {
+          const result = await response.json();
+          showToast(result.error || 'Failed to change password');
+        }
+      } catch (error) {
+        console.error('Error changing password:', error);
+        showToast('Failed to change password');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Change Password';
       }
     }
 

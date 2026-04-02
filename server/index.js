@@ -25,9 +25,10 @@ const ADMIN_PASSWORD = 'admin123';
 const ADMIN_PASSWORD_HASH = hashPassword(ADMIN_PASSWORD);
 
 // Config storage
-const CONFIG_FILE = path.join(__dirname, 'config.json');
+const CONFIG_FILE = path.join(__dirname, '../db/config.json');
 let appConfig = {
-  defaultExpiration: 3600000 // Default 1 hour in milliseconds
+  defaultExpiration: 3600000, // Default 1 hour in milliseconds
+  adminPasswordHash: hashPassword('admin123')
 };
 
 // Load config from file
@@ -46,6 +47,28 @@ function loadConfig() {
 function saveConfig() {
   try {
     fs.writeFileSync(CONFIG_FILE, JSON.stringify(appConfig, null, 2), 'utf-8');
+  } catch (error) {
+    console.error('Error saving config:', error);
+  }
+}
+
+// Load config from file (returns fresh copy)
+function loadConfigFromFile() {
+  try {
+    if (fs.existsSync(CONFIG_FILE)) {
+      return JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8'));
+    }
+  } catch (error) {
+    console.error('Error loading config:', error);
+  }
+  return { ...appConfig };
+}
+
+// Save config to file (full replace)
+function saveConfigToFile(config) {
+  try {
+    fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2), 'utf-8');
+    appConfig = config;
   } catch (error) {
     console.error('Error saving config:', error);
   }
@@ -446,14 +469,15 @@ app.get('/api/files', (req, res) => {
 // API: Admin login
 app.post('/api/admin/login', (req, res) => {
   const { password } = req.body;
-  
+
   if (!password) {
     return res.status(400).json({ error: 'Password required' });
   }
-  
+
+  const config = loadConfigFromFile();
   const hashedPassword = hashPassword(password);
-  
-  if (hashedPassword === ADMIN_PASSWORD_HASH) {
+
+  if (hashedPassword === config.adminPasswordHash) {
     req.session.isAdmin = true;
     res.json({ success: true, message: 'Login successful' });
   } else {
@@ -474,6 +498,47 @@ app.get('/api/admin/status', (req, res) => {
   res.json({
     isAdmin: req.session && req.session.isAdmin ? true : false
   });
+});
+
+// API: Verify current password (admin only)
+app.post('/api/admin/verify-password', (req, res) => {
+  const isAdmin = req.session && req.session.isAdmin;
+  if (!isAdmin) {
+    return res.status(403).json({ error: 'Admin access required' });
+  }
+
+  const { password } = req.body;
+  if (!password) {
+    return res.status(400).json({ error: 'Password required' });
+  }
+
+  const hashedPassword = hashPassword(password);
+  const config = loadConfigFromFile();
+  
+  if (hashedPassword === config.adminPasswordHash) {
+    res.json({ success: true, message: 'Password verified' });
+  } else {
+    res.status(401).json({ error: 'Invalid password' });
+  }
+});
+
+// API: Change admin password (admin only)
+app.post('/api/admin/change-password', (req, res) => {
+  const isAdmin = req.session && req.session.isAdmin;
+  if (!isAdmin) {
+    return res.status(403).json({ error: 'Admin access required' });
+  }
+
+  const { newPassword } = req.body;
+  if (!newPassword || newPassword.length < 4) {
+    return res.status(400).json({ error: 'Password must be at least 4 characters' });
+  }
+
+  const config = loadConfigFromFile();
+  config.adminPasswordHash = hashPassword(newPassword);
+  saveConfigToFile(config);
+
+  res.json({ success: true, message: 'Password changed successfully' });
 });
 
 // API: Get config (admin only)
