@@ -5,20 +5,98 @@ let openDropdown = null;
 let pendingDownloadUrl = null;
 let isAdmin = false;
 
-// Initialize Select2
-function initSelect2() {
-  if (typeof $ !== 'undefined' && $.fn.select2) {
-    // Destroy existing Select2 instances first
-    $('select.select2-hidden-accessible').select2('destroy');
+// Custom Dropdown with Search
+function initCustomDropdowns() {
+  document.querySelectorAll('select[data-dropdown="true"]').forEach(select => {
+    // Skip if already converted
+    if (select.parentElement.classList.contains('custom-select-wrapper')) return;
     
-    $('select').select2({
-      theme: 'default',
-      minimumResultsForSearch: -1,
-      width: '100%',
-      dropdownParent: $('body')
+    // Create wrapper
+    const wrapper = document.createElement('div');
+    wrapper.className = 'custom-select-wrapper';
+    
+    // Create selected display
+    const selected = document.createElement('div');
+    selected.className = 'custom-select-selected';
+    selected.innerHTML = `<span class="custom-select-text">${select.options[select.selectedIndex]?.text || 'Select...'}</span><span class="custom-select-arrow">▼</span>`;
+    
+    // Create options list
+    const options = document.createElement('div');
+    options.className = 'custom-select-options';
+    
+    // Create search input
+    const search = document.createElement('input');
+    search.className = 'custom-select-search';
+    search.type = 'text';
+    search.placeholder = 'Search...';
+    
+    // Create options container
+    const optionsList = document.createElement('div');
+    optionsList.className = 'custom-select-options-list';
+    
+    // Populate options
+    Array.from(select.options).forEach((opt, idx) => {
+      const item = document.createElement('div');
+      item.className = 'custom-select-option';
+      item.textContent = opt.text;
+      item.dataset.value = opt.value;
+      item.dataset.index = idx;
+      if (opt.selected) item.classList.add('selected');
+      
+      item.addEventListener('click', () => {
+        select.selectedIndex = idx;
+        selected.querySelector('.custom-select-text').textContent = opt.text;
+        wrapper.classList.remove('show');
+        select.dispatchEvent(new Event('change'));
+        
+        // Update all options selection state
+        Array.from(optionsList.children).forEach(child => {
+          child.classList.toggle('selected', child === item);
+        });
+      });
+      
+      optionsList.appendChild(item);
     });
-  }
+    
+    // Toggle dropdown
+    selected.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isShowing = wrapper.classList.contains('show');
+      closeAllCustomDropdowns();
+      if (!isShowing) wrapper.classList.add('show');
+    });
+    
+    // Search functionality
+    search.addEventListener('input', (e) => {
+      const term = e.target.value.toLowerCase();
+      Array.from(optionsList.children).forEach(item => {
+        const text = item.textContent.toLowerCase();
+        item.style.display = text.includes(term) ? 'block' : 'none';
+      });
+    });
+    
+    // Assemble
+    options.appendChild(search);
+    options.appendChild(optionsList);
+    wrapper.appendChild(selected);
+    wrapper.appendChild(options);
+    
+    // Replace select with custom dropdown
+    select.style.display = 'none';
+    select.parentElement.insertBefore(wrapper, select.nextSibling);
+  });
 }
+
+function closeAllCustomDropdowns() {
+  document.querySelectorAll('.custom-select-wrapper.show').forEach(wrapper => {
+    wrapper.classList.remove('show');
+  });
+}
+
+// Close dropdowns when clicking outside
+document.addEventListener('click', () => {
+  closeAllCustomDropdowns();
+});
 
 // Toast notification
 function showToast(message) {
@@ -168,8 +246,8 @@ function switchTab(tab) {
     loadAgentDocs();
   }
   
-  // Re-initialize Select2 after switching tabs
-  setTimeout(initSelect2, 50);
+  // Re-initialize custom dropdowns after switching tabs
+  setTimeout(initCustomDropdowns, 50);
 }
 
 // File refresh interval
@@ -756,6 +834,6 @@ document.addEventListener('DOMContentLoaded', () => {
   checkAdminStatus();
   startFileRefresh();
   
-  // Initialize Select2 with a small delay to ensure jQuery is ready
-  setTimeout(initSelect2, 100);
+  // Initialize custom dropdowns
+  setTimeout(initCustomDropdowns, 100);
 });

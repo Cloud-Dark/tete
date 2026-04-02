@@ -7,8 +7,6 @@
   
   <!-- Styles -->
   <link rel="stylesheet" href="css/style.css">
-  <!-- Select2 CSS -->
-  <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
 </head>
 <body>
   <div class="container">
@@ -48,7 +46,7 @@
           </div>
           <div class="input-group">
             <label for="uploadExpiration">⏱️ Expiration</label>
-            <select id="uploadExpiration">
+            <select id="uploadExpiration" data-dropdown="true">
               <option value="">Use default</option>
               <option value="0">No expiration</option>
               <option value="1800000">30 minutes</option>
@@ -86,7 +84,7 @@
           </div>
           <div class="input-group">
             <label for="textExpiration">⏱️ Expiration</label>
-            <select id="textExpiration">
+            <select id="textExpiration" data-dropdown="true">
               <option value="">Use default</option>
               <option value="0">No expiration</option>
               <option value="1800000">30 minutes</option>
@@ -133,7 +131,7 @@
         <h3 style="font-size: 1rem; margin-bottom: 20px;">⚙️ Auto-Delete Configuration</h3>
         <div class="input-group">
           <label for="defaultExpiration">Default Expiration Time</label>
-          <select id="defaultExpiration">
+          <select id="defaultExpiration" data-dropdown="true">
             <option value="0">No expiration (never delete)</option>
             <option value="1800000">30 minutes</option>
             <option value="3600000">1 hour</option>
@@ -275,8 +273,6 @@
   </div>
 
   <!-- Scripts -->
-  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>
