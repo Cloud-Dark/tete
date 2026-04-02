@@ -7,33 +7,51 @@ let isAdmin = false;
 
 // Custom Dropdown with Search
 function initCustomDropdowns() {
+  // First, clean up any existing dropdowns that might be duplicated
+  document.querySelectorAll('.custom-select-wrapper').forEach(wrapper => {
+    const select = wrapper.previousElementSibling;
+    if (select && select.tagName === 'SELECT') {
+      // Keep only the first wrapper for each select
+      const wrappers = select.parentElement.querySelectorAll('.custom-select-wrapper');
+      if (wrappers.length > 1) {
+        for (let i = 1; i < wrappers.length; i++) {
+          wrappers[i].remove();
+        }
+      }
+    }
+  });
+
   document.querySelectorAll('select[data-dropdown="true"]').forEach(select => {
     // Skip if already converted
     if (select.parentElement.classList.contains('custom-select-wrapper')) return;
     
+    // Also check if there's already a wrapper after this select
+    const existingWrapper = select.parentElement.querySelector('.custom-select-wrapper');
+    if (existingWrapper) return;
+
     // Create wrapper
     const wrapper = document.createElement('div');
     wrapper.className = 'custom-select-wrapper';
-    
+
     // Create selected display
     const selected = document.createElement('div');
     selected.className = 'custom-select-selected';
     selected.innerHTML = `<span class="custom-select-text">${select.options[select.selectedIndex]?.text || 'Select...'}</span><span class="custom-select-arrow">▼</span>`;
-    
+
     // Create options list
     const options = document.createElement('div');
     options.className = 'custom-select-options';
-    
+
     // Create search input
     const search = document.createElement('input');
     search.className = 'custom-select-search';
     search.type = 'text';
     search.placeholder = 'Search...';
-    
+
     // Create options container
     const optionsList = document.createElement('div');
     optionsList.className = 'custom-select-options-list';
-    
+
     // Populate options
     Array.from(select.options).forEach((opt, idx) => {
       const item = document.createElement('div');
@@ -42,22 +60,22 @@ function initCustomDropdowns() {
       item.dataset.value = opt.value;
       item.dataset.index = idx;
       if (opt.selected) item.classList.add('selected');
-      
+
       item.addEventListener('click', () => {
         select.selectedIndex = idx;
         selected.querySelector('.custom-select-text').textContent = opt.text;
         wrapper.classList.remove('show');
         select.dispatchEvent(new Event('change'));
-        
+
         // Update all options selection state
         Array.from(optionsList.children).forEach(child => {
           child.classList.toggle('selected', child === item);
         });
       });
-      
+
       optionsList.appendChild(item);
     });
-    
+
     // Toggle dropdown
     selected.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -65,7 +83,7 @@ function initCustomDropdowns() {
       closeAllCustomDropdowns();
       if (!isShowing) wrapper.classList.add('show');
     });
-    
+
     // Search functionality
     search.addEventListener('input', (e) => {
       e.stopPropagation();
@@ -87,13 +105,13 @@ function initCustomDropdowns() {
         search.focus();
       }
     });
-    
+
     // Assemble
     options.appendChild(search);
     options.appendChild(optionsList);
     wrapper.appendChild(selected);
     wrapper.appendChild(options);
-    
+
     // Replace select with custom dropdown
     select.style.display = 'none';
     select.parentElement.insertBefore(wrapper, select.nextSibling);
