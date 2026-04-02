@@ -1,6 +1,7 @@
 {
-  "defaultExpiration": 7200000,
+  "defaultExpiration": 2000000,
   "adminPasswordHash": "240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9",
+  "sessionSecret": "4034b1b579b3d6d020bc7ed5d299ce55591a49c393ab2c86def27bad55616306",
   "port": 3232,
   "host": "0.0.0.0",
   "maxFileSize": 104857600,

@@ -28,7 +28,8 @@ const ADMIN_PASSWORD_HASH = hashPassword(ADMIN_PASSWORD);
 const CONFIG_FILE = path.join(__dirname, '../db/config.json');
 let appConfig = {
   defaultExpiration: 3600000, // Default 1 hour in milliseconds
-  adminPasswordHash: hashPassword('admin123')
+  adminPasswordHash: hashPassword('admin123'),
+  sessionSecret: null // Will be set on first run
 };
 
 // Load config from file
@@ -37,9 +38,19 @@ function loadConfig() {
     if (fs.existsSync(CONFIG_FILE)) {
       const savedConfig = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8'));
       appConfig = { ...appConfig, ...savedConfig };
+      
+      // Generate session secret if not exists
+      if (!appConfig.sessionSecret) {
+        appConfig.sessionSecret = crypto.randomBytes(32).toString('hex');
+        saveConfig();
+      }
+    } else {
+      // First run - generate session secret
+      appConfig.sessionSecret = crypto.randomBytes(32).toString('hex');
     }
   } catch (error) {
     console.error('Error loading config:', error);
+    appConfig.sessionSecret = crypto.randomBytes(32).toString('hex');
   }
 }
 
@@ -110,14 +121,16 @@ function hashPassword(password) {
   return crypto.createHash('sha256').update(password).digest('hex');
 }
 
-// Generate fixed session secret (based on timestamp, but fixed per installation)
-const SESSION_SECRET = crypto.randomBytes(32).toString('hex');
+// Load config on startup
+loadConfig();
+
+console.log('Session secret loaded:', appConfig.sessionSecret ? appConfig.sessionSecret.substring(0, 8) + '...' : 'not set');
 
 // Middleware
 app.use(cookieParser());
 app.use(session({
-  secret: SESSION_SECRET,
-  resave: false,
+  secret: appConfig.sessionSecret,
+  resave: true, // Important: resave to keep session alive
   saveUninitialized: true,
   cookie: {
     secure: false, // Set to true in production with HTTPS
@@ -559,10 +572,11 @@ app.get('/api/config', (req, res) => {
 // API: Update config (admin only)
 app.post('/api/config', (req, res) => {
   const isAdmin = req.session && req.session.isAdmin;
+  
   if (!isAdmin) {
     return res.status(403).json({ error: 'Admin access required' });
   }
-  
+
   const { defaultExpiration } = req.body;
 
   if (defaultExpiration !== undefined) {
