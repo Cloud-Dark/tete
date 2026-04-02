@@ -992,6 +992,25 @@ app.get('/README.md', (req, res) => {
   }
 });
 
+// Serve api.md for API documentation (BEFORE static files)
+// Auto-replace localhost:3232 with actual server URL
+app.get('/api.md', (req, res) => {
+  const baseUrl = getBaseUrl(req);
+  const apiPath = path.join(__dirname, '../api.md');
+
+  try {
+    let content = fs.readFileSync(apiPath, 'utf-8');
+    // Replace all occurrences of localhost:3232 with actual base URL
+    content = content.replace(/http:\/\/localhost:3232/g, baseUrl);
+    content = content.replace(/localhost:3232/g, baseUrl.replace('http://', ''));
+    res.setHeader('Content-Type', 'text/markdown');
+    res.send(content);
+  } catch (error) {
+    console.error('Error serving api.md:', error);
+    res.status(500).send('Error loading api.md');
+  }
+});
+
 // Serve README with JavaScript rendering support
 app.get('/readme', (req, res) => {
   res.sendFile(path.join(__dirname, '../client/readme.html'));

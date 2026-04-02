@@ -218,13 +218,13 @@
         <div class="sub-tabs">
           <button class="sub-tab-btn active" onclick="switchSubTab('readme')">📖 README.md</button>
           <button class="sub-tab-btn" onclick="switchSubTab('agent')">🤖 AGENT.md</button>
-          <button class="sub-tab-btn" onclick="switchSubTab('api')">📝 API DOCS.md</button>
+          <button class="sub-tab-btn" onclick="switchSubTab('api')">📝 API.md</button>
         </div>
         
         <div id="readme-subtab" class="sub-tab-content active">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
             <h3 style="font-size: 1rem;">README.md</h3>
-            <button class="btn btn-ghost btn-sm" onclick="copyDocContent('readmeContent')">📋 Copy</button>
+            <button class="btn-icon" onclick="copyDocContent('readmeContent')" title="Copy">📋</button>
           </div>
           <textarea id="readmeContent" readonly style="width: 100%; min-height: 600px; font-family: 'Consolas', monospace; font-size: 0.85rem; background: #fafafa; padding: 12px; border: 1px solid #e0e0e0; border-radius: 6px; resize: vertical;"></textarea>
         </div>
@@ -232,15 +232,15 @@
         <div id="agent-subtab" class="sub-tab-content">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
             <h3 style="font-size: 1rem;">AGENT.md</h3>
-            <button class="btn btn-ghost btn-sm" onclick="copyDocContent('agentContent')">📋 Copy</button>
+            <button class="btn-icon" onclick="copyDocContent('agentContent')" title="Copy">📋</button>
           </div>
           <textarea id="agentContent" readonly style="width: 100%; min-height: 600px; font-family: 'Consolas', monospace; font-size: 0.85rem; background: #fafafa; padding: 12px; border: 1px solid #e0e0e0; border-radius: 6px; resize: vertical;"></textarea>
         </div>
         
         <div id="api-subtab" class="sub-tab-content">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-            <h3 style="font-size: 1rem;">API DOCS.md</h3>
-            <button class="btn btn-ghost btn-sm" onclick="copyDocContent('apiContent')">📋 Copy</button>
+            <h3 style="font-size: 1rem;">API.md</h3>
+            <button class="btn-icon" onclick="copyDocContent('apiContent')" title="Copy">📋</button>
           </div>
           <textarea id="apiContent" readonly style="width: 100%; min-height: 600px; font-family: 'Consolas', monospace; font-size: 0.85rem; background: #fafafa; padding: 12px; border: 1px solid #e0e0e0; border-radius: 6px; resize: vertical;"></textarea>
         </div>

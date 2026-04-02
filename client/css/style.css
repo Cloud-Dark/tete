@@ -915,6 +915,30 @@ textarea:focus {
   display: block;
 }
 
+/* Icon-only button */
+.btn-icon {
+  background: transparent;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.btn-icon:hover {
+  background: #f5f5f5;
+  border-color: #1a1a1a;
+}
+
+.btn-icon:active {
+  background: #e0e0e0;
+}
+
 /* Mobile Responsive */
 @media (max-width: 768px) {
   .container {
