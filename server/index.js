@@ -126,7 +126,20 @@ loadConfig();
 
 console.log('Session secret loaded:', appConfig.sessionSecret ? appConfig.sessionSecret.substring(0, 8) + '...' : 'not set');
 
-// Middleware
+// Middleware - CORS must be first
+app.use(cors({
+  origin: true, // Accept all origins
+  credentials: true, // Allow cookies
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+// Add credentials header to all responses
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  next();
+});
+
 app.use(cookieParser());
 app.use(session({
   secret: appConfig.sessionSecret,
@@ -139,10 +152,7 @@ app.use(session({
     sameSite: 'lax'
   }
 }));
-app.use(cors({
-  origin: true,
-  credentials: true
-}));
+
 app.use(express.json());
 app.use(express.text());
 
