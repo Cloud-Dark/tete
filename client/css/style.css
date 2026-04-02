@@ -57,11 +57,18 @@ header p {
   font-size: 0.85rem;
 }
 
+/* Centered tabs container */
+.tabs-container {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 30px;
+}
+
 .tabs {
   display: flex;
   border-bottom: 1px solid #e0e0e0;
-  margin-bottom: 30px;
   flex-wrap: wrap;
+  justify-content: center;
 }
 
 .tab-btn {
@@ -906,4 +913,168 @@ textarea:focus {
 
 .sub-tab-content.active {
   display: block;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .container {
+    padding: 20px 12px;
+  }
+
+  header h1 {
+    font-size: 1.5rem;
+  }
+
+  header p {
+    font-size: 0.85rem;
+  }
+
+  .tabs-container {
+    margin-bottom: 20px;
+  }
+
+  .tabs {
+    width: 100%;
+  }
+
+  .tab-btn {
+    padding: 10px 14px;
+    font-size: 0.85rem;
+    flex: 1 1 auto;
+    text-align: center;
+  }
+
+  .sub-tabs {
+    flex-wrap: wrap;
+  }
+
+  .sub-tab-btn {
+    padding: 8px 12px;
+    font-size: 0.8rem;
+    flex: 1 1 auto;
+    text-align: center;
+  }
+
+  .card {
+    padding: 16px;
+  }
+
+  .form-row-2,
+  .form-row-3 {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .input-group {
+    width: 100%;
+  }
+
+  .input-group input,
+  .input-group select,
+  .input-group textarea {
+    width: 100%;
+  }
+
+  .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .file-item {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .file-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .file-name {
+    font-size: 0.9rem;
+    word-break: break-word;
+  }
+
+  .file-meta {
+    font-size: 0.75rem;
+  }
+
+  .dropdown {
+    width: 100%;
+  }
+
+  .dropdown-menu {
+    left: 0;
+    right: 0;
+  }
+
+  .modal {
+    margin: 20px;
+    max-width: calc(100% - 40px);
+  }
+
+  .modal h3 {
+    font-size: 1.1rem;
+  }
+
+  .modal p {
+    font-size: 0.85rem;
+  }
+
+  .modal-actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .modal-actions .btn {
+    width: 100%;
+  }
+
+  #readmeContent,
+  #agentContent,
+  #apiContent {
+    font-size: 0.75rem;
+    min-height: 400px;
+  }
+
+  .selected-files {
+    max-height: 200px;
+  }
+
+  .selected-file-item {
+    font-size: 0.85rem;
+  }
+
+  .upload-area p {
+    font-size: 0.9rem;
+  }
+
+  .upload-area small {
+    font-size: 0.75rem;
+  }
+}
+
+@media (max-width: 480px) {
+  header h1 {
+    font-size: 1.3rem;
+  }
+
+  .tab-btn {
+    padding: 8px 10px;
+    font-size: 0.8rem;
+  }
+
+  .sub-tab-btn {
+    padding: 6px 8px;
+    font-size: 0.75rem;
+  }
+
+  .card {
+    padding: 12px;
+  }
+
+  .btn-sm {
+    padding: 6px 10px;
+    font-size: 0.75rem;
+  }
 }

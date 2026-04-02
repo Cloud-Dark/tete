@@ -445,7 +445,7 @@ async function loadApiDoc() {
   if (textarea.value) return;
 
   try {
-    const response = await fetch('API.md');
+    const response = await fetch('api.md');
     let text = await response.text();
     
     // Replace localhost:3232 with actual base URL
