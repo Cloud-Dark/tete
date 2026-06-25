@@ -82,7 +82,8 @@ async function loadFileInfo() {
     const response = await fetch(`${API_BASE}/api/file/${currentFileId}`, {
       headers: {
         'Accept': 'application/json'
-      }
+      },
+      credentials: 'include'
     });
     
     if (!response.ok) {

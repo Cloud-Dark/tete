@@ -23,6 +23,20 @@ function toggleTheme() {
 
 initTheme();
 
+// Initialize session and cookies
+async function initSession() {
+  try {
+    await fetch(`${API_BASE}/api/session/init`, {
+      credentials: 'include'
+    });
+    console.log('Session initialized');
+  } catch (error) {
+    console.error('Session init failed:', error);
+  }
+}
+
+initSession();
+
 // Custom Dropdown with Search
 function initCustomDropdowns() {
   // First, clean up any existing dropdowns that might be duplicated
@@ -788,7 +802,8 @@ async function uploadFiles() {
   try {
     const response = await fetch(`${API_BASE}/api/upload`, {
       method: 'POST',
-      body: formData
+      body: formData,
+      credentials: 'include'
     });
 
     const result = await response.json();
@@ -998,7 +1013,7 @@ async function loadFiles() {
 
   try {
     const response = await fetch(`${API_BASE}/api/files`, {
-      credentials: 'same-origin'
+      credentials: 'include'
     });
     const files = await response.json();
 

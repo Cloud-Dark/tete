@@ -334,15 +334,21 @@ app.use((req, res, next) => {
 app.use(cookieParser());
 app.use(session({
   secret: appConfig.sessionSecret,
-  resave: true, // Important: resave to keep session alive
+  resave: true,
   saveUninitialized: true,
+  proxy: true, // Trust Cloudflare proxy
   cookie: {
-    secure: false, // Set to true in production with HTTPS
+    secure: true, // Must be true for SameSite: none
     httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    sameSite: 'lax'
+    maxAge: 24 * 60 * 60 * 1000,
+    sameSite: 'none' // Allow cross-site cookies
   }
 }));
+
+// API: Init session
+app.get('/api/session/init', (req, res) => {
+  res.json({ status: 'ok', userId: req.userId });
+});
 
 app.use(express.json());
 app.use(express.text());
