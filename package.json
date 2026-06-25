@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server/index.js",
     "dev": "node server/index.js",
-    "build": "echo 'No build step required - static client files'"
+    "build": "echo 'App runs as Express server - use pm2 start server/index.js. Static files in client/'"
   },
   "keywords": [
     "file-sharing",
