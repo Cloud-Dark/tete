@@ -6,10 +6,10 @@
   <title>TETE - Transient Endpoint for Transfer & Encryption</title>
   
   <!-- Favicon SVG -->
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231976d2'/%3E%3Ctext x='16' y='23' text-anchor='middle' font-family='Arial,sans-serif' font-weight='bold' font-size='20' fill='white'%3ET%3C/text%3E%3C/svg%3E">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%235e6ad2'/%3E%3Ctext x='16' y='23' text-anchor='middle' font-family='Arial,sans-serif' font-weight='bold' font-size='20' fill='white'%3ET%3C/text%3E%3C/svg%3E">
 
   <!-- Apple Touch Icon -->
-  <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231976d2'/%3E%3Ctext x='16' y='23' text-anchor='middle' font-family='Arial,sans-serif' font-weight='bold' font-size='20' fill='white'%3ET%3C/text%3E%3C/svg%3E">
+  <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%235e6ad2'/%3E%3Ctext x='16' y='23' text-anchor='middle' font-family='Arial,sans-serif' font-weight='bold' font-size='20' fill='white'%3ET%3C/text%3E%3C/svg%3E">
 
   <!-- Styles -->
   <link rel="stylesheet" href="css/style.css">
@@ -54,11 +54,11 @@
 
         <div id="selectedFiles" class="selected-files"></div>
 
-        <div class="form-row-3" style="margin-top: 16px;">
+        <div class="form-row-3 mt-md">
           <div class="input-group">
             <label for="uploadPassword">🔐 Encryption Key</label>
             <input type="password" id="uploadPassword" placeholder="Enter encryption key (optional)">
-            <small style="color: #dc3545; font-size: 0.75rem; margin-top: 4px; display: block;">⚠️ WARNING: Encryption is one-way. If you lose this key, your file cannot be recovered!</small>
+            <small class="warning-text">⚠️ WARNING: Encryption is one-way. If you lose this key, your file cannot be recovered!</small>
           </div>
           <div class="input-group">
             <label for="uploadExpiration">⏱️ Expiration</label>
@@ -77,8 +77,8 @@
               <option value="604800000">7 days</option>
             </select>
           </div>
-          <div class="input-group" style="display: flex; align-items: flex-end;">
-            <button class="btn" onclick="uploadFiles()" id="uploadBtn" disabled style="width: 100%;">
+          <div class="input-group flex-end">
+            <button class="btn btn-full" onclick="uploadFiles()" id="uploadBtn" disabled>
               Upload Files
             </button>
           </div>
@@ -88,7 +88,7 @@
       </div>
 
       <div class="card">
-        <h3 style="margin-bottom: 16px; font-size: 1rem;">Upload Text</h3>
+        <h3 class="card-title">Upload Text</h3>
         <div class="form-row-3">
           <div class="input-group">
             <label for="filename">Filename</label>
@@ -97,7 +97,7 @@
           <div class="input-group">
             <label for="textPassword">🔐 Encryption Key</label>
             <input type="password" id="textPassword" placeholder="Enter encryption key (optional)">
-            <small style="color: #dc3545; font-size: 0.75rem; margin-top: 4px; display: block;">⚠️ WARNING: Encryption is one-way. If you lose this key, your content cannot be recovered!</small>
+            <small class="warning-text">⚠️ WARNING: Encryption is one-way. If you lose this key, your content cannot be recovered!</small>
           </div>
           <div class="input-group">
             <label for="textExpiration">⏱️ Expiration</label>
@@ -118,7 +118,7 @@
           </div>
         </div>
         <textarea id="textContent" placeholder="Paste or type your text content here..."></textarea>
-        <div style="text-align: right; margin-top: 16px;">
+        <div class="text-right mt-md">
           <button class="btn" onclick="uploadText()" id="uploadTextBtn">
             Upload Text
           </button>
@@ -129,8 +129,8 @@
     <!-- Files Tab -->
     <div id="files-tab" class="tab-content">
       <div class="card">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-          <h3 style="font-size: 1rem;">Uploaded Files</h3>
+        <div class="card-header">
+          <h3 class="card-title">Uploaded Files</h3>
           <button class="btn btn-ghost btn-sm" onclick="loadFiles()">🔄 Refresh</button>
         </div>
         <ul class="file-list" id="fileList">
@@ -145,7 +145,7 @@
     <!-- Config Tab -->
     <div id="config-tab" class="tab-content">
       <div class="card">
-        <h3 style="font-size: 1rem; margin-bottom: 20px;">⚙️ Auto-Delete Configuration</h3>
+        <h3 class="card-title mb-lg">⚙️ Auto-Delete Configuration</h3>
         <div class="input-group">
           <label for="defaultExpiration">Default Expiration Time</label>
           <select id="defaultExpiration" data-dropdown="true">
@@ -162,14 +162,14 @@
             <option value="604800000">7 days</option>
           </select>
         </div>
-        <div style="text-align: right; margin-top: 16px;">
+        <div class="text-right mt-md">
           <button class="btn" onclick="saveConfig()" id="saveConfigBtn">
             Save Configuration
           </button>
         </div>
-        <div style="margin-top: 20px; padding: 16px; background: #f5f5f5; border-radius: 6px;">
-          <h4 style="font-size: 0.9rem; margin-bottom: 8px;">ℹ️ How it works</h4>
-          <ul style="color: #666; font-size: 0.85rem; line-height: 1.8; padding-left: 20px;">
+        <div class="info-card">
+          <h4 class="info-title">ℹ️ How it works</h4>
+          <ul class="info-list">
             <li>Files will be automatically deleted after the expiration time</li>
             <li>You can set different expiration times for each file during upload</li>
             <li>Default expiration applies to files without a specific expiration setting</li>
@@ -179,25 +179,25 @@
       </div>
 
       <div class="card">
-        <h3 style="font-size: 1rem; margin-bottom: 20px;">📁 Upload Limits Configuration</h3>
+        <h3 class="card-title mb-lg">📁 Upload Limits Configuration</h3>
         <div class="form-row-3">
           <div class="input-group">
             <label for="maxFileSize">Max File Size (MB)</label>
             <input type="number" id="maxFileSize" placeholder="100" min="1" max="1000">
-            <small style="color: #666; font-size: 0.75rem;">Maximum size per file in MB</small>
+            <small class="help-text">Maximum size per file in MB</small>
           </div>
           <div class="input-group">
             <label for="maxFilesPerUpload">Max Files per Upload</label>
             <input type="number" id="maxFilesPerUpload" placeholder="100" min="1" max="500">
-            <small style="color: #666; font-size: 0.75rem;">Maximum files per upload request</small>
+            <small class="help-text">Maximum files per upload request</small>
           </div>
           <div class="input-group">
             <label for="fileWhitelist">File Extensions Whitelist</label>
             <input type="text" id="fileWhitelist" placeholder="jpg,png,pdf,txt (empty = all allowed)">
-            <small style="color: #666; font-size: 0.75rem;">Comma-separated extensions (empty = allow all)</small>
+            <small class="help-text">Comma-separated extensions (empty = allow all)</small>
           </div>
         </div>
-        <div style="text-align: right; margin-top: 16px;">
+        <div class="text-right mt-md">
           <button class="btn" onclick="saveUploadConfig()" id="saveUploadConfigBtn">
             Save Upload Limits
           </button>
@@ -205,7 +205,7 @@
       </div>
 
       <div class="card">
-        <h3 style="font-size: 1rem; margin-bottom: 20px;">🔐 Change Admin Password</h3>
+        <h3 class="card-title mb-lg">🔐 Change Admin Password</h3>
         <div class="input-group">
           <label for="currentPassword">🔑 Current Admin Password</label>
           <input type="password" id="currentPassword" placeholder="Enter current admin password">
@@ -218,7 +218,7 @@
           <label for="confirmPassword">🔑 Confirm New Admin Password</label>
           <input type="password" id="confirmPassword" placeholder="Confirm new admin password">
         </div>
-        <div style="text-align: right; margin-top: 16px;">
+        <div class="text-right mt-md">
           <button class="btn" onclick="changePassword()" id="changePasswordBtn">
             Change Admin Password
           </button>
@@ -236,27 +236,27 @@
         </div>
         
         <div id="readme-subtab" class="sub-tab-content active">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-            <h3 style="font-size: 1rem;">README.md</h3>
+          <div class="doc-header">
+            <h3 class="card-title">README.md</h3>
             <button class="btn-icon" onclick="copyDocContent('readmeContent')" title="Copy">📋</button>
           </div>
-          <textarea id="readmeContent" readonly style="width: 100%; min-height: 600px; font-family: 'Consolas', monospace; font-size: 0.85rem; background: #fafafa; padding: 12px; border: 1px solid #e0e0e0; border-radius: 6px; resize: vertical;"></textarea>
+          <textarea id="readmeContent" readonly></textarea>
         </div>
-        
+
         <div id="agent-subtab" class="sub-tab-content">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-            <h3 style="font-size: 1rem;">AGENT.md</h3>
+          <div class="doc-header">
+            <h3 class="card-title">AGENT.md</h3>
             <button class="btn-icon" onclick="copyDocContent('agentContent')" title="Copy">📋</button>
           </div>
-          <textarea id="agentContent" readonly style="width: 100%; min-height: 600px; font-family: 'Consolas', monospace; font-size: 0.85rem; background: #fafafa; padding: 12px; border: 1px solid #e0e0e0; border-radius: 6px; resize: vertical;"></textarea>
+          <textarea id="agentContent" readonly></textarea>
         </div>
-        
+
         <div id="api-subtab" class="sub-tab-content">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-            <h3 style="font-size: 1rem;">API.md</h3>
+          <div class="doc-header">
+            <h3 class="card-title">API.md</h3>
             <button class="btn-icon" onclick="copyDocContent('apiContent')" title="Copy">📋</button>
           </div>
-          <textarea id="apiContent" readonly style="width: 100%; min-height: 600px; font-family: 'Consolas', monospace; font-size: 0.85rem; background: #fafafa; padding: 12px; border: 1px solid #e0e0e0; border-radius: 6px; resize: vertical;"></textarea>
+          <textarea id="apiContent" readonly></textarea>
         </div>
       </div>
     </div>
