@@ -264,7 +264,7 @@ async function submitAdminLogin() {
     const response = await fetch(`${API_BASE}/api/admin/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      credentials: 'same-origin',
+      credentials: 'include',
       body: JSON.stringify({ password })
     });
 
@@ -287,7 +287,7 @@ async function logoutAdmin() {
   try {
     await fetch(`${API_BASE}/api/admin/logout`, {
       method: 'POST',
-      credentials: 'same-origin'
+      credentials: 'include'
     });
     isAdmin = false;
     showToast('Logged out');
@@ -319,7 +319,7 @@ async function saveUploadConfig() {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       },
-      credentials: 'same-origin',
+      credentials: 'include',
       body: JSON.stringify({
         maxFileSize: maxFileSize ? parseInt(maxFileSize) : 100,
         maxFilesPerUpload: maxFilesPerUpload ? parseInt(maxFilesPerUpload) : 100,
@@ -361,7 +361,7 @@ function updateAdminStatus() {
 async function checkAdminStatus() {
   try {
     const response = await fetch(`${API_BASE}/api/admin/status`, {
-      credentials: 'same-origin'
+      credentials: 'include'
     });
     const result = await response.json();
     isAdmin = result.isAdmin;
@@ -505,7 +505,7 @@ async function loadConfig() {
   }
   try {
     const response = await fetch(`${API_BASE}/api/config`, {
-      credentials: 'same-origin'
+      credentials: 'include'
     });
     const config = await response.json();
     document.getElementById('defaultExpiration').value = config.defaultExpiration.toString();
@@ -548,7 +548,7 @@ async function saveConfig() {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       },
-      credentials: 'same-origin', // Send cookies to same origin
+      credentials: 'include', // Send cookies to same origin
       body: JSON.stringify({ defaultExpiration: parseInt(expiration) })
     });
 
@@ -564,7 +564,7 @@ async function saveConfig() {
       if (result.error === 'Admin access required') {
         console.log('Checking admin status...');
         const statusResponse = await fetch(`${API_BASE}/api/admin/status`, {
-          credentials: 'same-origin'
+          credentials: 'include'
         });
         const status = await statusResponse.json();
         console.log('Admin status:', status);
@@ -613,7 +613,7 @@ async function changePassword() {
     const verifyResponse = await fetch(`${API_BASE}/api/admin/verify-password`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      credentials: 'same-origin',
+      credentials: 'include',
       body: JSON.stringify({ password: currentPassword })
     });
 
@@ -627,7 +627,7 @@ async function changePassword() {
     const response = await fetch(`${API_BASE}/api/admin/change-password`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      credentials: 'same-origin',
+      credentials: 'include',
       body: JSON.stringify({ newPassword })
     });
 
