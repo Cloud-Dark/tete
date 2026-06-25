@@ -1,6 +1,6 @@
 // File View Page JavaScript
 
-const API_BASE = window.location.origin;
+const API_BASE = 'https://tetein.apipedia.id';
 let currentFileId = null;
 let currentFileMetadata = null;
 
@@ -79,7 +79,7 @@ async function loadFileInfo() {
     fileInfo.style.display = 'none';
     errorState.style.display = 'none';
     
-    const response = await fetch(`${API_BASE}/file/${currentFileId}`, {
+    const response = await fetch(`${API_BASE}/api/file/${currentFileId}`, {
       headers: {
         'Accept': 'application/json'
       }
@@ -189,7 +189,7 @@ function downloadFile(password = null) {
   downloadBtn.disabled = true;
   downloadBtn.innerHTML = '<span class="loading"></span> Downloading...';
   
-  let downloadUrl = `${API_BASE}/file/${currentFileId}/download`;
+  let downloadUrl = `${API_BASE}/api/storage/${currentFileId}`;
   if (password) {
     downloadUrl += `?password=${encodeURIComponent(password)}`;
   }
@@ -211,7 +211,7 @@ function downloadFile(password = null) {
 
 // Copy share link to clipboard
 function copyShareLink() {
-  const shareUrl = `${API_BASE}/file/${currentFileId}`;
+  const shareUrl = `${window.location.origin}/file/${currentFileId}`;
   
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(shareUrl)
