@@ -1,5 +1,5 @@
 ﻿// TETE Client Application
-const API_BASE = window.location.origin;
+const API_BASE = 'https://tetein.apipedia.id';
 let selectedFiles = [];
 let openDropdown = null;
 let pendingDownloadUrl = null;
@@ -424,7 +424,7 @@ async function loadReadmeDoc() {
   if (textarea.value) return; // Already loaded
 
   try {
-    const response = await fetch('README.md');
+    const response = await fetch(`${API_BASE}/README.md`);
     let text = await response.text();
     
     // Replace localhost:3232 with actual base URL
@@ -443,7 +443,7 @@ async function loadAgentDoc() {
   if (textarea.value) return;
 
   try {
-    const response = await fetch('AGENT.md');
+    const response = await fetch(`${API_BASE}/AGENT.md`);
     let text = await response.text();
     
     // Replace localhost:3232 with actual base URL
@@ -462,7 +462,7 @@ async function loadApiDoc() {
   if (textarea.value) return;
 
   try {
-    const response = await fetch('api.md');
+    const response = await fetch(`${API_BASE}/api.md`);
     let text = await response.text();
     
     // Replace localhost:3232 with actual base URL
