@@ -17,8 +17,89 @@ if (!fs.existsSync(UPLOADS_DIR)) {
   fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 }
 
-// Metadata storage (in-memory, for persistence use a database)
+// Metadata storage with persistence
 const fileMetadata = new Map();
+const METADATA_FILE = path.join(__dirname, '../db/metadata.json');
+
+// Load metadata from file
+function loadMetadata() {
+  try {
+    if (fs.existsSync(METADATA_FILE)) {
+      const savedMetadata = JSON.parse(fs.readFileSync(METADATA_FILE, 'utf-8'));
+      // Convert array to Map
+      savedMetadata.forEach(item => {
+        fileMetadata.set(item.id, item.data);
+      });
+      console.log(`Loaded ${fileMetadata.size} file metadata from disk`);
+    } else {
+      // Rebuild metadata from existing files on disk
+      console.log('No metadata file found, rebuilding from uploads directory...');
+      rebuildMetadataFromDisk();
+    }
+  } catch (error) {
+    console.error('Error loading metadata:', error.message);
+    // Fallback: rebuild from disk
+    rebuildMetadataFromDisk();
+  }
+}
+
+// Rebuild metadata from files on disk
+function rebuildMetadataFromDisk() {
+  try {
+    const files = fs.readdirSync(UPLOADS_DIR);
+    files.forEach(filename => {
+      const filePath = path.join(UPLOADS_DIR, filename);
+      const stats = fs.statSync(filePath);
+      const ext = path.extname(filename).toLowerCase();
+      const baseName = path.basename(filename, ext); // ID without extension
+      const mimeType = getMimeTypeFromExt(ext);
+      
+      fileMetadata.set(baseName, {
+        id: baseName,
+        filename: filename,
+        originalName: filename,
+        mimeType: mimeType,
+        size: stats.size,
+        uploadDate: stats.mtimeMs,
+        uploadedAt: new Date(stats.mtimeMs).toISOString(),
+        locked: false,
+        encrypted: ext === '.enc'
+      });
+    });
+    saveMetadata();
+    console.log(`Rebuilt metadata for ${fileMetadata.size} files from disk`);
+  } catch (error) {
+    console.error('Error rebuilding metadata:', error.message);
+  }
+}
+
+// Helper to get MIME type from extension
+function getMimeTypeFromExt(ext) {
+  const mimeTypes = {
+    '.txt': 'text/plain',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.png': 'image/png',
+    '.gif': 'image/gif',
+    '.pdf': 'application/pdf',
+    '.zip': 'application/zip',
+    '.enc': 'application/octet-stream'
+  };
+  return mimeTypes[ext] || 'application/octet-stream';
+}
+
+// Save metadata to file
+function saveMetadata() {
+  try {
+    const metadataArray = Array.from(fileMetadata.entries()).map(([id, data]) => ({ id, data }));
+    fs.writeFileSync(METADATA_FILE, JSON.stringify(metadataArray, null, 2), 'utf-8');
+  } catch (error) {
+    console.error('Error saving metadata:', error.message);
+  }
+}
+
+// Load metadata on startup
+loadMetadata();
 
 // Admin password (change this in production!)
 const ADMIN_PASSWORD = 'admin123';
@@ -330,11 +411,13 @@ function getFileMetadata(id) {
 // Helper function to save file metadata
 function saveFileMetadata(id, metadata) {
   fileMetadata.set(id, metadata);
+  saveMetadata();
 }
 
 // Helper function to delete file metadata
 function deleteFileMetadata(id) {
   fileMetadata.delete(id);
+  saveMetadata();
 }
 
 // Helper function to get base URL
@@ -364,6 +447,7 @@ app.post('/api/upload', upload.array('files', appConfig.maxFilesPerUpload), (req
       // Base metadata
       const metadata = {
         id,
+        filename: file.filename,
         originalName: file.originalname,
         mimeType: file.mimetype,
         size: stats.size,
@@ -455,6 +539,7 @@ app.post('/api/text', (req, res) => {
     // Base metadata
     const metadata = {
       id,
+      filename: fileName,
       originalName: filename || `${id}.txt`,
       mimeType: 'text/plain',
       size: Buffer.byteLength(text, 'utf8'),
@@ -543,6 +628,7 @@ app.post('/api', upload.single('file'), (req, res) => {
     // Base metadata
     const metadata = {
       id,
+      filename: req.file.filename,
       originalName: req.uploadedOriginalName || req.file.originalname,
       mimeType: req.file.mimetype,
       size: stats.size,
@@ -610,9 +696,25 @@ app.post('/api', upload.single('file'), (req, res) => {
   }
 });
 
-// API: Get file info
+// Serve file view page for browsers OR JSON API for programmatic access
 app.get('/file/:id', (req, res) => {
   const { id } = req.params;
+  
+  // Check if request expects HTML (browser navigation)
+  const acceptsHTML = req.accepts('html');
+  const isBrowser = req.headers['sec-fetch-dest'] === 'document' || 
+                    (req.headers.accept && req.headers.accept.includes('text/html') && 
+                     !req.headers.accept.includes('application/json'));
+  
+  if (isBrowser || acceptsHTML) {
+    // Serve the file view HTML page
+    const filePath = path.join(__dirname, '../client/file-view.html');
+    if (fs.existsSync(filePath)) {
+      return res.sendFile(filePath);
+    }
+  }
+  
+  // Otherwise serve JSON API
   const metadata = getFileMetadata(id);
 
   if (!metadata) {
@@ -671,7 +773,19 @@ app.get('/file/:id/download', (req, res) => {
   }
 
   const password = req.query.password;
-  const filePath = path.join(UPLOADS_DIR, metadata.filename);
+
+  // Fallback: if filename is missing, construct it from ID and originalName extension
+  let filename = metadata.filename;
+  if (!filename) {
+    const ext = metadata.originalName ? path.extname(metadata.originalName) : '';
+    filename = `${id}${ext}`;
+    // Update metadata with the constructed filename
+    metadata.filename = filename;
+    saveFileMetadata(id, metadata);
+    console.log(`Constructed missing filename for ${id}: ${filename}`);
+  }
+
+  const filePath = path.join(UPLOADS_DIR, filename);
 
   if (!fs.existsSync(filePath)) {
     return res.status(404).json({ error: 'File not found on disk' });
@@ -750,6 +864,10 @@ app.delete('/file/:id', (req, res) => {
     return res.status(404).json({ error: 'File not found' });
   }
 
+  if (!metadata.filename) {
+    return res.status(500).json({ error: 'File metadata is missing filename' });
+  }
+
   const filePath = path.join(UPLOADS_DIR, metadata.filename);
 
   if (fs.existsSync(filePath)) {
@@ -765,12 +883,12 @@ app.get('/api/files', (req, res) => {
   const baseUrl = getBaseUrl(req);
   const isAdmin = req.session && req.session.isAdmin;
   const userId = req.userId;
-  
+
   let files = Array.from(fileMetadata.values());
-  
+
   // Filter by userId if not admin
   if (!isAdmin) {
-    files = files.filter(f => f.userId === userId);
+    files = files.filter(f => f.userId === userId || f.userId === undefined);
   }
   
   const result = files.map(metadata => ({

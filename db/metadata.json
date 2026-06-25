@@ -1,0 +1,213 @@
+[
+  {
+    "id": "06bb06",
+    "data": {
+      "id": "06bb06",
+      "filename": "06bb06.zip",
+      "originalName": "06bb06.zip",
+      "mimeType": "application/zip",
+      "size": 26519,
+      "uploadDate": 1776062925178.8252,
+      "uploadedAt": "2026-04-13T06:48:45.178Z",
+      "locked": false,
+      "encrypted": false
+    }
+  },
+  {
+    "id": "0afa73",
+    "data": {
+      "id": "0afa73",
+      "filename": "0afa73.txt",
+      "originalName": "0afa73.txt",
+      "mimeType": "text/plain",
+      "size": 100,
+      "uploadDate": 1775117287998.3137,
+      "uploadedAt": "2026-04-02T08:08:07.998Z",
+      "locked": false,
+      "encrypted": false
+    }
+  },
+  {
+    "id": "1811e2",
+    "data": {
+      "id": "1811e2",
+      "filename": "1811e2.txt",
+      "originalName": "1811e2.txt",
+      "mimeType": "text/plain",
+      "size": 40,
+      "uploadDate": 1775113291402.811,
+      "uploadedAt": "2026-04-02T07:01:31.402Z",
+      "locked": false,
+      "encrypted": false
+    }
+  },
+  {
+    "id": "1ec781",
+    "data": {
+      "id": "1ec781",
+      "filename": "1ec781.enc",
+      "originalName": "1ec781.enc",
+      "mimeType": "application/octet-stream",
+      "size": 1185,
+      "uploadDate": 1775114036905.3486,
+      "uploadedAt": "2026-04-02T07:13:56.905Z",
+      "locked": false,
+      "encrypted": true
+    }
+  },
+  {
+    "id": "2529a9",
+    "data": {
+      "id": "2529a9",
+      "filename": "2529a9.enc",
+      "originalName": "2529a9.enc",
+      "mimeType": "application/octet-stream",
+      "size": 18,
+      "uploadDate": 1775114362014.1445,
+      "uploadedAt": "2026-04-02T07:19:22.014Z",
+      "locked": false,
+      "encrypted": true
+    }
+  },
+  {
+    "id": "2d3bbc",
+    "data": {
+      "id": "2d3bbc",
+      "filename": "2d3bbc.enc",
+      "originalName": "2d3bbc.enc",
+      "mimeType": "application/octet-stream",
+      "size": 47149,
+      "uploadDate": 1775113688106.8108,
+      "uploadedAt": "2026-04-02T07:08:08.106Z",
+      "locked": false,
+      "encrypted": true
+    }
+  },
+  {
+    "id": "2f4c36",
+    "data": {
+      "id": "2f4c36",
+      "filename": "2f4c36.enc",
+      "originalName": "2f4c36.enc",
+      "mimeType": "application/octet-stream",
+      "size": 40,
+      "uploadDate": 1775113691700.775,
+      "uploadedAt": "2026-04-02T07:08:11.700Z",
+      "locked": false,
+      "encrypted": true
+    }
+  },
+  {
+    "id": "3e1a4a",
+    "data": {
+      "id": "3e1a4a",
+      "filename": "3e1a4a.zip",
+      "originalName": "3e1a4a.zip",
+      "mimeType": "application/zip",
+      "size": 26519,
+      "uploadDate": 1776063086572.528,
+      "uploadedAt": "2026-04-13T06:51:26.572Z",
+      "locked": false,
+      "encrypted": false
+    }
+  },
+  {
+    "id": "423a0e",
+    "data": {
+      "id": "423a0e",
+      "filename": "423a0e.enc",
+      "originalName": "423a0e.enc",
+      "mimeType": "application/octet-stream",
+      "size": 47149,
+      "uploadDate": 1775113271896.0103,
+      "uploadedAt": "2026-04-02T07:01:11.896Z",
+      "locked": false,
+      "encrypted": true
+    }
+  },
+  {
+    "id": "5e1f23",
+    "data": {
+      "id": "5e1f23",
+      "filename": "5e1f23.txt",
+      "originalName": "5e1f23.txt",
+      "mimeType": "text/plain",
+      "size": 47149,
+      "uploadDate": 1775114256883.179,
+      "uploadedAt": "2026-04-02T07:17:36.883Z",
+      "locked": false,
+      "encrypted": false
+    }
+  },
+  {
+    "id": "622173",
+    "data": {
+      "id": "622173",
+      "filename": "622173.zip",
+      "originalName": "622173.zip",
+      "mimeType": "application/zip",
+      "size": 26519,
+      "uploadDate": 1776062321264.516,
+      "uploadedAt": "2026-04-13T06:38:41.264Z",
+      "locked": false,
+      "encrypted": false
+    }
+  },
+  {
+    "id": "6667f4",
+    "data": {
+      "id": "6667f4",
+      "filename": "6667f4.jpg",
+      "originalName": "6667f4.jpg",
+      "mimeType": "image/jpeg",
+      "size": 5,
+      "uploadDate": 1775113741148.2817,
+      "uploadedAt": "2026-04-02T07:09:01.148Z",
+      "locked": false,
+      "encrypted": false
+    }
+  },
+  {
+    "id": "9a1def",
+    "data": {
+      "id": "9a1def",
+      "filename": "9a1def.zip",
+      "originalName": "9a1def.zip",
+      "mimeType": "application/zip",
+      "size": 26519,
+      "uploadDate": 1776062757544.1587,
+      "uploadedAt": "2026-04-13T06:45:57.544Z",
+      "locked": false,
+      "encrypted": false
+    }
+  },
+  {
+    "id": "debab8",
+    "data": {
+      "id": "debab8",
+      "filename": "debab8.enc",
+      "originalName": "debab8.enc",
+      "mimeType": "application/octet-stream",
+      "size": 40,
+      "uploadDate": 1775113269402.036,
+      "uploadedAt": "2026-04-02T07:01:09.402Z",
+      "locked": false,
+      "encrypted": true
+    }
+  },
+  {
+    "id": "8ae386",
+    "data": {
+      "id": "8ae386",
+      "filename": "afcd9f.docx",
+      "originalName": "Invoice Dinner.docx",
+      "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "size": 657745,
+      "uploadedAt": "2026-06-10T03:44:21.676Z",
+      "expiresAt": 1781070261676,
+      "locked": false,
+      "passwordHash": null,
+      "userId": "114b9e29d3cd0739468bf6b08841aa2d"
+    }
+  }
+]
