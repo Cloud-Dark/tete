@@ -27,12 +27,23 @@ header h1 {
   font-size: 2rem;
   font-weight: 600;
   color: #1a1a1a;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 
 header p {
   color: #888;
   font-size: 0.95rem;
+}
+
+.logo-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  text-align: left;
+}
+
+.logo-svg {
+  flex-shrink: 0;
 }
 
 .header-actions {

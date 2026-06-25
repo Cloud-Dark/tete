@@ -993,14 +993,16 @@ app.get('/README.md', (req, res) => {
 });
 
 // Serve api.md for API documentation (BEFORE static files)
-// Auto-replace localhost:3232 with actual server URL
+// Auto-replace {{BASE_URL}} placeholder with actual server URL
 app.get('/api.md', (req, res) => {
   const baseUrl = getBaseUrl(req);
   const apiPath = path.join(__dirname, '../api.md');
 
   try {
     let content = fs.readFileSync(apiPath, 'utf-8');
-    // Replace all occurrences of localhost:3232 with actual base URL
+    // Replace all occurrences of {{BASE_URL}} with actual base URL
+    content = content.replace(/{{BASE_URL}}/g, baseUrl);
+    // Also replace localhost:3232 for backward compatibility
     content = content.replace(/http:\/\/localhost:3232/g, baseUrl);
     content = content.replace(/localhost:3232/g, baseUrl.replace('http://', ''));
     res.setHeader('Content-Type', 'text/markdown');

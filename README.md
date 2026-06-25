@@ -6,31 +6,40 @@
 
 ---
 
+## 🌐 Production URLs
+
+| Service | URL | Description |
+|---------|-----|-------------|
+| **Web UI** | `https://tete.apipedia.id` | Browser interface for uploads & file management |
+| **API** | `https://tetein.apipedia.id` | REST API endpoint for integrators & automation |
+
+---
+
 ## ✨ Features
 
 ### Core Features
-- 📤 **File Upload** - Drag & drop or click to browse (max 100MB per file)
-- 📝 **Text Upload** - Paste text content directly
-- 🔐 **Full Encryption** - AES-256-GCM encryption for file content AND filename (one-way encryption)
-- ⏱️ **Auto-Delete** - Configurable expiration time for files
-- 📋 **File Management** - View, download, delete uploaded files
-- 🔗 **Short URLs** - 6-character hex IDs (e.g., `/file/a1b2c3`)
-- 📱 **Responsive UI** - Clean, minimalist design
-- 🚀 **REST API** - Full API for automation
-- 🛡️ **Security** - SHA-256 password hashing + AES-256-GCM file encryption
+- 📤 **File Upload** — Drag & drop or click to browse (max 100MB per file)
+- 📝 **Text Upload** — Paste text content directly
+- 🔐 **Full Encryption** — AES-256-GCM encryption for file content AND filename (one-way)
+- ⏱️ **Auto-Delete** — Configurable expiration time for files
+- 📋 **File Management** — View, download, delete uploaded files
+- 🔗 **Short URLs** — 6-character hex IDs (e.g., `/file/a1b2c3`)
+- 📱 **Responsive UI** — Clean, minimalist design
+- 🚀 **REST API** — Full API for automation
+- 🛡️ **Security** — SHA-256 password hashing + AES-256-GCM file encryption
 
 ### Admin Features
-- 👑 **Admin Dashboard** - View all files (not just yours)
-- 🔐 **Admin Login** - Secure authentication
-- 🔑 **Change Password** - Update admin password from UI
-- ⚙️ **Configuration** - Set default expiration time
+- 👑 **Admin Dashboard** — View all files (not just yours)
+- 🔐 **Admin Login** — Secure authentication
+- 🔑 **Change Password** — Update admin password from UI
+- ⚙️ **Configuration** — Set default expiration time, upload limits
 
 ### User Features
-- 📂 **Multi-File Upload** - Upload multiple files at once
-- 🔍 **Search Dropdowns** - Easy expiration selection
-- 📊 **File List** - See all your uploaded files
-- 📥 **Download Locked Files** - Password modal for protected files
-- 🗑️ **Quick Delete** - Delete files with confirmation
+- 📂 **Multi-File Upload** — Upload multiple files at once
+- 🔍 **Search Dropdowns** — Easy expiration selection
+- 📊 **File List** — See all your uploaded files
+- 📥 **Download Locked Files** — Password modal for protected files
+- 🗑️ **Quick Delete** — Delete files with confirmation
 
 ---
 
@@ -67,13 +76,42 @@ pm2 startup
 pm2 save
 ```
 
+### Production Proxy (Nginx)
+For production deployment, configure Nginx reverse proxy:
+
+```nginx
+# Web UI — https://tete.apipedia.id
+server {
+    listen 443 ssl;
+    server_name tete.apipedia.id;
+    
+    location / {
+        proxy_pass http://127.0.0.1:3232;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+
+# API — https://tetein.apipedia.id
+server {
+    listen 443 ssl;
+    server_name tetein.apipedia.id;
+    
+    location / {
+        proxy_pass http://127.0.0.1:3232;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+```
+
 ---
 
 ## 📖 Usage
 
 ### Web Interface
 
-1. **Open Browser**: Navigate to `http://localhost:3232`
+1. **Open Browser**: Navigate to `https://tete.apipedia.id`
 2. **Upload Files**: 
    - Drag & drop files or click to browse
    - Optional: Set password for protection
@@ -97,7 +135,7 @@ pm2 save
 3. Access admin features:
    - **Config Tab**: Set default expiration
    - **Change Password**: Update admin password
-   - **View All Files**: See files from all users
+   - **Upload Limits**: Configure max file size & whitelist
 
 > ⚠️ **Important**: Change default admin password after first login!
 
@@ -105,71 +143,66 @@ pm2 save
 
 ## 🔌 API Documentation
 
+Use `https://tetein.apipedia.id` as the base URL for all API calls.
+
 ### Upload Endpoints
 
 #### Upload Single File
 ```bash
-curl -F "file=@myfile.txt" http://localhost:3232/api
+curl -F "file=@myfile.txt" https://tetein.apipedia.id/api
 ```
 
 #### Upload Single File (Locked)
 ```bash
-curl -F "file=@secret.txt" -F "password=mysecret" http://localhost:3232/api
+curl -F "file=@secret.txt" -F "password=mysecret" https://tetein.apipedia.id/api
 ```
 
 #### Upload Multiple Files
 ```bash
-curl -F "files=@file1.txt" -F "files=@file2.txt" http://localhost:3232/api/upload
+curl -F "files=@file1.txt" -F "files=@file2.txt" https://tetein.apipedia.id/api/upload
 ```
 
 #### Upload Text
 ```bash
 curl -H "Content-Type: application/json" \
   -d '{"text": "Hello World", "filename": "greeting.txt"}' \
-  http://localhost:3232/api/text
-```
-
-#### Upload Text (Locked)
-```bash
-curl -H "Content-Type: application/json" \
-  -d '{"text": "Secret", "password": "pass123"}' \
-  http://localhost:3232/api/text
+  https://tetein.apipedia.id/api/text
 ```
 
 ### Download Endpoints
 
 #### Download Public File
 ```bash
-curl -O http://localhost:3232/file/a1b2c3/download
+curl -O https://tetein.apipedia.id/file/a1b2c3/download
 ```
 
 #### Download Locked File
 ```bash
-curl -O "http://localhost:3232/file/a1b2c3/download?password=mysecret"
+curl -O "https://tetein.apipedia.id/file/a1b2c3/download?password=mysecret"
 ```
 
 #### Get File Info
 ```bash
-curl http://localhost:3232/file/a1b2c3
+curl https://tetein.apipedia.id/file/a1b2c3
 ```
 
 ### Management Endpoints
 
 #### Delete File
 ```bash
-curl -X DELETE http://localhost:3232/file/a1b2c3
+curl -X DELETE https://tetein.apipedia.id/file/a1b2c3
 ```
 
 #### List All Files
 ```bash
-curl http://localhost:3232/api/files
+curl https://tetein.apipedia.id/api/files
 ```
 
 #### Verify Password
 ```bash
 curl -X POST -H "Content-Type: application/json" \
   -d '{"password": "mysecret"}' \
-  http://localhost:3232/file/a1b2c3/verify
+  https://tetein.apipedia.id/file/a1b2c3/verify
 ```
 
 ### Admin Endpoints
@@ -178,30 +211,30 @@ curl -X POST -H "Content-Type: application/json" \
 ```bash
 curl -X POST -H "Content-Type: application/json" \
   -d '{"password": "admin123"}' \
-  http://localhost:3232/api/admin/login \
+  https://tetein.apipedia.id/api/admin/login \
   -c cookies.txt
 ```
 
 #### Admin Logout
 ```bash
-curl -X POST http://localhost:3232/api/admin/logout -b cookies.txt
+curl -X POST https://tetein.apipedia.id/api/admin/logout -b cookies.txt
 ```
 
 #### Check Admin Status
 ```bash
-curl http://localhost:3232/api/admin/status -b cookies.txt
+curl https://tetein.apipedia.id/api/admin/status -b cookies.txt
 ```
 
 #### Get Configuration (Admin)
 ```bash
-curl http://localhost:3232/api/config -b cookies.txt
+curl https://tetein.apipedia.id/api/config -b cookies.txt
 ```
 
 #### Update Configuration (Admin)
 ```bash
 curl -X POST -H "Content-Type: application/json" \
   -d '{"defaultExpiration": 3600000}' \
-  http://localhost:3232/api/config \
+  https://tetein.apipedia.id/api/config \
   -b cookies.txt
 ```
 
@@ -210,13 +243,13 @@ curl -X POST -H "Content-Type: application/json" \
 # First verify current password
 curl -X POST -H "Content-Type: application/json" \
   -d '{"password": "admin123"}' \
-  http://localhost:3232/api/admin/verify-password \
+  https://tetein.apipedia.id/api/admin/verify-password \
   -b cookies.txt
 
 # Then change password
 curl -X POST -H "Content-Type: application/json" \
   -d '{"newPassword": "newpass123"}' \
-  http://localhost:3232/api/admin/change-password \
+  https://tetein.apipedia.id/api/admin/change-password \
   -b cookies.txt
 ```
 
@@ -235,9 +268,9 @@ curl -X POST -H "Content-Type: application/json" \
   "uploadedAt": "2024-01-15T10:30:00.000Z",
   "expiresAt": "2024-01-15T11:30:00.000Z",
   "locked": true,
-  "url": "http://localhost:3232/file/a1b2c3",
-  "downloadUrl": "http://localhost:3232/file/a1b2c3/download",
-  "deleteUrl": "http://localhost:3232/file/a1b2c3"
+  "url": "https://tete.apipedia.id/file/a1b2c3",
+  "downloadUrl": "https://tete.apipedia.id/file/a1b2c3/download",
+  "deleteUrl": "https://tete.apipedia.id/file/a1b2c3"
 }
 ```
 
@@ -250,9 +283,9 @@ curl -X POST -H "Content-Type: application/json" \
   "size": 1024,
   "uploadedAt": "2024-01-15T10:30:00.000Z",
   "locked": true,
-  "url": "http://localhost:3232/file/a1b2c3",
-  "downloadUrl": "http://localhost:3232/file/a1b2c3/download",
-  "deleteUrl": "http://localhost:3232/file/a1b2c3"
+  "url": "https://tete.apipedia.id/file/a1b2c3",
+  "downloadUrl": "https://tete.apipedia.id/file/a1b2c3/download",
+  "deleteUrl": "https://tete.apipedia.id/file/a1b2c3"
 }
 ```
 
@@ -281,13 +314,13 @@ curl -X POST -H "Content-Type: application/json" \
 
 ### Expiration Options
 
-- **No expiration** - File never expires
-- **30 minutes** - Short-term sharing
-- **1 hour** - Default
-- **2-12 hours** - Medium-term
-- **24 hours** - 1 day
-- **2 days** - 48 hours
-- **7 days** - 1 week
+- **No expiration** — File never expires
+- **30 minutes** — Short-term sharing
+- **1 hour** — Default
+- **2–12 hours** — Medium-term
+- **24 hours** — 1 day
+- **2 days** — 48 hours
+- **7 days** — 1 week
 
 ---
 
@@ -298,11 +331,11 @@ tete/
 ├── server/
 │   └── index.js          # Express server (600+ lines)
 ├── client/
-│   ├── index.html        # Web UI (280 lines)
+│   ├── index.html        # Web UI (290+ lines)
 │   ├── css/
 │   │   └── style.css     # Styles (700+ lines)
 │   └── js/
-│       └── app.js        # JavaScript (800+ lines)
+│       └── app.js        # JavaScript (1085 lines)
 ├── db/
 │   ├── config.json       # App configuration
 │   ├── memory.json       # File metadata
@@ -322,12 +355,12 @@ tete/
 ## 🛡️ Security Features
 
 ### Encryption & Password Protection
-- ✅ **Full File Encryption** - Files encrypted with AES-256-GCM when encryption key is set
-- ✅ **Filename Encryption** - Original filenames also encrypted (not visible on disk)
-- ✅ **One-Way Encryption** - Lost encryption key = file cannot be recovered (by design!)
-- ✅ **Password Verification** - SHA-256 hash for access control
-- ✅ **Locked Files** - Require encryption key for download
-- ✅ **Admin Cannot Decrypt** - Even admins cannot view encrypted file content or names
+- ✅ **Full File Encryption** — Files encrypted with AES-256-GCM when encryption key is set
+- ✅ **Filename Encryption** — Original filenames also encrypted (not visible on disk)
+- ✅ **One-Way Encryption** — Lost encryption key = file cannot be recovered (by design!)
+- ✅ **Password Verification** — SHA-256 hash for access control
+- ✅ **Locked Files** — Require encryption key for download
+- ✅ **Admin Cannot Decrypt** — Even admins cannot view encrypted file content or names
 
 ### File Security
 - ✅ Files stored encrypted on disk (content + filename)
@@ -340,7 +373,7 @@ tete/
 - ✅ Session-based authentication
 - ✅ Password change requires current password
 - ✅ Config changes require admin login
-- ⚠️ Default password is `admin123` - **CHANGE IT!**
+- ⚠️ Default password is `admin123` — **CHANGE IT!**
 
 ---
 
@@ -397,11 +430,14 @@ lsof -i :3232
 
 | Type | Pattern | Example |
 |------|---------|---------|
-| File Info | `/file/:id` | `/file/a1b2c3` |
-| Download (public) | `/file/:id/download` | `/file/a1b2c3/download` |
-| Download (locked) | `/file/:id/download?password=xxx` | `/file/a1b2c3/download?password=secret` |
+| Web UI | `https://tete.apipedia.id` | Browser interface |
+| API Base | `https://tetein.apipedia.id` | Integrator endpoint |
+| File Info | `/file/:id` | `https://tetein.apipedia.id/file/a1b2c3` |
+| Download (public) | `/file/:id/download` | `https://tetein.apipedia.id/file/a1b2c3/download` |
+| Download (locked) | `/file/:id/download?password=xxx` | `https://tetein.apipedia.id/file/a1b2c3/download?password=secret` |
 | Verify Password | `POST /file/:id/verify` | `curl -X POST -d '{"password":"x"}' ...` |
-| Delete | `DELETE /file/:id` | `curl -X DELETE /file/a1b2c3` |
+| Delete | `DELETE /file/:id` | `curl -X DELETE https://tetein.apipedia.id/file/a1b2c3` |
+| Admin Login | `POST /api/admin/login` | `curl -X POST -d '{"password":"admin123"}' ...` |
 
 ---
 
@@ -409,34 +445,35 @@ lsof -i :3232
 
 ### 1. Share Public File
 ```bash
-curl -F "file=@document.pdf" http://localhost:3232/api
+curl -F "file=@document.pdf" https://tetein.apipedia.id/api
 # Returns: {"url": "...", "downloadUrl": "..."}
+# Web UI: https://tete.apipedia.id
 ```
 
 ### 2. Share Secret File
 ```bash
-curl -F "file=@secret.pdf" -F "password=pass123" http://localhost:3232/api
-# Share: http://localhost:3232/file/abc123/download?password=pass123
+curl -F "file=@secret.pdf" -F "password=pass123" https://tetein.apipedia.id/api
+# Share: https://tetein.apipedia.id/file/abc123/download?password=pass123
 ```
 
 ### 3. Share Text Snippet
 ```bash
 curl -H "Content-Type: application/json" \
   -d '{"text": "Sensitive data here", "password": "secret"}' \
-  http://localhost:3232/api/text
+  https://tetein.apipedia.id/api/text
 ```
 
 ### 4. Automate Backup
 ```bash
 tar czf backup.tar.gz /data
-curl -F "file=@backup.tar.gz" -F "password=backup123" http://localhost:3232/api
+curl -F "file=@backup.tar.gz" -F "password=backup123" https://tetein.apipedia.id/api
 # Save the downloadUrl for retrieval
 ```
 
 ### 5. Set Expiration
 ```bash
 # 2 hours expiration (7200000ms)
-curl -F "files=@file.txt" -F "expiration=7200000" http://localhost:3232/api/upload
+curl -F "files=@file.txt" -F "expiration=7200000" https://tetein.apipedia.id/api/upload
 ```
 
 ---
@@ -449,10 +486,12 @@ ISC
 
 ## 🔗 Links
 
+- **Web UI**: `https://tete.apipedia.id`
+- **API**: `https://tetein.apipedia.id`
 - **Repository**: https://github.com/Cloud-Dark/tete
 - **Issues**: GitHub Issues tab
 - **API Docs**: `/API.md`
-- **Agent Docs**: `/AGENT.md` or `http://localhost:3232/AGENT.md`
+- **Agent Docs**: `/AGENT.md`
 
 ---
 
@@ -460,15 +499,15 @@ ISC
 
 | Action | Command/URL |
 |--------|-------------|
+| **Web UI** | `https://tete.apipedia.id` |
+| **API** | `https://tetein.apipedia.id` |
 | **Start** | `npm start` |
 | **PM2 Start** | `pm2 start server/index.js --name tete` |
 | **PM2 Logs** | `pm2 logs tete` |
 | **PM2 Restart** | `pm2 restart tete` |
-| **Web UI** | `http://localhost:3232` |
 | **Admin Login** | Click 🔐 → `admin123` |
 | **Change Password** | Config tab → Change Password |
-| **API Docs** | `http://localhost:3232/AGENT.md` |
 
 ---
 
-**Made with ❤️ - Self-hosted file sharing made simple**
+**Made with ❤️ — Self-hosted file sharing made simple**

@@ -6,11 +6,17 @@ Simple, secure file sharing server with password protection. Self-hosted alterna
 
 ## Server Info
 
-- **Default Port**: 3232
-- **Host**: 0.0.0.0 (all interfaces)
-- **Base URL**: `http://10.0.24.23:3232` (adjust to your server IP)
-- **File ID Format**: 6-character hex (e.g., `a1b2c3`)
-- **Password Hashing**: SHA-256
+| Setting | Value | Description |
+|---------|-------|-------------|
+| **Web UI** | `https://tete.apipedia.id` | Browser interface for uploads & management |
+| **API Base URL** | `https://tetein.apipedia.id` | Endpoint for integrators & automation |
+| **Default Port** | 3232 | HTTP server port |
+| **Host** | 0.0.0.0 | Listen on all interfaces |
+| **File ID Format** | 6-character hex (e.g., `a1b2c3`) |
+| **Password Hashing** | SHA-256 |
+| **File Encryption** | AES-256-GCM |
+
+> **Note:** Both domains point to the same server. Use `tetein.apipedia.id` for API/curl commands and `tete.apipedia.id` for the web interface.
 
 ---
 
@@ -24,13 +30,13 @@ Upload a single file via multipart/form-data.
 
 **Request:**
 ```bash
-curl -X POST -F "file=@xyz.txt" http://10.0.24.23:3232/api
-curl -X POST -F "file=@file1.txt" -F "file=@file2.txt" http://10.0.24.23:3232/api
+curl -X POST -F "file=@xyz.txt" https://tetein.apipedia.id/api
+curl -X POST -F "file=@file1.txt" -F "file=@file2.txt" https://tetein.apipedia.id/api
 ```
 
 **Upload with password protection:**
 ```bash
-curl -X POST -F "file=@secret.txt" -F "password=mysecret123" http://10.0.24.23:3232/api
+curl -X POST -F "file=@secret.txt" -F "password=mysecret123" https://tetein.apipedia.id/api
 ```
 
 **Response:**
@@ -43,9 +49,9 @@ curl -X POST -F "file=@secret.txt" -F "password=mysecret123" http://10.0.24.23:3
   "size": 1024,
   "uploadedAt": "2024-01-15T10:30:00.000Z",
   "locked": true,
-  "url": "http://10.0.24.23:3232/file/a1b2c3",
-  "downloadUrl": "http://10.0.24.23:3232/file/a1b2c3/download",
-  "deleteUrl": "http://10.0.24.23:3232/file/a1b2c3"
+  "url": "https://tete.apipedia.id/file/a1b2c3",
+  "downloadUrl": "https://tete.apipedia.id/file/a1b2c3/download",
+  "deleteUrl": "https://tete.apipedia.id/file/a1b2c3"
 }
 ```
 
@@ -59,7 +65,7 @@ Upload multiple files at once.
 
 **Request:**
 ```bash
-curl -X POST -F "files=@file1.txt" -F "files=@file2.pdf" -F "files=@image.png" http://10.0.24.23:3232/api/upload
+curl -X POST -F "files=@file1.txt" -F "files=@file2.pdf" -F "files=@image.png" https://tetein.apipedia.id/api/upload
 ```
 
 **Response:**
@@ -71,9 +77,9 @@ curl -X POST -F "files=@file1.txt" -F "files=@file2.pdf" -F "files=@image.png" h
     "mimeType": "text/plain",
     "size": 1024,
     "uploadedAt": "2024-01-15T10:30:00.000Z",
-    "url": "http://10.0.24.23:3232/file/uuid-1",
-    "downloadUrl": "http://10.0.24.23:3232/file/uuid-1/download",
-    "deleteUrl": "http://10.0.24.23:3232/file/uuid-1"
+    "url": "https://tete.apipedia.id/file/uuid-1",
+    "downloadUrl": "https://tete.apipedia.id/file/uuid-1/download",
+    "deleteUrl": "https://tete.apipedia.id/file/uuid-1"
   },
   {
     "id": "uuid-2",
@@ -81,9 +87,9 @@ curl -X POST -F "files=@file1.txt" -F "files=@file2.pdf" -F "files=@image.png" h
     "mimeType": "application/pdf",
     "size": 2048,
     "uploadedAt": "2024-01-15T10:30:01.000Z",
-    "url": "http://10.0.24.23:3232/file/uuid-2",
-    "downloadUrl": "http://10.0.24.23:3232/file/uuid-2/download",
-    "deleteUrl": "http://10.0.24.23:3232/file/uuid-2"
+    "url": "https://tete.apipedia.id/file/uuid-2",
+    "downloadUrl": "https://tete.apipedia.id/file/uuid-2/download",
+    "deleteUrl": "https://tete.apipedia.id/file/uuid-2"
   }
 ]
 ```
@@ -100,7 +106,7 @@ Upload plain text content.
 ```bash
 curl -X POST -H "Content-Type: application/json" \
   -d '{"text": "Hello World", "filename": "greeting.txt"}' \
-  http://10.0.24.23:3232/api/text
+  https://tetein.apipedia.id/api/text
 ```
 
 **Response:**
@@ -112,9 +118,9 @@ curl -X POST -H "Content-Type: application/json" \
   "mimeType": "text/plain",
   "size": 11,
   "uploadedAt": "2024-01-15T10:30:00.000Z",
-  "url": "http://10.0.24.23:3232/file/550e8400-e29b-41d4-a716-446655440000",
-  "downloadUrl": "http://10.0.24.23:3232/file/550e8400-e29b-41d4-a716-446655440000/download",
-  "deleteUrl": "http://10.0.24.23:3232/file/550e8400-e29b-41d4-a716-446655440000"
+  "url": "https://tete.apipedia.id/file/550e8400-e29b-41d4-a716-446655440000",
+  "downloadUrl": "https://tete.apipedia.id/file/550e8400-e29b-41d4-a716-446655440000/download",
+  "deleteUrl": "https://tete.apipedia.id/file/550e8400-e29b-41d4-a716-446655440000"
 }
 ```
 
@@ -128,7 +134,7 @@ Get information about an uploaded file.
 
 **Request:**
 ```bash
-curl http://10.0.24.23:3232/file/550e8400-e29b-41d4-a716-446655440000
+curl https://tetein.apipedia.id/file/550e8400-e29b-41d4-a716-446655440000
 ```
 
 **Response:**
@@ -139,9 +145,9 @@ curl http://10.0.24.23:3232/file/550e8400-e29b-41d4-a716-446655440000
   "mimeType": "text/plain",
   "size": 1024,
   "uploadedAt": "2024-01-15T10:30:00.000Z",
-  "url": "http://10.0.24.23:3232/file/550e8400-e29b-41d4-a716-446655440000",
-  "downloadUrl": "http://10.0.24.23:3232/file/550e8400-e29b-41d4-a716-446655440000/download",
-  "deleteUrl": "http://10.0.24.23:3232/file/550e8400-e29b-41d4-a716-446655440000"
+  "url": "https://tete.apipedia.id/file/550e8400-e29b-41d4-a716-446655440000",
+  "downloadUrl": "https://tete.apipedia.id/file/550e8400-e29b-41d4-a716-446655440000/download",
+  "deleteUrl": "https://tete.apipedia.id/file/550e8400-e29b-41d4-a716-446655440000"
 }
 ```
 
@@ -155,16 +161,16 @@ Direct download of a file.
 
 **Request (public file):**
 ```bash
-curl -O http://10.0.24.23:3232/file/a1b2c3/download
+curl -O https://tetein.apipedia.id/file/a1b2c3/download
 # or
-wget http://10.0.24.23:3232/file/a1b2c3/download
+wget https://tetein.apipedia.id/file/a1b2c3/download
 ```
 
 **Request (locked file with password):**
 ```bash
-curl -O "http://10.0.24.23:3232/file/a1b2c3/download?password=mysecret123"
+curl -O "https://tetein.apipedia.id/file/a1b2c3/download?password=mysecret123"
 # or
-wget "http://10.0.24.23:3232/file/a1b2c3/download?password=mysecret123"
+wget "https://tetein.apipedia.id/file/a1b2c3/download?password=mysecret123"
 ```
 
 **Response (locked file, no password):**
@@ -188,7 +194,7 @@ Verify password for a password-protected file.
 ```bash
 curl -X POST -H "Content-Type: application/json" \
   -d '{"password": "mysecret123"}' \
-  http://10.0.24.23:3232/file/a1b2c3/verify
+  https://tetein.apipedia.id/file/a1b2c3/verify
 ```
 
 **Response (correct password):**
@@ -216,7 +222,7 @@ Delete an uploaded file.
 
 **Request:**
 ```bash
-curl -X DELETE http://10.0.24.23:3232/file/550e8400-e29b-41d4-a716-446655440000
+curl -X DELETE https://tetein.apipedia.id/file/550e8400-e29b-41d4-a716-446655440000
 ```
 
 **Response:**
@@ -237,7 +243,7 @@ Get a list of all uploaded files.
 
 **Request:**
 ```bash
-curl http://10.0.24.23:3232/api/files
+curl https://tetein.apipedia.id/api/files
 ```
 
 **Response:**
@@ -249,9 +255,9 @@ curl http://10.0.24.23:3232/api/files
     "mimeType": "text/plain",
     "size": 1024,
     "uploadedAt": "2024-01-15T10:30:00.000Z",
-    "url": "http://10.0.24.23:3232/file/uuid-1",
-    "downloadUrl": "http://10.0.24.23:3232/file/uuid-1/download",
-    "deleteUrl": "http://10.0.24.23:3232/file/uuid-1"
+    "url": "https://tete.apipedia.id/file/uuid-1",
+    "downloadUrl": "https://tete.apipedia.id/file/uuid-1/download",
+    "deleteUrl": "https://tete.apipedia.id/file/uuid-1"
   }
 ]
 ```
@@ -266,10 +272,60 @@ Get the AGENT.md file for AI agent context.
 
 **Request:**
 ```bash
-curl http://10.0.24.23:3232/AGENT.md
+curl https://tetein.apipedia.id/AGENT.md
 ```
 
 **Response:** Plain text markdown content of the AGENT.md file.
+
+---
+
+### 10. Admin Endpoints
+
+#### Admin Login
+```bash
+curl -X POST -H "Content-Type: application/json" \
+  -d '{"password": "admin123"}' \
+  https://tetein.apipedia.id/api/admin/login \
+  -c cookies.txt
+```
+
+#### Admin Logout
+```bash
+curl -X POST https://tetein.apipedia.id/api/admin/logout -b cookies.txt
+```
+
+#### Admin Status
+```bash
+curl https://tetein.apipedia.id/api/admin/status -b cookies.txt
+```
+
+#### Get Configuration (Admin)
+```bash
+curl https://tetein.apipedia.id/api/config -b cookies.txt
+```
+
+#### Update Configuration (Admin)
+```bash
+curl -X POST -H "Content-Type: application/json" \
+  -d '{"defaultExpiration": 3600000}' \
+  https://tetein.apipedia.id/api/config \
+  -b cookies.txt
+```
+
+#### Change Admin Password (Admin)
+```bash
+# First verify current password
+curl -X POST -H "Content-Type: application/json" \
+  -d '{"password": "admin123"}' \
+  https://tetein.apipedia.id/api/admin/verify-password \
+  -b cookies.txt
+
+# Then change password
+curl -X POST -H "Content-Type: application/json" \
+  -d '{"newPassword": "newpass123"}' \
+  https://tetein.apipedia.id/api/admin/change-password \
+  -b cookies.txt
+```
 
 ---
 
@@ -277,11 +333,15 @@ curl http://10.0.24.23:3232/AGENT.md
 
 | Purpose | URL Pattern | Example |
 |---------|-------------|---------|
-| File Info | `/file/:id` | `http://10.0.24.23:3232/file/abc123` |
-| Direct Download (public) | `/file/:id/download` | `http://10.0.24.23:3232/file/abc123/download` |
-| Direct Download (locked) | `/file/:id/download?password=xxx` | `http://10.0.24.23:3232/file/abc123/download?password=secret` |
+| Web UI | `https://tete.apipedia.id` | Browser interface |
+| API Base | `https://tetein.apipedia.id` | Integrator endpoint |
+| File Info | `/file/:id` | `https://tetein.apipedia.id/file/abc123` |
+| Download (public) | `/file/:id/download` | `https://tetein.apipedia.id/file/abc123/download` |
+| Download (locked) | `/file/:id/download?password=xxx` | `https://tetein.apipedia.id/file/abc123/download?password=secret` |
 | Verify Password | `POST /file/:id/verify` | `curl -X POST -d '{"password":"xxx"}' ...` |
-| Delete (API) | `DELETE /file/:id` | `curl -X DELETE http://10.0.24.23:3232/file/abc123` |
+| Delete | `DELETE /file/:id` | `curl -X DELETE https://tetein.apipedia.id/file/abc123` |
+| Admin Login | `POST /api/admin/login` | `curl -X POST -d '{"password":"admin123"}' ...` |
+| Admin Config | `GET/POST /api/config` | Admin configuration endpoints |
 
 ---
 
@@ -289,33 +349,33 @@ curl http://10.0.24.23:3232/AGENT.md
 
 ### Start the server:
 ```bash
-cd /home/syahdan/temp/tete
+cd /path/to/tete
 node server/index.js
 ```
 
 ### Upload a file (public):
 ```bash
-curl -F "file=@myfile.txt" http://10.0.24.23:3232/api
+curl -F "file=@myfile.txt" https://tetein.apipedia.id/api
 ```
 
 ### Upload a file (locked with password):
 ```bash
-curl -F "file=@secret.txt" -F "password=mysecret123" http://10.0.24.23:3232/api
+curl -F "file=@secret.txt" -F "password=mysecret123" https://tetein.apipedia.id/api
 ```
 
 ### Download a file (public):
 ```bash
-curl -O http://10.0.24.23:3232/file/abc123/download
+curl -O https://tetein.apipedia.id/file/abc123/download
 ```
 
 ### Download a file (locked):
 ```bash
-curl -O "http://10.0.24.23:3232/file/abc123/download?password=mysecret123"
+curl -O "https://tetein.apipedia.id/file/abc123/download?password=mysecret123"
 ```
 
 ### Open in browser:
 ```
-http://10.0.24.23:3232
+https://tete.apipedia.id
 ```
 
 ---
@@ -330,8 +390,10 @@ http://10.0.24.23:3232
 
 ## Web Interface
 
-Open `http://10.0.24.23:3232` in your browser for a web interface with:
+Open `https://tete.apipedia.id` in your browser for a web interface with:
 - Drag & drop file upload
 - Text content upload
 - File list with download/delete actions
+- Admin panel with config management
 - Real-time upload results
+- Built-in documentation viewer
