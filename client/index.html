@@ -1,77 +1,81 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TETE — Transient Endpoint for Transfer & Encryption</title>
+  <title>TETE &mdash; Transient Endpoint for Transfer &amp; Encryption</title>
 
-  <!-- Favicon SVG -->
+  <!-- Favicon -->
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230b0b0f' stroke='%2300d4aa' stroke-width='1.5'/%3E%3Ctext x='16' y='22' text-anchor='middle' font-family='Outfit,sans-serif' font-weight='700' font-size='17' fill='%2300d4aa'%3ET%3C/text%3E%3C/svg%3E">
   <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230b0b0f' stroke='%2300d4aa' stroke-width='1.5'/%3E%3Ctext x='16' y='22' text-anchor='middle' font-family='Outfit,sans-serif' font-weight='700' font-size='17' fill='%2300d4aa'%3ET%3C/text%3E%3C/svg%3E">
 
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-  <div class="container">
 
-    <!-- ═══ HEADER ═══ -->
+  <div class="app-container">
+
+    <!-- === HEADER === -->
     <header>
-      <div class="header-top">
-        <div id="adminStatus" class="user-info"></div>
-        <button id="adminBtn" class="btn btn-ghost btn-sm" onclick="toggleAdminAuth()">🔐 Admin Login</button>
+      <div class="header-row">
+        <button id="themeToggle" class="theme-btn" title="Toggle theme">
+          <svg viewBox="0 0 16 16" fill="currentColor" class="icon-sun" width="14" height="14"><path d="M8 1a.75.75 0 0 1 .75.75v1a.75.75 0 0 1-1.5 0v-1A.75.75 0 0 1 8 1Zm0 11a.75.75 0 0 1 .75.75v1a.75.75 0 0 1-1.5 0v-1A.75.75 0 0 1 8 12Zm4.243-6.757a.75.75 0 0 1 0 1.061l-.707.707a.75.75 0 0 1-1.06-1.06l.707-.708a.75.75 0 0 1 1.06 0ZM5.757 9.99a.75.75 0 0 1 0 1.06l-.707.708a.75.75 0 1 1-1.06-1.061l.707-.707a.75.75 0 0 1 1.06 0ZM14 8a.75.75 0 0 1-.75.75h-1a.75.75 0 0 1 0-1.5h1A.75.75 0 0 1 14 8Zm-11 0a.75.75 0 0 1-.75.75h-1a.75.75 0 0 1 0-1.5h1A.75.75 0 0 1 3 8Zm9.546 4.546a.75.75 0 0 1 0 1.06l-.353.354a.75.75 0 0 1-1.061-1.06l.353-.354a.75.75 0 0 1 1.06 0ZM5.11 5.11a.75.75 0 0 1 0 1.06l-.354.353a.75.75 0 1 1-1.06-1.06l.353-.354a.75.75 0 0 1 1.06 0ZM13.19 3.28a.75.75 0 0 1 .003 1.06l-.854.857a.75.75 0 1 1-1.063-1.058l.854-.857a.75.75 0 0 1 1.06-.003ZM3.277 11.642a.75.75 0 0 1 .005 1.06l-.005.005a.75.75 0 0 1-1.06-.004l-.003-.004a.75.75 0 0 1 0-1.058.75.75 0 0 1 1.058 0h.005ZM8 4.25a3.75 3.75 0 1 0 0 7.5 3.75 3.75 0 0 0 0-7.5Z"/></svg>
+          <svg viewBox="0 0 16 16" fill="currentColor" class="icon-moon" width="14" height="14"><path d="M8.218 1.455c3.527.109 6.327 3.018 6.327 6.545 0 3.6-2.945 6.545-6.545 6.545a6.562 6.562 0 0 1-4.8-2.09c.182.027.364.036.545.036a6.546 6.546 0 0 0 5.418-10.045.746.746 0 0 1 .545-1z"/></svg>
+        </button>
+        <div id="adminStatus" class="status-badge"></div>
+        <button id="adminBtn" class="btn btn-ghost btn-sm" onclick="toggleAdminAuth()">Admin Login</button>
       </div>
+
       <div class="brand">
-        <div class="brand-identity">
-          <svg class="brand-icon" viewBox="0 0 44 44">
-            <rect class="brand-icon-bg" x="0.5" y="0.5" width="43" height="43" rx="10"/>
-            <text class="brand-icon-text" x="22" y="29" text-anchor="middle" font-size="19">T</text>
-          </svg>
-          <div>
-            <div class="brand-name">TETE</div>
-            <div class="brand-tagline"><span>Transient</span> Endpoint for Transfer &amp; Encryption</div>
-          </div>
+        <svg class="brand-mark" viewBox="0 0 40 40" aria-hidden="true">
+          <rect x="0.5" y="0.5" width="39" height="39" rx="9" fill="var(--surface-2)" stroke="var(--border-strong)" stroke-width="1"/>
+          <text x="20" y="26" text-anchor="middle" font-family="Outfit, sans-serif" font-weight="700" font-size="17" fill="var(--accent)">T</text>
+        </svg>
+        <div class="brand-text">
+          <h1 class="brand-name">TETE</h1>
+          <p class="brand-desc">Transient Endpoint for Transfer &amp; Encryption</p>
         </div>
       </div>
     </header>
 
-    <!-- ═══ TABS ═══ -->
-    <nav class="tab-nav">
-      <div class="tab-nav-inner">
-        <button class="tab-btn active" onclick="switchTab('upload')">Upload</button>
-        <button class="tab-btn" onclick="switchTab('files')">Files</button>
-        <button class="tab-btn" onclick="switchTab('config')" id="configTabBtn" style="display:none">Config</button>
-        <button class="tab-btn" onclick="switchTab('docs')">Docs</button>
-      </div>
+    <!-- === TAB NAV === -->
+    <nav class="tabs">
+      <button class="tab active" onclick="switchTab('upload')">Upload</button>
+      <button class="tab" onclick="switchTab('files')">Files</button>
+      <button class="tab" onclick="switchTab('config')" id="configTabBtn" hidden>Config</button>
+      <button class="tab" onclick="switchTab('docs')">Docs</button>
     </nav>
 
-    <!-- ══════════════════════════════════════════
-         TAB: UPLOAD
-         ══════════════════════════════════════════ -->
-    <div id="upload-tab" class="tab-content active">
+    <!-- ════════════════════════════════════════
+         TAB — UPLOAD
+         ════════════════════════════════════════ -->
+    <section id="upload-tab" class="tab-panel active">
 
-      <!-- ── File Upload ── -->
+      <!-- File Upload -->
       <div class="card">
-        <div class="upload-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
-          <span class="upload-zone-icon">📁</span>
+        <div class="dropzone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+          <svg class="dropzone-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="36" height="36">
+            <path d="M12 16V4M12 4l-3 3M12 4l3 3" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M4 14v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
           <p>Drop files here or click to browse</p>
-          <small>Max 100 MB per file</small>
+          <span class="caption">Max 100 MB per file</span>
           <input type="file" id="fileInput" multiple onchange="handleFilesSelected(this.files)">
         </div>
 
         <div id="selectedFiles" class="selected-files"></div>
 
-        <div class="upload-controls">
-          <div class="input-group">
-            <label class="input-label" for="uploadPassword">🔐 Encryption Key</label>
-            <input class="input-field" type="password" id="uploadPassword" placeholder="Optional encryption key">
-            <small class="warning-note">⚠️ One-way encryption — lost key = lost file</small>
-          </div>
-          <div class="input-group">
-            <label class="input-label" for="uploadExpiration">⏱ Expiration</label>
-            <select id="uploadExpiration" data-dropdown="true" class="input-field">
+        <div class="form-row">
+          <label class="field">
+            <span class="field-label">Encryption Key</span>
+            <input class="input" type="password" id="uploadPassword" placeholder="AES-256 key (optional)">
+          </label>
+          <label class="field">
+            <span class="field-label">Expiration</span>
+            <select id="uploadExpiration" data-dropdown="true" class="input">
               <option value="">Default</option>
-              <option value="0">No expiration</option>
-              <option value="1800000">30 minutes</option>
+              <option value="0">Never</option>
+              <option value="1800000">30 min</option>
               <option value="3600000">1 hour</option>
               <option value="7200000">2 hours</option>
               <option value="10800000">3 hours</option>
@@ -82,34 +86,38 @@
               <option value="172800000">2 days</option>
               <option value="604800000">7 days</option>
             </select>
-          </div>
-          <div class="input-group align-end">
+          </label>
+          <div class="field field-align">
             <button class="btn btn-block" onclick="uploadFiles()" id="uploadBtn" disabled>Upload Files</button>
           </div>
         </div>
 
         <div id="uploadResult"></div>
+
+        <div class="callout callout-warn">
+          <svg viewBox="0 0 16 16" fill="currentColor" width="13" height="13"><path d="M6.457 1.047c.659-1.234 2.427-1.234 3.086 0l6.082 11.378A1.75 1.75 0 0 1 14.082 15H1.918a1.75 1.75 0 0 1-1.543-2.575L6.457 1.047ZM8 5a.75.75 0 0 0-.75.75v2.5a.75.75 0 0 0 1.5 0v-2.5A.75.75 0 0 0 8 5Zm0 6.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z"/></svg>
+          <span>One-way encryption. A lost key means the file cannot be recovered.</span>
+        </div>
       </div>
 
-      <!-- ── Text Upload ── -->
+      <!-- Text Upload -->
       <div class="card">
-        <h3 class="card-title">📝 Upload Text</h3>
-        <div class="upload-controls">
-          <div class="input-group">
-            <label class="input-label" for="filename">Filename</label>
-            <input class="input-field" type="text" id="filename" placeholder="example.txt">
-          </div>
-          <div class="input-group">
-            <label class="input-label" for="textPassword">🔐 Encryption Key</label>
-            <input class="input-field" type="password" id="textPassword" placeholder="Optional encryption key">
-            <small class="warning-note">⚠️ One-way encryption — lost key = lost content</small>
-          </div>
-          <div class="input-group">
-            <label class="input-label" for="textExpiration">⏱ Expiration</label>
-            <select id="textExpiration" data-dropdown="true" class="input-field">
+        <h2 class="card-title">Upload Text</h2>
+        <div class="form-row">
+          <label class="field">
+            <span class="field-label">Filename</span>
+            <input class="input" type="text" id="filename" placeholder="example.txt">
+          </label>
+          <label class="field">
+            <span class="field-label">Encryption Key</span>
+            <input class="input" type="password" id="textPassword" placeholder="AES-256 key (optional)">
+          </label>
+          <label class="field">
+            <span class="field-label">Expiration</span>
+            <select id="textExpiration" data-dropdown="true" class="input">
               <option value="">Default</option>
-              <option value="0">No expiration</option>
-              <option value="1800000">30 minutes</option>
+              <option value="0">Never</option>
+              <option value="1800000">30 min</option>
               <option value="3600000">1 hour</option>
               <option value="7200000">2 hours</option>
               <option value="10800000">3 hours</option>
@@ -120,46 +128,52 @@
               <option value="172800000">2 days</option>
               <option value="604800000">7 days</option>
             </select>
-          </div>
+          </label>
         </div>
-        <textarea id="textContent" placeholder="Paste or type your text content here…"></textarea>
-        <div class="btn-right">
+        <textarea id="textContent" placeholder="Paste or type your text content here…" class="input textarea"></textarea>
+        <div class="actions-end">
           <button class="btn" onclick="uploadText()" id="uploadTextBtn">Upload Text</button>
         </div>
+        <div class="callout callout-warn">
+          <svg viewBox="0 0 16 16" fill="currentColor" width="13" height="13"><path d="M6.457 1.047c.659-1.234 2.427-1.234 3.086 0l6.082 11.378A1.75 1.75 0 0 1 14.082 15H1.918a1.75 1.75 0 0 1-1.543-2.575L6.457 1.047ZM8 5a.75.75 0 0 0-.75.75v2.5a.75.75 0 0 0 1.5 0v-2.5A.75.75 0 0 0 8 5Zm0 6.5a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z"/></svg>
+          <span>One-way encryption. A lost key means the content cannot be recovered.</span>
+        </div>
       </div>
-    </div>
+    </section>
 
-    <!-- ══════════════════════════════════════════
-         TAB: FILES
-         ══════════════════════════════════════════ -->
-    <div id="files-tab" class="tab-content">
+    <!-- ════════════════════════════════════════
+         TAB — FILES
+         ════════════════════════════════════════ -->
+    <section id="files-tab" class="tab-panel">
       <div class="card">
         <div class="card-header">
-          <h3 class="card-title">Uploaded Files</h3>
-          <button class="btn btn-ghost btn-sm" onclick="loadFiles()">↻ Refresh</button>
+          <h2 class="card-title">Uploaded Files</h2>
+          <button class="btn btn-ghost btn-sm" onclick="loadFiles()">Refresh</button>
         </div>
         <ul class="file-list" id="fileList">
-          <li class="empty-state">
-            <div class="empty-state-icon">📄</div>
+          <li class="empty">
+            <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="32" height="32">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M14 2v6h6" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
             <p>No files uploaded yet</p>
           </li>
         </ul>
       </div>
-    </div>
+    </section>
 
-    <!-- ══════════════════════════════════════════
-         TAB: CONFIG
-         ══════════════════════════════════════════ -->
-    <div id="config-tab" class="tab-content">
+    <!-- ════════════════════════════════════════
+         TAB — CONFIG
+         ════════════════════════════════════════ -->
+    <section id="config-tab" class="tab-panel">
 
-      <!-- ── Expiration ── -->
       <div class="card">
-        <h3 class="card-title mb-lg">⚙ Auto-Delete Configuration</h3>
-        <div class="input-group">
-          <label class="input-label" for="defaultExpiration">Default Expiration Time</label>
-          <select id="defaultExpiration" data-dropdown="true" class="input-field">
-            <option value="0">No expiration (never delete)</option>
-            <option value="1800000">30 minutes</option>
+        <h2 class="card-title mb-lg">Auto-Delete Configuration</h2>
+        <label class="field">
+          <span class="field-label">Default Expiration Time</span>
+          <select id="defaultExpiration" data-dropdown="true" class="input">
+            <option value="0">Never (no auto-delete)</option>
+            <option value="1800000">30 min</option>
             <option value="3600000">1 hour</option>
             <option value="7200000">2 hours</option>
             <option value="10800000">3 hours</option>
@@ -170,115 +184,115 @@
             <option value="172800000">2 days</option>
             <option value="604800000">7 days</option>
           </select>
+        </label>
+        <div class="actions-end">
+          <button class="btn" onclick="saveConfig()" id="saveConfigBtn">Save</button>
         </div>
-        <div class="btn-right">
-          <button class="btn" onclick="saveConfig()" id="saveConfigBtn">Save Configuration</button>
-        </div>
-        <div class="info-note">
-          <h4 class="info-note-title">ℹ How it works</h4>
-          <ul class="info-note-list">
-            <li>Files are automatically deleted after expiration time</li>
-            <li>Each file can have its own expiration during upload</li>
-            <li>Default applies to files without a specific expiration</li>
-            <li>Expired files are checked and purged every minute</li>
+        <div class="note">
+          <strong class="note-title">How it works</strong>
+          <ul class="note-list">
+            <li>Files are automatically deleted after the chosen expiration time.</li>
+            <li>Each upload can set its own expiration; this is the fallback.</li>
+            <li>Expired files are checked and purged every minute.</li>
           </ul>
         </div>
       </div>
 
-      <!-- ── Upload Limits ── -->
       <div class="card">
-        <h3 class="card-title mb-lg">📁 Upload Limits</h3>
-        <div class="upload-controls">
-          <div class="input-group">
-            <label class="input-label" for="maxFileSize">Max File Size (MB)</label>
-            <input class="input-field" type="number" id="maxFileSize" placeholder="100" min="1" max="1000">
-            <small class="help-note">Per-file size limit</small>
-          </div>
-          <div class="input-group">
-            <label class="input-label" for="maxFilesPerUpload">Max Files per Upload</label>
-            <input class="input-field" type="number" id="maxFilesPerUpload" placeholder="100" min="1" max="500">
-            <small class="help-note">Files per batch upload</small>
-          </div>
-          <div class="input-group">
-            <label class="input-label" for="fileWhitelist">Allowed Extensions</label>
-            <input class="input-field" type="text" id="fileWhitelist" placeholder="jpg,png,pdf,txt">
-            <small class="help-note">Comma-separated (empty = all)</small>
-          </div>
+        <h2 class="card-title mb-lg">Upload Limits</h2>
+        <div class="form-row">
+          <label class="field">
+            <span class="field-label">Max File Size (MB)</span>
+            <input class="input" type="number" id="maxFileSize" placeholder="100" min="1" max="1000">
+          </label>
+          <label class="field">
+            <span class="field-label">Max Files Per Upload</span>
+            <input class="input" type="number" id="maxFilesPerUpload" placeholder="100" min="1" max="500">
+          </label>
+          <label class="field">
+            <span class="field-label">Allowed Extensions</span>
+            <input class="input" type="text" id="fileWhitelist" placeholder="jpg,png,pdf,txt">
+          </label>
         </div>
-        <div class="btn-right">
-          <button class="btn" onclick="saveUploadConfig()" id="saveUploadConfigBtn">Save Limits</button>
+        <div class="actions-end">
+          <button class="btn" onclick="saveUploadConfig()" id="saveUploadConfigBtn">Save</button>
         </div>
       </div>
 
-      <!-- ── Change Password ── -->
       <div class="card">
-        <h3 class="card-title mb-lg">🔐 Change Admin Password</h3>
-        <div class="input-group">
-          <label class="input-label" for="currentPassword">Current Password</label>
-          <input class="input-field" type="password" id="currentPassword" placeholder="Enter current admin password">
-        </div>
-        <div class="input-group">
-          <label class="input-label" for="newPassword">New Password</label>
-          <input class="input-field" type="password" id="newPassword" placeholder="Min 4 characters">
-        </div>
-        <div class="input-group">
-          <label class="input-label" for="confirmPassword">Confirm New Password</label>
-          <input class="input-field" type="password" id="confirmPassword" placeholder="Re-enter new password">
-        </div>
-        <div class="btn-right">
+        <h2 class="card-title mb-lg">Change Admin Password</h2>
+        <label class="field">
+          <span class="field-label">Current Password</span>
+          <input class="input" type="password" id="currentPassword" placeholder="Enter current password">
+        </label>
+        <label class="field">
+          <span class="field-label">New Password</span>
+          <input class="input" type="password" id="newPassword" placeholder="At least 4 characters">
+        </label>
+        <label class="field">
+          <span class="field-label">Confirm New Password</span>
+          <input class="input" type="password" id="confirmPassword" placeholder="Re-enter new password">
+        </label>
+        <div class="actions-end">
           <button class="btn" onclick="changePassword()" id="changePasswordBtn">Change Password</button>
         </div>
       </div>
-    </div>
+    </section>
 
-    <!-- ══════════════════════════════════════════
-         TAB: DOCS
-         ══════════════════════════════════════════ -->
-    <div id="docs-tab" class="tab-content">
+    <!-- ════════════════════════════════════════
+         TAB — DOCS
+         ════════════════════════════════════════ -->
+    <section id="docs-tab" class="tab-panel">
       <div class="card">
         <div class="sub-tabs">
-          <button class="sub-tab-btn active" onclick="switchSubTab('readme')">📖 README.md</button>
-          <button class="sub-tab-btn" onclick="switchSubTab('agent')">🤖 AGENT.md</button>
-          <button class="sub-tab-btn" onclick="switchSubTab('api')">📝 API.md</button>
+          <button class="sub-tab active" onclick="switchSubTab('readme')">README.md</button>
+          <button class="sub-tab" onclick="switchSubTab('agent')">AGENT.md</button>
+          <button class="sub-tab" onclick="switchSubTab('api')">API.md</button>
         </div>
 
-        <div id="readme-subtab" class="sub-tab-content active">
+        <div id="readme-subtab" class="sub-tab-panel active">
           <div class="doc-header">
-            <h3 class="card-title">README.md</h3>
-            <button class="btn-icon" onclick="copyDocContent('readmeContent')" title="Copy">📋</button>
+            <h2 class="card-title">README.md</h2>
+            <button class="icon-btn" onclick="copyDocContent('readmeContent')" title="Copy">
+              <svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25v-7.5Z"/><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25v-7.5Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25h-7.5Z"/></svg>
+            </button>
           </div>
-          <textarea id="readmeContent" class="doc-textarea" readonly></textarea>
+          <textarea id="readmeContent" class="doc-box" readonly></textarea>
         </div>
 
-        <div id="agent-subtab" class="sub-tab-content">
+        <div id="agent-subtab" class="sub-tab-panel">
           <div class="doc-header">
-            <h3 class="card-title">AGENT.md</h3>
-            <button class="btn-icon" onclick="copyDocContent('agentContent')" title="Copy">📋</button>
+            <h2 class="card-title">AGENT.md</h2>
+            <button class="icon-btn" onclick="copyDocContent('agentContent')" title="Copy">
+              <svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25v-7.5Z"/><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25v-7.5Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25h-7.5Z"/></svg>
+            </button>
           </div>
-          <textarea id="agentContent" class="doc-textarea" readonly></textarea>
+          <textarea id="agentContent" class="doc-box" readonly></textarea>
         </div>
 
-        <div id="api-subtab" class="sub-tab-content">
+        <div id="api-subtab" class="sub-tab-panel">
           <div class="doc-header">
-            <h3 class="card-title">API.md</h3>
-            <button class="btn-icon" onclick="copyDocContent('apiContent')" title="Copy">📋</button>
+            <h2 class="card-title">API.md</h2>
+            <button class="icon-btn" onclick="copyDocContent('apiContent')" title="Copy">
+              <svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25v-7.5Z"/><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25v-7.5Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25h-7.5Z"/></svg>
+            </button>
           </div>
-          <textarea id="apiContent" class="doc-textarea" readonly></textarea>
+          <textarea id="apiContent" class="doc-box" readonly></textarea>
         </div>
       </div>
-    </div>
+    </section>
 
   </div>
 
-  <!-- ═══ TOAST ═══ -->
+  <!-- === TOAST === -->
   <div id="toast" class="toast"></div>
 
-  <!-- ═══ PASSWORD MODAL ═══ -->
-  <div id="passwordModal" class="modal-overlay">
+  <!-- === PASSWORD MODAL === -->
+  <div id="passwordModal" class="modal-mask">
     <div class="modal">
-      <h3>🔐 Encrypted File</h3>
-      <p>Enter encryption key to decrypt and download</p>
-      <input class="modal-pw" type="password" id="modalPassword" placeholder="Encryption key">
+      <h3 class="modal-title">Encrypted File</h3>
+      <p class="modal-desc">Enter the encryption key to decrypt and download this file.</p>
+      <input class="input modal-input" type="password" id="modalPassword" placeholder="Encryption key">
       <div class="modal-actions">
         <button class="btn btn-ghost" onclick="closePasswordModal()">Cancel</button>
         <button class="btn" onclick="submitPassword()">Decrypt &amp; Download</button>
@@ -286,12 +300,12 @@
     </div>
   </div>
 
-  <!-- ═══ ADMIN MODAL ═══ -->
-  <div id="adminModal" class="modal-overlay">
+  <!-- === ADMIN LOGIN MODAL === -->
+  <div id="adminModal" class="modal-mask">
     <div class="modal">
-      <h3>🔐 Admin Login</h3>
-      <p>Enter admin password to access all files and configuration</p>
-      <input class="modal-pw" type="password" id="adminPassword" placeholder="Admin password">
+      <h3 class="modal-title">Admin Login</h3>
+      <p class="modal-desc">Enter the admin password to access all files and configuration.</p>
+      <input class="input modal-input" type="password" id="adminPassword" placeholder="Admin password">
       <div class="modal-actions">
         <button class="btn btn-ghost" onclick="closeAdminModal()">Cancel</button>
         <button class="btn" onclick="submitAdminLogin()">Login</button>

@@ -1,10 +1,27 @@
-// TETE Client Application
+﻿// TETE Client Application
 const API_BASE = window.location.origin;
 let selectedFiles = [];
 let openDropdown = null;
 let pendingDownloadUrl = null;
 let pendingDownloadIsEncrypted = false;
 let isAdmin = false;
+
+// Theme toggle
+function initTheme() {
+  const saved = localStorage.getItem('tete-theme');
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const theme = saved || (prefersDark ? 'dark' : 'light');
+  document.documentElement.setAttribute('data-theme', theme);
+}
+
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme');
+  const next = current === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('tete-theme', next);
+}
+
+initTheme();
 
 // Custom Dropdown with Search
 function initCustomDropdowns() {
@@ -37,7 +54,7 @@ function initCustomDropdowns() {
     // Create selected display
     const selected = document.createElement('div');
     selected.className = 'custom-select-selected';
-    selected.innerHTML = `<span class="custom-select-text">${select.options[select.selectedIndex]?.text || 'Select...'}</span><span class="custom-select-arrow">▼</span>`;
+    selected.innerHTML = `<span class="custom-select-text">${select.options[select.selectedIndex]?.text || 'Select...'}</span><span class="custom-select-arrow">▾</span>`;
 
     // Create options list
     const options = document.createElement('div');
@@ -317,12 +334,12 @@ function updateAdminStatus() {
   const configTabBtn = document.getElementById('configTabBtn');
 
   if (isAdmin) {
-    adminStatus.innerHTML = '<span class="admin-badge">👑 Admin</span>';
-    adminBtn.textContent = '🚪 Logout';
+    adminStatus.innerHTML = '<span class="admin-badge">Admin</span>';
+    adminBtn.textContent = 'Logout';
     configTabBtn.style.display = 'block';
   } else {
     adminStatus.textContent = '';
-    adminBtn.textContent = '🔐 Admin Login';
+    adminBtn.textContent = 'Admin Login';
     configTabBtn.style.display = 'none';
   }
 }
@@ -342,22 +359,22 @@ async function checkAdminStatus() {
 
 // Tab switching
 function switchTab(tab) {
-  document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(c => c.classList.remove('active'));
 
   if (tab === 'upload') {
-    document.querySelectorAll('.tab-btn')[0].classList.add('active');
+    document.querySelectorAll('.tab')[0].classList.add('active');
     document.getElementById('upload-tab').classList.add('active');
   } else if (tab === 'files') {
-    document.querySelectorAll('.tab-btn')[1].classList.add('active');
+    document.querySelectorAll('.tab')[1].classList.add('active');
     document.getElementById('files-tab').classList.add('active');
     loadFiles();
   } else if (tab === 'config') {
-    document.querySelectorAll('.tab-btn')[2].classList.add('active');
+    document.querySelectorAll('.tab')[2].classList.add('active');
     document.getElementById('config-tab').classList.add('active');
     loadConfig();
   } else if (tab === 'docs') {
-    document.querySelectorAll('.tab-btn')[3].classList.add('active');
+    document.querySelectorAll('.tab')[3].classList.add('active');
     document.getElementById('docs-tab').classList.add('active');
     // Load first sub-tab by default
     switchSubTab('readme');
@@ -370,19 +387,19 @@ function switchTab(tab) {
 // Sub-tab switching for Docs
 function switchSubTab(subTab) {
   // Update sub-tab buttons
-  document.querySelectorAll('.sub-tab-btn').forEach(btn => btn.classList.remove('active'));
-  document.querySelectorAll('.sub-tab-content').forEach(content => content.classList.remove('active'));
+  document.querySelectorAll('.sub-tab').forEach(btn => btn.classList.remove('active'));
+  document.querySelectorAll('.sub-tab-panel').forEach(content => content.classList.remove('active'));
   
   if (subTab === 'readme') {
-    document.querySelectorAll('.sub-tab-btn')[0].classList.add('active');
+    document.querySelectorAll('.sub-tab')[0].classList.add('active');
     document.getElementById('readme-subtab').classList.add('active');
     loadReadmeDoc();
   } else if (subTab === 'agent') {
-    document.querySelectorAll('.sub-tab-btn')[1].classList.add('active');
+    document.querySelectorAll('.sub-tab')[1].classList.add('active');
     document.getElementById('agent-subtab').classList.add('active');
     loadAgentDoc();
   } else if (subTab === 'api') {
-    document.querySelectorAll('.sub-tab-btn')[2].classList.add('active');
+    document.querySelectorAll('.sub-tab')[2].classList.add('active');
     document.getElementById('api-subtab').classList.add('active');
     loadApiDoc();
   }
@@ -780,41 +797,41 @@ async function uploadFiles() {
       const results = Array.isArray(result) ? result : [result];
       resultDiv.innerHTML = `
         <div class="result-box">
-          <h3>✅ Upload Successful</h3>
+          <h3>âœ… Upload Successful</h3>
           ${results.map(r => `
             <div class="result-link">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                <strong>${r.originalName} ${r.locked ? '🔒' : ''} ${r.encrypted ? '🔐' : ''}</strong>
+                <strong>${r.originalName} ${r.locked ? '[LOCKED]' : ''} ${r.encrypted ? '[ENCRYPTED]' : ''}</strong>
                 <div class="dropdown">
                   <button class="btn btn-ghost btn-sm" onclick="toggleDropdown('result-menu-${r.id}')">
-                    ⋮
+                    â‹®
                   </button>
                   <div id="result-menu-${r.id}" class="dropdown-menu">
                     <button class="dropdown-item" onclick="copyDownloadLink('${r.downloadUrl}', ${r.locked})">
-                      <span class="dropdown-icon">🔗</span>
+                      <span class="dropdown-icon">link</span>
                       Copy Download Link
                     </button>
                     <button class="dropdown-item" onclick="copyDetails('${r.id}', '${r.originalName.replace(/'/g, "\\'")}', '${r.mimeType}', ${r.size}, '${r.uploadedAt}')">
-                      <span class="dropdown-icon">📋</span>
+                      <span class="dropdown-icon">copy</span>
                       Copy Details
                     </button>
                     ${r.locked ? `
                     <button class="dropdown-item" onclick="openPasswordModal('${r.downloadUrl}', ${r.encrypted})">
-                      <span class="dropdown-icon">⬇</span>
+                      <span class="dropdown-icon">â¬‡</span>
                       Download
                     </button>
                     ` : `
                     <a href="${r.downloadUrl}" target="_blank" class="dropdown-item">
-                      <span class="dropdown-icon">⬇</span>
+                      <span class="dropdown-icon">â¬‡</span>
                       Download
                     </a>
                     `}
                     <a href="${r.url}" target="_blank" class="dropdown-item">
-                      <span class="dropdown-icon">👁</span>
+                      <span class="dropdown-icon">view</span>
                       View Info
                     </a>
                     <button class="dropdown-item danger" onclick="deleteFile('${r.id}')">
-                      <span class="dropdown-icon">🗑</span>
+                      <span class="dropdown-icon">del</span>
                       Delete
                     </button>
                   </div>
@@ -831,13 +848,13 @@ async function uploadFiles() {
       showToast('Files uploaded successfully');
     } else {
       resultDiv.innerHTML = `<div class="result-box" style="background: #fef2f2; border-color: #fecaca;">
-        <h3>❌ Upload Failed</h3>
+        <h3>âŒ Upload Failed</h3>
         <p>${result.message || 'Unknown error'}</p>
       </div>`;
     }
   } catch (error) {
     resultDiv.innerHTML = `<div class="result-box" style="background: #fef2f2; border-color: #fecaca;">
-      <h3>❌ Upload Failed</h3>
+      <h3>âŒ Upload Failed</h3>
       <p>${error.message}</p>
     </div>`;
   } finally {
@@ -876,40 +893,40 @@ async function uploadText() {
     if (response.ok) {
       resultDiv.innerHTML = `
         <div class="result-box">
-          <h3>✅ Upload Successful</h3>
+          <h3>âœ… Upload Successful</h3>
           <div class="result-link">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-              <strong>${result.originalName} ${result.locked ? '🔒' : ''} ${result.encrypted ? '🔐' : ''}</strong>
+              <strong>${result.originalName} ${result.locked ? 'ðŸ”’' : ''} ${result.encrypted ? 'ðŸ”' : ''}</strong>
               <div class="dropdown">
                 <button class="btn btn-ghost btn-sm" onclick="toggleDropdown('result-menu-${result.id}')">
-                  ⋮
+                  â‹®
                 </button>
                 <div id="result-menu-${result.id}" class="dropdown-menu">
                   <button class="dropdown-item" onclick="copyDownloadLink('${result.downloadUrl}', ${result.locked})">
-                    <span class="dropdown-icon">🔗</span>
+                    <span class="dropdown-icon">link</span>
                     Copy Download Link
                   </button>
                   <button class="dropdown-item" onclick="copyDetails('${result.id}', '${result.originalName.replace(/'/g, "\\'")}', '${result.mimeType}', ${result.size}, '${result.uploadedAt}')">
-                    <span class="dropdown-icon">📋</span>
+                    <span class="dropdown-icon">copy</span>
                     Copy Details
                   </button>
                   ${result.locked ? `
                   <button class="dropdown-item" onclick="openPasswordModal('${result.downloadUrl}', ${result.encrypted})">
-                    <span class="dropdown-icon">⬇</span>
+                    <span class="dropdown-icon">â¬‡</span>
                     Download
                   </button>
                   ` : `
                   <a href="${result.downloadUrl}" target="_blank" class="dropdown-item">
-                    <span class="dropdown-icon">⬇</span>
+                    <span class="dropdown-icon">â¬‡</span>
                     Download
                   </a>
                   `}
                   <a href="${result.url}" target="_blank" class="dropdown-item">
-                    <span class="dropdown-icon">👁</span>
+                    <span class="dropdown-icon">view</span>
                     View Info
                   </a>
                   <button class="dropdown-item danger" onclick="deleteFile('${result.id}')">
-                    <span class="dropdown-icon">🗑</span>
+                    <span class="dropdown-icon">del</span>
                     Delete
                   </button>
                 </div>
@@ -926,13 +943,13 @@ async function uploadText() {
       showToast('Text uploaded successfully');
     } else {
       resultDiv.innerHTML = `<div class="result-box" style="background: #fef2f2; border-color: #fecaca;">
-        <h3>❌ Upload Failed</h3>
+        <h3>âŒ Upload Failed</h3>
         <p>${result.message || 'Unknown error'}</p>
       </div>`;
     }
   } catch (error) {
     resultDiv.innerHTML = `<div class="result-box" style="background: #fef2f2; border-color: #fecaca;">
-      <h3>❌ Upload Failed</h3>
+      <h3>âŒ Upload Failed</h3>
       <p>${error.message}</p>
     </div>`;
   } finally {
@@ -977,7 +994,7 @@ function copyDetails(id, originalName, mimeType, size, uploadedAt) {
 // Load files
 async function loadFiles() {
   const fileList = document.getElementById('fileList');
-  fileList.innerHTML = '<li class="empty-state"><div class="empty-state-icon">🔄</div><p>Loading files...</p></li>';
+  fileList.innerHTML = '<li class="empty"><p>Loading files…</p></li>';
 
   try {
     const response = await fetch(`${API_BASE}/api/files`, {
@@ -986,46 +1003,46 @@ async function loadFiles() {
     const files = await response.json();
 
     if (files.length === 0) {
-      fileList.innerHTML = '<li class="empty-state"><div class="empty-state-icon">📄</div><p>No files uploaded yet</p></li>';
+      fileList.innerHTML = '<li class="empty"><p>No files uploaded yet</p></li>';
       return;
     }
 
     fileList.innerHTML = files.map(f => `
       <li class="file-item">
         <div class="file-info">
-          <div class="file-name">${f.originalName} ${f.locked ? '🔒' : ''} ${f.encrypted ? '🔐' : ''}</div>
-          <div class="file-meta">${formatSize(f.size)} • Uploaded: ${new Date(f.uploadedAt).toLocaleString()} • ${formatExpiration(f.expiresAt)}</div>
+          <div class="file-name">${f.originalName} ${f.locked ? '[LOCKED]' : ''} ${f.encrypted ? '[ENCRYPTED]' : ''}</div>
+          <div class="file-meta">${formatSize(f.size)} · Uploaded: ${new Date(f.uploadedAt).toLocaleString()} · ${formatExpiration(f.expiresAt)}</div>
         </div>
         <div class="dropdown">
           <button class="btn btn-ghost btn-sm" onclick="toggleDropdown('file-menu-${f.id}')">
-            ⋮
+            ...
           </button>
           <div id="file-menu-${f.id}" class="dropdown-menu">
             <button class="dropdown-item" onclick="copyDownloadLink('${f.downloadUrl}', ${f.locked})">
-              <span class="dropdown-icon">🔗</span>
+              <span class="dropdown-icon">link</span>
               Copy Download Link
             </button>
             <button class="dropdown-item" onclick="copyDetails('${f.id}', '${f.originalName.replace(/'/g, "\\'")}', '${f.mimeType}', ${f.size}, '${f.uploadedAt}')">
-              <span class="dropdown-icon">📋</span>
+              <span class="dropdown-icon">copy</span>
               Copy Details
             </button>
             ${f.locked ? `
             <button class="dropdown-item" onclick="openPasswordModal('${f.downloadUrl}', ${f.encrypted})">
-              <span class="dropdown-icon">⬇</span>
+              <span class="dropdown-icon">â¬‡</span>
               Download
             </button>
             ` : `
             <a href="${f.downloadUrl}" target="_blank" class="dropdown-item">
-              <span class="dropdown-icon">⬇</span>
+              <span class="dropdown-icon">â¬‡</span>
               Download
             </a>
             `}
             <a href="${f.url}" target="_blank" class="dropdown-item">
-              <span class="dropdown-icon">👁</span>
+              <span class="dropdown-icon">view</span>
               View Info
             </a>
             <button class="dropdown-item danger" onclick="deleteFile('${f.id}')">
-              <span class="dropdown-icon">🗑</span>
+              <span class="dropdown-icon">del</span>
               Delete
             </button>
           </div>
@@ -1033,7 +1050,7 @@ async function loadFiles() {
       </li>
     `).join('');
   } catch (error) {
-    fileList.innerHTML = '<li class="empty-state"><div class="empty-state-icon">❌</div><p>Failed to load files</p></li>';
+    fileList.innerHTML = '<li class="empty"><p>Failed to load files</p></li>';
     console.error('Error loading files:', error);
   }
 }
@@ -1073,6 +1090,9 @@ document.addEventListener('keydown', (e) => {
     closeAllDropdowns();
   }
 });
+
+// Theme toggle
+document.getElementById('themeToggle')?.addEventListener('click', toggleTheme);
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
