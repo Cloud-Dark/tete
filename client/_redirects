@@ -1,0 +1,11 @@
+# Cloudflare Pages redirects for TETE
+# Proxy API requests to backend server
+
+# API endpoints
+/api/* https://tetein.apipedia.id/api/:splat 200
+
+# Static markdown files
+/*.md https://tetein.apipedia.id/:splat 200
+
+# All other requests serve from Cloudflare Pages
+/* /index.html 200
