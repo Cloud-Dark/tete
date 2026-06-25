@@ -6,6 +6,10 @@ let pendingDownloadUrl = null;
 let pendingDownloadIsEncrypted = false;
 let isAdmin = false;
 
+function getSessionId() {
+  return localStorage.getItem('tete-session-id');
+}
+
 // Theme toggle
 function initTheme() {
   const saved = localStorage.getItem('tete-theme');
@@ -23,13 +27,19 @@ function toggleTheme() {
 
 initTheme();
 
-// Initialize session and cookies
+// Initialize session
 async function initSession() {
+  if (localStorage.getItem('tete-session-id')) return;
+
   try {
-    await fetch(`${API_BASE}/api/session/init`, {
-      credentials: 'include'
+    const response = await fetch(`${API_BASE}/api/session`, {
+      method: 'POST'
     });
-    console.log('Session initialized');
+    const data = await response.json();
+    if (data.id) {
+      localStorage.setItem('tete-session-id', data.id);
+      console.log('Session initialized:', data.id);
+    }
   } catch (error) {
     console.error('Session init failed:', error);
   }
@@ -1013,7 +1023,9 @@ async function loadFiles() {
 
   try {
     const response = await fetch(`${API_BASE}/api/files`, {
-      credentials: 'include'
+      headers: {
+        'X-Session-ID': getSessionId()
+      }
     });
     const files = await response.json();
 
