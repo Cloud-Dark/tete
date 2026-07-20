@@ -2,7 +2,7 @@
 
 > Simple, secure file sharing server with password protection. Self-hosted alternative to temp.sh.
 
-![TETE Screenshot](https://github.com/user-attachments/assets/0f362dd3-98a3-47a5-9863-a44e96475f62)
+<img width="1763" height="1674" alt="image" src="https://github.com/user-attachments/assets/20085d0c-f2b8-4351-b5d7-f3b75ac2d266" />
 
 ---
 
