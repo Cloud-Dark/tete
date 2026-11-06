@@ -54,4 +54,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- Web UI: garbled characters (`âœ…`, `â‹®`, `ðŸ”’`) in `client/js/app.js`, caused by a double-encoded UTF-8 file with a BOM; the file is now plain UTF-8.
+- Web UI: upload result and file list use one shared renderer with SVG icons (no emoji, no bare words like `link`/`del` as icons), a "Locked" badge, and the one-time delete token; the result card now uses the CSS classes that already existed (`.result-block`, `.result-link-card`).
+- Web UI: failed uploads always showed "Unknown error" because the client read `message` while the API returns `error`.
+- Web UI: failure box used hardcoded light colours; it now uses theme tokens and works in dark mode.
+- Security: file names are HTML-escaped when rendered (a name such as `<img onerror=...>` could execute script in the file list, including for an admin viewing other users' files).
+- Web UI: menu labels no longer split mid-word ("Li nk") and the actions button stays compact on narrow screens.
+
 - Admin and owner state no longer depends on in-memory sessions that were lost on every restart.

@@ -1,4 +1,4 @@
-﻿// TETE Client Application
+// TETE Client Application
 // UI and API are served by the same Worker, so every request is same-origin.
 const API_BASE = window.location.origin;
 let selectedFiles = [];
@@ -765,6 +765,88 @@ function formatExpiration(expiresAt) {
   }
 }
 
+// ---------- Rendering helpers ----------
+const ICON_PATHS = {
+  link: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+  copy: '<rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
+  download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>',
+  eye: '<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>',
+  trash: '<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>',
+  check: '<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',
+  x: '<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>',
+  more: '<circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/>',
+  lock: '<rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>'
+};
+
+function icon(name) {
+  return `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true">${ICON_PATHS[name]}</svg>`;
+}
+
+// File names are user-controlled: never put them into HTML unescaped.
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+}
+
+// Files currently rendered, so menu actions look data up by id instead of embedding it in onclick strings.
+const fileIndex = new Map();
+
+function lockBadge(f) {
+  return f.locked ? `<span class="badge badge-lock">${icon('lock')} Locked</span>` : '';
+}
+
+function fileMenu(f, prefix) {
+  const id = escapeHtml(f.id);
+  return `
+    <div class="dropdown">
+      <button class="btn btn-ghost btn-sm btn-icon" aria-label="File actions" onclick="toggleDropdown('${prefix}-menu-${id}')">${icon('more')}</button>
+      <div id="${prefix}-menu-${id}" class="dropdown-menu">
+        <button class="dropdown-item" onclick="copyLinkById('${id}')"><span class="dropdown-icon">${icon('link')}</span>Copy Download Link</button>
+        <button class="dropdown-item" onclick="copyDetailsById('${id}')"><span class="dropdown-icon">${icon('copy')}</span>Copy Details</button>
+        ${f.locked
+          ? `<button class="dropdown-item" onclick="downloadById('${id}')"><span class="dropdown-icon">${icon('download')}</span>Download</button>`
+          : `<a href="${escapeHtml(f.downloadUrl)}" target="_blank" rel="noopener" class="dropdown-item"><span class="dropdown-icon">${icon('download')}</span>Download</a>`}
+        <a href="${escapeHtml(f.url)}" target="_blank" rel="noopener" class="dropdown-item"><span class="dropdown-icon">${icon('eye')}</span>View Info</a>
+        <button class="dropdown-item danger" onclick="deleteFile('${id}')"><span class="dropdown-icon">${icon('trash')}</span>Delete</button>
+      </div>
+    </div>`;
+}
+
+function resultCard(f) {
+  fileIndex.set(f.id, f);
+  return `
+    <div class="result-link-card">
+      <div class="result-link-head">
+        <strong class="result-name">${escapeHtml(f.originalName)} ${lockBadge(f)}</strong>
+        ${fileMenu(f, 'result')}
+      </div>
+      <code class="result-link-url">${escapeHtml(f.url)}</code>
+      ${f.deleteToken ? `<p class="result-hint">${icon('trash')} Delete token (shown once): <code class="result-token">${escapeHtml(f.deleteToken)}</code></p>` : ''}
+    </div>`;
+}
+
+function renderSuccess(items) {
+  return `<div class="result-block"><h3 class="result-title">${icon('check')} Upload Successful</h3>${items.map(resultCard).join('')}</div>`;
+}
+
+function renderFailure(message) {
+  return `<div class="result-block result-block-error" role="alert"><h3 class="result-title">${icon('x')} Upload Failed</h3><p>${escapeHtml(message || 'Unknown error')}</p></div>`;
+}
+
+function copyLinkById(id) {
+  const f = fileIndex.get(id);
+  if (f) copyDownloadLink(f.downloadUrl, f.locked);
+}
+
+function copyDetailsById(id) {
+  const f = fileIndex.get(id);
+  if (f) copyDetails(f.id, f.originalName, f.mimeType, f.size, f.uploadedAt);
+}
+
+function downloadById(id) {
+  const f = fileIndex.get(id);
+  if (f) openPasswordModal(f.downloadUrl, f.encrypted);
+}
+
 // Upload files
 async function uploadFiles() {
   if (selectedFiles.length === 0) return;
@@ -800,68 +882,16 @@ async function uploadFiles() {
 
     if (response.ok) {
       const results = Array.isArray(result) ? result : [result];
-      resultDiv.innerHTML = `
-        <div class="result-box">
-          <h3>âœ… Upload Successful</h3>
-          ${results.map(r => `
-            <div class="result-link">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                <strong>${r.originalName} ${r.locked ? '[LOCKED]' : ''} ${r.encrypted ? '[ENCRYPTED]' : ''}</strong>
-                <div class="dropdown">
-                  <button class="btn btn-ghost btn-sm" onclick="toggleDropdown('result-menu-${r.id}')">
-                    â‹®
-                  </button>
-                  <div id="result-menu-${r.id}" class="dropdown-menu">
-                    <button class="dropdown-item" onclick="copyDownloadLink('${r.downloadUrl}', ${r.locked})">
-                      <span class="dropdown-icon">link</span>
-                      Copy Download Link
-                    </button>
-                    <button class="dropdown-item" onclick="copyDetails('${r.id}', '${r.originalName.replace(/'/g, "\\'")}', '${r.mimeType}', ${r.size}, '${r.uploadedAt}')">
-                      <span class="dropdown-icon">copy</span>
-                      Copy Details
-                    </button>
-                    ${r.locked ? `
-                    <button class="dropdown-item" onclick="openPasswordModal('${r.downloadUrl}', ${r.encrypted})">
-                      <span class="dropdown-icon">â¬‡</span>
-                      Download
-                    </button>
-                    ` : `
-                    <a href="${r.downloadUrl}" target="_blank" class="dropdown-item">
-                      <span class="dropdown-icon">â¬‡</span>
-                      Download
-                    </a>
-                    `}
-                    <a href="${r.url}" target="_blank" class="dropdown-item">
-                      <span class="dropdown-icon">view</span>
-                      View Info
-                    </a>
-                    <button class="dropdown-item danger" onclick="deleteFile('${r.id}')">
-                      <span class="dropdown-icon">del</span>
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              </div>
-              <code>${r.url}</code>
-            </div>
-          `).join('')}
-        </div>
-      `;
+      resultDiv.innerHTML = renderSuccess(results);
       selectedFiles = [];
       document.getElementById('selectedFiles').innerHTML = '';
       document.getElementById('uploadBtn').disabled = true;
       showToast('Files uploaded successfully');
     } else {
-      resultDiv.innerHTML = `<div class="result-box" style="background: #fef2f2; border-color: #fecaca;">
-        <h3>âŒ Upload Failed</h3>
-        <p>${result.message || 'Unknown error'}</p>
-      </div>`;
+      resultDiv.innerHTML = renderFailure(result.error || result.message);
     }
   } catch (error) {
-    resultDiv.innerHTML = `<div class="result-box" style="background: #fef2f2; border-color: #fecaca;">
-      <h3>âŒ Upload Failed</h3>
-      <p>${error.message}</p>
-    </div>`;
+    resultDiv.innerHTML = renderFailure(error.message);
   } finally {
     btn.disabled = false;
     btn.innerHTML = 'Upload Files';
@@ -896,67 +926,17 @@ async function uploadText() {
     const result = await response.json();
 
     if (response.ok) {
-      resultDiv.innerHTML = `
-        <div class="result-box">
-          <h3>âœ… Upload Successful</h3>
-          <div class="result-link">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-              <strong>${result.originalName} ${result.locked ? 'ðŸ”’' : ''} ${result.encrypted ? 'ðŸ”' : ''}</strong>
-              <div class="dropdown">
-                <button class="btn btn-ghost btn-sm" onclick="toggleDropdown('result-menu-${result.id}')">
-                  â‹®
-                </button>
-                <div id="result-menu-${result.id}" class="dropdown-menu">
-                  <button class="dropdown-item" onclick="copyDownloadLink('${result.downloadUrl}', ${result.locked})">
-                    <span class="dropdown-icon">link</span>
-                    Copy Download Link
-                  </button>
-                  <button class="dropdown-item" onclick="copyDetails('${result.id}', '${result.originalName.replace(/'/g, "\\'")}', '${result.mimeType}', ${result.size}, '${result.uploadedAt}')">
-                    <span class="dropdown-icon">copy</span>
-                    Copy Details
-                  </button>
-                  ${result.locked ? `
-                  <button class="dropdown-item" onclick="openPasswordModal('${result.downloadUrl}', ${result.encrypted})">
-                    <span class="dropdown-icon">â¬‡</span>
-                    Download
-                  </button>
-                  ` : `
-                  <a href="${result.downloadUrl}" target="_blank" class="dropdown-item">
-                    <span class="dropdown-icon">â¬‡</span>
-                    Download
-                  </a>
-                  `}
-                  <a href="${result.url}" target="_blank" class="dropdown-item">
-                    <span class="dropdown-icon">view</span>
-                    View Info
-                  </a>
-                  <button class="dropdown-item danger" onclick="deleteFile('${result.id}')">
-                    <span class="dropdown-icon">del</span>
-                    Delete
-                  </button>
-                </div>
-              </div>
-            </div>
-            <code>${result.url}</code>
-          </div>
-        </div>
-      `;
+      resultDiv.innerHTML = renderSuccess([result]);
       document.getElementById('textContent').value = '';
       document.getElementById('filename').value = '';
       document.getElementById('textPassword').value = '';
       document.getElementById('textExpiration').value = '';
       showToast('Text uploaded successfully');
     } else {
-      resultDiv.innerHTML = `<div class="result-box" style="background: #fef2f2; border-color: #fecaca;">
-        <h3>âŒ Upload Failed</h3>
-        <p>${result.message || 'Unknown error'}</p>
-      </div>`;
+      resultDiv.innerHTML = renderFailure(result.error || result.message);
     }
   } catch (error) {
-    resultDiv.innerHTML = `<div class="result-box" style="background: #fef2f2; border-color: #fecaca;">
-      <h3>âŒ Upload Failed</h3>
-      <p>${error.message}</p>
-    </div>`;
+    resultDiv.innerHTML = renderFailure(error.message);
   } finally {
     btn.disabled = false;
     btn.innerHTML = 'Upload Text';
@@ -1010,46 +990,14 @@ async function loadFiles() {
       return;
     }
 
+    files.forEach(f => fileIndex.set(f.id, f));
     fileList.innerHTML = files.map(f => `
       <li class="file-item">
         <div class="file-info">
-          <div class="file-name">${f.originalName} ${f.locked ? '[LOCKED]' : ''} ${f.encrypted ? '[ENCRYPTED]' : ''}</div>
+          <div class="file-name">${escapeHtml(f.originalName)} ${lockBadge(f)}</div>
           <div class="file-meta">${formatSize(f.size)} · Uploaded: ${new Date(f.uploadedAt).toLocaleString()} · ${formatExpiration(f.expiresAt)}</div>
         </div>
-        <div class="dropdown">
-          <button class="btn btn-ghost btn-sm" onclick="toggleDropdown('file-menu-${f.id}')">
-            ...
-          </button>
-          <div id="file-menu-${f.id}" class="dropdown-menu">
-            <button class="dropdown-item" onclick="copyDownloadLink('${f.downloadUrl}', ${f.locked})">
-              <span class="dropdown-icon">link</span>
-              Copy Download Link
-            </button>
-            <button class="dropdown-item" onclick="copyDetails('${f.id}', '${f.originalName.replace(/'/g, "\\'")}', '${f.mimeType}', ${f.size}, '${f.uploadedAt}')">
-              <span class="dropdown-icon">copy</span>
-              Copy Details
-            </button>
-            ${f.locked ? `
-            <button class="dropdown-item" onclick="openPasswordModal('${f.downloadUrl}', ${f.encrypted})">
-              <span class="dropdown-icon">â¬‡</span>
-              Download
-            </button>
-            ` : `
-            <a href="${f.downloadUrl}" target="_blank" class="dropdown-item">
-              <span class="dropdown-icon">â¬‡</span>
-              Download
-            </a>
-            `}
-            <a href="${f.url}" target="_blank" class="dropdown-item">
-              <span class="dropdown-icon">view</span>
-              View Info
-            </a>
-            <button class="dropdown-item danger" onclick="deleteFile('${f.id}')">
-              <span class="dropdown-icon">del</span>
-              Delete
-            </button>
-          </div>
-        </div>
+        ${fileMenu(f, 'file')}
       </li>
     `).join('');
   } catch (error) {

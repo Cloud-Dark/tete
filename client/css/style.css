@@ -915,3 +915,89 @@ select.input { cursor: pointer; }
   .tab { padding: 5px 10px; font-size: 0.72rem; }
   .card { padding: 12px; }
 }
+
+/* ─── Icons, badges, result card (added with the SVG icon set) ─── */
+.icon {
+  width: 1em;
+  height: 1em;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vertical-align: -0.125em;
+}
+
+.dropdown-icon { display: inline-flex; align-items: center; justify-content: center; }
+.dropdown-icon .icon { width: 15px; height: 15px; }
+
+.btn-icon { padding: 5px 8px; line-height: 1; }
+.btn-icon .icon { width: 16px; height: 16px; }
+
+.result-title { display: flex; align-items: center; gap: 8px; }
+.result-title .icon { width: 18px; height: 18px; }
+
+.result-link-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.result-name {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+  word-break: break-word;
+}
+
+.result-hint {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0 0;
+  font-size: 0.72rem;
+  color: var(--ink-3);
+}
+
+.result-token {
+  font-family: var(--font-mono);
+  color: var(--ink-2);
+  background: var(--surface-2);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  user-select: all;
+}
+
+.result-block-error { border-color: var(--danger); background: var(--danger-soft); }
+.result-block-error .result-title { color: var(--danger); }
+.result-block-error p { margin: 4px 0 0; font-size: 0.82rem; color: var(--ink-2); }
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 0.64rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 600;
+  vertical-align: middle;
+}
+
+.badge .icon { width: 11px; height: 11px; }
+.badge-lock { color: var(--warn); background: var(--warn-soft); border: 1px solid var(--warn); }
+
+/* The actions button in a result card stays compact on narrow screens (the list rows keep the full-width mobile layout). */
+.result-link-head .dropdown { width: auto; flex: none; }
+.result-link-head .dropdown-menu { left: auto; right: 0; }
+
+/* Menu labels must not inherit the card's break-all (it split "Link" into "Li nk"). */
+.dropdown-menu { word-break: normal; min-width: 210px; }
+.dropdown-item { white-space: nowrap; }
