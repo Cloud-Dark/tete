@@ -16,6 +16,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- Production domains attached to the Worker: `tete.apipedia.id` (frontend) and `tetein.apipedia.id` (API/MCP). Smoke test accepts `FRONTEND_URL`.
 - Two-hostname layout: frontend `tete.apipedia.id`, API/MCP `tetein.apipedia.id` on one Worker (`worker/links.js`, `FRONTEND_HOST`, `API_HOST`). API-host `/` returns the API index; browsers on the API host are redirected to the share page.
 - Background purge after uploads (`maybePurge`, `PURGE_INTERVAL_MS`), so no cron slot is needed.
 - Cloudflare Workers runtime: Worker (`worker/`), Static Assets for `client/`, D1 database, cron purge, `wrangler.toml`.

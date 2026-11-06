@@ -1,7 +1,10 @@
 // End-to-end smoke test. Usage: BASE_URL=http://localhost:8787 ADMIN_PASSWORD=... node test/smoke.mjs
+// When the API and the frontend are different hosts, also set FRONTEND_URL (e.g. BASE_URL=https://tetein.apipedia.id
+// FRONTEND_URL=https://tete.apipedia.id); it defaults to BASE_URL.
 // Works against `wrangler dev` or a deployed Worker.
 
 const BASE = (process.env.BASE_URL || 'http://localhost:8787').replace(/\/$/, '');
+const FRONT = (process.env.FRONTEND_URL || BASE).replace(/\/$/, '');
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'local-admin-pass';
 
 let failed = 0;
@@ -51,7 +54,7 @@ check('download unlocked text', res.status === 200 && (await res.text()) === 'he
 res = await alice(`/file/${text.id}`, { headers: { Accept: '*/*' } });
 check('GET /file/:id with Accept */* returns JSON (curl)', (res.headers.get('Content-Type') || '').includes('json'));
 
-res = await alice(`/file/${text.id}`, { headers: { Accept: 'text/html', 'Sec-Fetch-Dest': 'document' } });
+res = await fetch(`${FRONT}/file/${text.id}`, { headers: { Accept: 'text/html', 'Sec-Fetch-Dest': 'document' } });
 const html = await res.text();
 check('GET /file/:id from browser serves file-view page', res.status === 200 && html.includes('File Details'), `${res.status} ${html.slice(0, 80)}`);
 
@@ -180,7 +183,7 @@ check('MCP notification -> 202', res.status === 202);
 m = await rpc('tools/list');
 check('MCP tools/list exposes 5 tools', m.body.result.tools.length === 5);
 const up = await tool('upload_text', { text: 'via mcp', filename: 'mcp.txt', password: 'mcp-pw' });
-check('MCP upload_text (locked) returns share link on the public origin', !up.isError && up.data.url === `${BASE}/file/${up.data.id}` && up.data.deleteToken, up.text);
+check('MCP upload_text (locked) returns share link on the public origin', !up.isError && up.data.url === `${FRONT}/file/${up.data.id}` && up.data.deleteToken, up.text);
 const rd = await tool('read_text', { id: up.data.id, password: 'mcp-pw' });
 check('MCP read_text decrypts', !rd.isError && rd.data.text === 'via mcp', rd.text);
 const rdBad = await tool('read_text', { id: up.data.id, password: 'nope' });
@@ -239,8 +242,8 @@ res = await alice('/README.md');
 check('/README.md served', res.status === 200 && (await res.text()).includes('TETE'));
 res = await alice('/api.md');
 check('/api.md has BASE_URL substituted', !(await res.text()).includes('{{BASE_URL}}'));
-res = await alice('/');
-check('/ serves web UI', res.status === 200 && (await res.text()).includes('<html'));
+res = await fetch(`${FRONT}/`);
+check('frontend / serves web UI', res.status === 200 && (await res.text()).includes('<html'));
 res = await alice('/api', { method: 'OPTIONS' });
 check('CORS preflight -> 204', res.status === 204 && res.headers.get('Access-Control-Allow-Origin') === '*');
 

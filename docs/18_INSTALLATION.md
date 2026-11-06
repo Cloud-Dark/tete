@@ -54,17 +54,16 @@ npx wrangler login
 
 Target layout: `tete.apipedia.id` = frontend, `tetein.apipedia.id` = API/MCP, both attached to the **same** Worker `tete`.
 
-Current state (checked 2026-11-06) and what must change:
+Done on 2026-11-06 through the Cloudflare API (previous state, kept for rollback):
 
-| Hostname | Today | Needed |
-|----------|-------|--------|
-| `tete.apipedia.id` | DNS `CNAME` to `tegang-upload-share.pages.dev` and a custom domain of the Pages project `tegang-upload-share` (which also serves `tegang.apipedia.id` and `temp.apipedia.id`) | Remove the domain from that Pages project and delete the CNAME, then attach to Worker `tete` |
-| `tetein.apipedia.id` | Custom domain of the Worker `tete-proxy` | Re-attach to Worker `tete` (override the existing binding) |
+| Hostname | Before | Now |
+|----------|--------|-----|
+| `tete.apipedia.id` | DNS `CNAME` (record `e038cc04d3ee8f88fc2f7492f9588b89`) to `tegang-upload-share.pages.dev`, and a custom domain of the Pages project `tegang-upload-share` | Custom domain of Worker `tete`. The Pages project keeps `tegang.apipedia.id` and `temp.apipedia.id` |
+| `tetein.apipedia.id` | Custom domain of Worker `tete-proxy` | Custom domain of Worker `tete` |
 
-Dashboard steps: *Workers & Pages → tegang-upload-share → Custom domains* remove `tete.apipedia.id`; *DNS* delete the `tete`
-CNAME; *Workers & Pages → tete → Settings → Domains & Routes → Add → Custom domain* for both hostnames (confirm the
-override of `tetein`). To roll back, attach `tetein.apipedia.id` to `tete-proxy` again and re-add `tete.apipedia.id`
-to `tegang-upload-share`.
+Rollback: attach `tetein.apipedia.id` to `tete-proxy` again (*Workers & Pages → tete → Settings → Domains & Routes*, delete the
+domain, then add it to `tete-proxy`), and re-add `tete.apipedia.id` as a custom domain of `tegang-upload-share`
+(the old frontend there also depends on a Supabase project that no longer resolves).
 
 The `routes` block in `wrangler.toml` does the same from the CLI, but it changes DNS, so it stays commented out.
 

@@ -51,3 +51,11 @@
 - **Real Supabase behaviour confirmed:** a missing object answers `400` (handled as "not found" by `worker/storage.js`); the `sb_secret_` key works in both the `apikey` and `Authorization: Bearer` headers; upload, streamed download and bulk delete work.
 - **Finding:** the first live run failed one check. The admin whitelist reset was cached for up to 60 s in other isolates (per-isolate config cache, D-009), so an upload was still rejected for a moment. D1 held the correct value. The smoke test now waits until the change is visible; behaviour is documented in [20_DATABASE.md](../20_DATABASE.md).
 - **Still not covered:** custom domains, uploads near 50 MB, and the cron trigger (not registered, R-15).
+
+## Live run on the production domains
+
+- **Targets:** `https://tetein.apipedia.id` (API host, with `FRONTEND_URL=https://tete.apipedia.id`) and `https://tete.apipedia.id` (frontend host).
+- **Raw output:** [API host](2026-11-06_live-domains-api-host-output.txt) and [frontend host](2026-11-06_live-domains-frontend-host-output.txt): 53 PASS, 0 FAIL each.
+- **Browser check (Chromium via Playwright):** `tete.apipedia.id` loads the Worker UI, a text upload returns `https://tete.apipedia.id/file/<id>`, the share page shows the file, the download saves the right content, and the Files tab lists it. Hosts contacted: `tete.apipedia.id`, Cloudflare Insights, Google Fonts. No requests to any Supabase host, no failed requests, no page errors.
+- **Finding:** the first run against the API host failed 3 checks that assumed one host (`/` returning the UI, the share page rendering on the API host, links on the request origin). On the API host the root returns the API index, browsers are redirected (302) to the frontend, and `url` points at the frontend. The smoke test now takes `FRONTEND_URL`.
+- **Earlier symptom explained:** before the move, `tete.apipedia.id` served the old Pages app, which called a deleted Supabase project (`ERR_NAME_NOT_RESOLVED`).
