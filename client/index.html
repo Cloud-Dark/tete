@@ -20,7 +20,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400;1,9..144,500&family=Geist:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/css/style.css?v=4">
+  <link rel="stylesheet" href="/css/style.css?v=5">
 </head>
 <body>
   <a class="skip-link" href="#upload">Skip to content</a>
@@ -159,22 +159,22 @@
             </div>
           </article>
           <article class="cell">
-            <h3 class="h3">MCP for Claude</h3>
-            <p class="muted">Let Claude upload, read and manage files. Needs your MCP token for admin tools.</p>
+            <h3 class="h3">MCP for Claude Code</h3>
+            <p class="muted">Sign in with the OAuth consent screen. No token to copy around.</p>
             <div class="code" data-copy-block>
               <pre><code id="mcpSnippet"></code></pre>
               <button class="btn btn-sm copy-btn" type="button" data-copy-target="mcpSnippet">Copy</button>
             </div>
-            <p class="tiny">Without the token you still get the public tools: <code>upload_text</code>, <code>upload_base64</code>, <code>file_info</code>, <code>read_text</code>, <code>delete_file</code>.</p>
+            <p class="tiny">Anonymous access with the public tools only (<code>upload_text</code>, <code>upload_base64</code>, <code>file_info</code>, <code>read_text</code>, <code>delete_file</code>) lives at <code>/mcp/public</code>.</p>
           </article>
           <article class="cell">
-            <h3 class="h3">Claude Desktop</h3>
-            <p class="muted">Add this to <code>claude_desktop_config.json</code>.</p>
+            <h3 class="h3">claude.ai and Claude Desktop</h3>
+            <p class="muted">Settings, Connectors, Add custom connector. Paste this address, then approve with your admin password.</p>
             <div class="code" data-copy-block>
               <pre><code id="desktopSnippet"></code></pre>
               <button class="btn btn-sm copy-btn" type="button" data-copy-target="desktopSnippet">Copy</button>
             </div>
-            <p class="tiny">Full reference: <a href="/api.md" target="_blank" rel="noopener">api.md</a> · <a href="/AGENT.md" target="_blank" rel="noopener">AGENT.md</a></p>
+            <p class="tiny">Scripts can still use a static header (<code>Authorization: Bearer &lt;MCP_TOKEN&gt;</code>). Full reference: <a href="/api.md" target="_blank" rel="noopener">api.md</a> · <a href="/AGENT.md" target="_blank" rel="noopener">AGENT.md</a></p>
           </article>
         </div>
       </div>
@@ -204,6 +204,11 @@
             <button class="btn btn-primary" type="submit">Save limits</button>
             <p class="tiny">A change reaches every instance within a minute.</p>
           </form>
+          <section class="panel grid-span" id="appsPanel">
+            <h3 class="h3">Connected applications</h3>
+            <p class="muted">Claude and other MCP clients that you approved on the consent screen. Signing them out revokes their access immediately; they ask for approval again the next time.</p>
+            <button class="btn btn-danger" id="revokeBtn" type="button">Sign out all connected applications</button>
+          </section>
           <form class="panel" id="passwordForm">
             <h3 class="h3">Admin password</h3>
             <label class="field"><span class="label">Current password</span><input class="input" id="pwCurrent" type="password" autocomplete="current-password" required></label>
@@ -264,6 +269,6 @@
   </div>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script src="/js/app.js?v=4"></script>
+  <script src="/js/app.js?v=5"></script>
 </body>
 </html>

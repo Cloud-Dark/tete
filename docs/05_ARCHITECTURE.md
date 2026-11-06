@@ -83,12 +83,37 @@ Behaviour worth knowing: uploads use `XMLHttpRequest` so the button shows real p
 the admin limits form refuses to submit until the current values are loaded; locked files are downloaded with `fetch` and an
 `X-Password` header so a wrong password produces a message instead of a saved error file.
 
+## OAuth for MCP
+
+```mermaid
+sequenceDiagram
+    participant C as MCP client (Claude)
+    participant W as Worker
+    participant U as Admin in a browser
+    C->>W: POST /mcp (no token)
+    W-->>C: 401 + WWW-Authenticate resource_metadata
+    C->>W: GET /.well-known/oauth-protected-resource, /oauth-authorization-server
+    C->>W: POST /oauth/register (redirect_uris) -> client_id (signed)
+    C->>U: open /oauth/authorize (PKCE challenge, state)
+    U->>W: consent screen: admin password + Allow
+    W-->>U: 303 redirect_uri?code=...&state=...&iss=...
+    U->>C: callback delivers the code
+    C->>W: POST /oauth/token (code + code_verifier)
+    W-->>C: access token (1 h) + refresh token (30 d)
+    C->>W: POST /mcp with Authorization: Bearer
+```
+
+Design notes: tokens are stateless HMAC-signed values (purpose-bound keys derived from `SESSION_SECRET`); the only stored state
+is `oauth_codes` (single-use codes) and `oauthEpoch` in `config` (bump to sign out every client). Dynamic registration is open by
+design (the protocol requires it for connectors), so the consent screen with the admin password is the real gate.
+`/mcp/public` is a separate anonymous endpoint because an OAuth-protected `/mcp` must answer `401` to unauthenticated clients.
+
 ## MCP access levels
 
-| Caller | Tools |
-|--------|-------|
-| Anyone | `upload_text`, `upload_base64`, `file_info`, `read_text`, `delete_file` (needs the per-file token) |
-| `Authorization: Bearer <MCP_TOKEN>` | the above, plus `list_files`, `get_config`, `update_config`, `purge_expired`; `delete_file` without a per-file token |
+| Endpoint | Caller | Tools |
+|----------|--------|-------|
+| `/mcp/public` | Anyone | `upload_text`, `upload_base64`, `file_info`, `read_text`, `delete_file` (needs the per-file token) |
+| `/mcp` | OAuth access token, or the static `MCP_TOKEN` | the above, plus `list_files`, `get_config`, `update_config`, `purge_expired`; `delete_file` without a per-file token |
 
 ## Two hostnames
 

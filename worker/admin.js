@@ -7,6 +7,7 @@ import {
   HARD_MAX_FILE_BYTES, getConfig, parseWhitelist, pbkdf2Iterations, publicConfig, setConfigValue,
 } from './config.js';
 import { hashPassword } from './crypto.js';
+import { revokeAll } from './oauth.js';
 import { HttpError, json, readJson } from './http.js';
 
 const MIN_PASSWORD_LENGTH = 8;
@@ -88,4 +89,11 @@ export async function updateConfig(request, env, ctx) {
 
   for (const [key, value] of Object.entries(next)) await setConfigValue(env, key, value);
   return json(publicConfig(await getConfig(env)));
+}
+
+// Signs out every MCP client that connected through OAuth (their access and refresh tokens stop working at once).
+export async function revokeOauth(env, ctx) {
+  requireAdmin(ctx);
+  await revokeAll(env);
+  return json({ success: true, message: 'All connected applications were signed out' });
 }

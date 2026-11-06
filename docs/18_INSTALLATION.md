@@ -33,7 +33,7 @@ npx wrangler login
    npx wrangler secret put SESSION_SECRET        # e.g. output of: openssl rand -hex 32
    npx wrangler secret put ADMIN_PASSWORD
    npx wrangler secret put SUPABASE_SERVICE_KEY  # the service_role key
-   npx wrangler secret put MCP_TOKEN             # optional, enables admin MCP tools (openssl rand -hex 24)
+   npx wrangler secret put MCP_TOKEN             # optional static Bearer token for scripts (openssl rand -hex 24)
    ```
 
 3. **Apply the schema and deploy**

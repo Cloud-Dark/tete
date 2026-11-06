@@ -32,6 +32,8 @@
 - [x] `SUPABASE_SERVICE_KEY` secret set; `SUPABASE_URL` confirmed (project `kheniasmdqflwawtopip`, bucket `tete` private, 50 MB)
 - [ ] Re-run the smoke test after every deploy (`BASE_URL=https://tetein.apipedia.id FRONTEND_URL=https://tete.apipedia.id npm run test:smoke`)
 - [x] MCP admin tools and `MCP_TOKEN` secret set
+- [x] OAuth 2.1 with consent screen for `/mcp` (D-017), `/mcp/public`, D1 migration `0002_oauth_codes`
+- [ ] Rate limiting on `/oauth/authorize` and the admin login (R-04, R-17)
 - [ ] Rotate the Supabase secret key and the Cloudflare API token (both were pasted into a chat)
 - [x] `npm run migrate:remote` and `npm run deploy` to `https://tete.apipedia.workers.dev` (2026-11-06)
 - [ ] Run `npm run test:smoke` against the deployed URL

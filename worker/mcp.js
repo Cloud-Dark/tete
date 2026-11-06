@@ -5,6 +5,7 @@ import { getConfigHandler, updateConfig } from './admin.js';
 import { safeEqual, sha256Hex } from './crypto.js';
 import { deleteFile, downloadFile, fileInfo, listFiles, purgeExpired, uploadFiles, uploadText } from './files.js';
 import { HttpError, json } from './http.js';
+import { isValidAccessToken, unauthorized } from './oauth.js';
 
 const SUPPORTED_VERSIONS = ['2025-06-18', '2025-03-26', '2024-11-05'];
 const MAX_READ_BYTES = 1024 * 1024;
@@ -54,7 +55,7 @@ const TOOLS = [
   },
 ];
 
-// Extra tools, only listed and callable with the MCP token (Authorization: Bearer <MCP_TOKEN>).
+// Extra tools, only listed and callable on /mcp after OAuth (or with the static MCP_TOKEN).
 const ADMIN_TOOLS = [
   {
     name: 'list_files',
@@ -86,9 +87,9 @@ const ADMIN_TOOLS = [
   },
 ];
 
-// With the token, delete_file needs no per-file token.
+// On /mcp (signed in), delete_file needs no per-file token.
 const deleteToolFor = (authed) => (authed
-  ? { ...TOOLS.find((t) => t.name === 'delete_file'), description: 'Delete any file by id. The per-file deleteToken is optional with the MCP token.', inputSchema: { type: 'object', properties: { id: { type: 'string' }, token: { type: 'string' } }, required: ['id'] } }
+  ? { ...TOOLS.find((t) => t.name === 'delete_file'), description: 'Delete any file by id. The per-file deleteToken is optional when signed in.', inputSchema: { type: 'object', properties: { id: { type: 'string' }, token: { type: 'string' } }, required: ['id'] } }
   : TOOLS.find((t) => t.name === 'delete_file'));
 
 const toolsFor = (authed) => (authed
@@ -118,7 +119,7 @@ async function unwrap(response) {
 async function callTool(name, args, env, baseCtx, origin, authed) {
   const ctx = authed ? { ...baseCtx, isAdmin: true } : baseCtx;
   if (ADMIN_TOOLS.some((t) => t.name === name) && !authed) {
-    throw new HttpError(401, 'This tool needs the MCP token: send it as "Authorization: Bearer <MCP_TOKEN>"');
+    throw new HttpError(401, 'This tool is only available on /mcp after signing in (OAuth); /mcp/public has the public tools only');
   }
 
   const post = (path, body) => new Request(internalUrl(origin, path), {
@@ -214,7 +215,18 @@ async function handleMessage(msg, env, ctx, origin, authed) {
   }
 }
 
-export async function handleMcp(request, env, ctx) {
+// mode 'full'   (/mcp)        : needs an OAuth access token (or the static MCP_TOKEN for scripts); all tools.
+// mode 'public' (/mcp/public)  : anonymous; the public tools only.
+export async function handleMcp(request, env, ctx, mode = 'full') {
+  let authed = false;
+  if (mode === 'full') {
+    const bearer = (request.headers.get('Authorization') || '').match(/^Bearer\s+(.+)$/i)?.[1];
+    if (!bearer) return unauthorized(request);
+    const staticOk = !!env.MCP_TOKEN && safeEqual(await sha256Hex(bearer), await sha256Hex(env.MCP_TOKEN));
+    if (!staticOk && !(await isValidAccessToken(bearer, env))) return unauthorized(request, true);
+    authed = true;
+  }
+
   if (request.method !== 'POST') {
     return new Response(null, { status: 405, headers: { Allow: 'POST' } });
   }
@@ -223,17 +235,6 @@ export async function handleMcp(request, env, ctx) {
     body = await request.json();
   } catch {
     return json({ jsonrpc: '2.0', id: null, error: { code: -32700, message: 'Parse error' } }, 400);
-  }
-
-  // Optional admin access: a Bearer token equal to the MCP_TOKEN secret. A wrong token is rejected loudly so a
-  // misconfigured client does not silently fall back to the public tools.
-  let authed = false;
-  const bearer = (request.headers.get('Authorization') || '').match(/^Bearer\s+(.+)$/i)?.[1];
-  if (bearer) {
-    if (!env.MCP_TOKEN || !safeEqual(await sha256Hex(bearer), await sha256Hex(env.MCP_TOKEN))) {
-      return json({ jsonrpc: '2.0', id: null, error: { code: -32001, message: 'Invalid MCP token' } }, 401);
-    }
-    authed = true;
   }
 
   const origin = new URL(request.url).origin;

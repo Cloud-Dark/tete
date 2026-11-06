@@ -173,7 +173,7 @@ check('admin logout clears session', (await res.json()).isAdmin === false);
 
 // --- MCP (/mcp)
 const rpc = async (method, params, id = 1) => {
-  const r = await fetch(`${BASE}/mcp`, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream' }, body: JSON.stringify({ jsonrpc: '2.0', id, method, params }) });
+  const r = await fetch(`${BASE}/mcp/public`, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream' }, body: JSON.stringify({ jsonrpc: '2.0', method: method, id, params }) });
   return { status: r.status, body: r.status === 202 ? null : await r.json() };
 };
 const tool = async (name, args) => {
@@ -183,12 +183,12 @@ const tool = async (name, args) => {
 };
 let m = await rpc('initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'smoke', version: '1' } });
 check('MCP initialize negotiates version', m.body.result.protocolVersion === '2025-06-18' && m.body.result.serverInfo.name === 'tete');
-res = await fetch(`${BASE}/mcp`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) });
+res = await fetch(`${BASE}/mcp/public`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) });
 check('MCP notification -> 202', res.status === 202);
 m = await rpc('tools/list');
 check('MCP tools/list exposes 5 tools', m.body.result.tools.length === 5);
 const up = await tool('upload_text', { text: 'via mcp', filename: 'mcp.txt', password: 'mcp-pw' });
-check('MCP upload_text (locked) returns share link on the public origin', !up.isError && up.data.url === `${FRONT}/file/${up.data.id}` && up.data.deleteToken, up.text);
+check('MCP public: upload_text (locked) returns share link on the frontend origin', !up.isError && up.data.url === `${FRONT}/file/${up.data.id}` && up.data.deleteToken, up.text);
 const rd = await tool('read_text', { id: up.data.id, password: 'mcp-pw' });
 check('MCP read_text decrypts', !rd.isError && rd.data.text === 'via mcp', rd.text);
 const rdBad = await tool('read_text', { id: up.data.id, password: 'nope' });
@@ -201,15 +201,15 @@ const dBad = await tool('delete_file', { id: b64.data.id, token: 'wrong' });
 check('MCP delete_file bad token -> tool error', dBad.isError === true);
 const dOk = await tool('delete_file', { id: b64.data.id, token: b64.data.deleteToken });
 check('MCP delete_file with token', !dOk.isError && dOk.data.success === true);
-res = await fetch(`${BASE}/mcp`);
-check('GET /mcp -> 405', res.status === 405);
+res = await fetch(`${BASE}/mcp/public`);
+check('GET /mcp/public -> 405', res.status === 405);
 m = await rpc('nope/method');
 check('MCP unknown method -> JSON-RPC error', m.body.error?.code === -32601);
 
 // --- MCP admin tools (only when MCP_TOKEN is provided)
 if (MCP_TOKEN) {
   const rpcAs = async (token, method, params) => {
-    const r = await fetch(`${BASE}/mcp`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }) });
+    const r = await fetch(`${BASE}${token ? '/mcp' : '/mcp/public'}`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }) });
     return { status: r.status, body: await r.json() };
   };
   const callAs = async (token, name, args = {}) => {
@@ -218,13 +218,13 @@ if (MCP_TOKEN) {
     return { isError: body.result.isError, text, data: body.result.isError ? null : JSON.parse(text) };
   };
   let r2 = await rpcAs(MCP_TOKEN, 'tools/list');
-  check('MCP token: admin tools are listed (9 tools)', r2.body.result.tools.length === 9 && r2.body.result.tools.some((t) => t.name === 'purge_expired'), String(r2.body.result?.tools?.length));
+  check('MCP static token on /mcp: admin tools are listed (9 tools)', r2.body.result.tools.length === 9 && r2.body.result.tools.some((t) => t.name === 'purge_expired'), String(r2.body.result?.tools?.length));
   r2 = await rpcAs('', 'tools/list');
-  check('MCP without token: only the 5 public tools', r2.body.result.tools.length === 5);
+  check('MCP /mcp/public: only the 5 public tools', r2.body.result.tools.length === 5);
   r2 = await rpcAs('definitely-wrong', 'tools/list');
-  check('MCP wrong token -> 401', r2.status === 401 && r2.body.error?.code === -32001);
+  check('MCP /mcp with a wrong token -> 401 invalid_token', r2.status === 401 && r2.body.error === 'invalid_token');
   const denied = await callAs('', 'list_files');
-  check('MCP admin tool without token -> tool error', denied.isError === true && /MCP token/.test(denied.text), denied.text);
+  check('MCP admin tool on /mcp/public -> tool error', denied.isError === true && /signing in/.test(denied.text), denied.text);
 
   const seed = await callAs('', 'upload_text', { text: 'seed for admin tools', filename: 'seed.txt' });
   const listed = await callAs(MCP_TOKEN, 'list_files');
@@ -240,6 +240,123 @@ if (MCP_TOKEN) {
   check('MCP delete_file without per-file token (admin)', del.data?.success === true, del.text);
   const gone = await callAs('', 'file_info', { id: seed.data.id });
   check('deleted file is gone', gone.isError === true);
+}
+
+// --- OAuth 2.1 for /mcp (discovery, dynamic registration, consent, PKCE, tokens)
+{
+  const { createHash, randomBytes } = await import('node:crypto');
+  const b64url = (buf) => Buffer.from(buf).toString('base64url');
+  const noFollow = (path, init = {}) => fetch(BASE + path, { redirect: 'manual', ...init });
+  const form = (obj) => ({ method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(obj).toString() });
+  const REDIRECT = 'http://localhost:7777/callback';
+  const mcpCall = async (accessToken, method, params, id = 1) => {
+    const r = await fetch(`${BASE}/mcp`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` }, body: JSON.stringify({ jsonrpc: '2.0', id, method, params }) });
+    return { status: r.status, body: await r.json().catch(() => null) };
+  };
+
+  let r = await noFollow('/mcp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize' }) });
+  const challenge = r.headers.get('www-authenticate') || '';
+  check('OAuth: /mcp without credentials -> 401 with resource_metadata hint', r.status === 401 && /Bearer resource_metadata="[^"]+\/\.well-known\/oauth-protected-resource"/.test(challenge), `${r.status} ${challenge}`);
+  r = await noFollow('/mcp');
+  check('OAuth: unauthenticated GET /mcp -> 401 too', r.status === 401);
+
+  const prm = await (await noFollow('/.well-known/oauth-protected-resource')).json();
+  check('OAuth: protected resource metadata points at /mcp and this server', prm.resource === `${BASE}/mcp` && prm.authorization_servers?.[0] === BASE, JSON.stringify(prm));
+  const asm = await (await noFollow('/.well-known/oauth-authorization-server')).json();
+  check('OAuth: server metadata (S256 only, public clients, registration)', asm.issuer === BASE && asm.authorization_endpoint === `${BASE}/oauth/authorize` && asm.token_endpoint === `${BASE}/oauth/token` && asm.registration_endpoint === `${BASE}/oauth/register` && asm.code_challenge_methods_supported?.join() === 'S256' && asm.token_endpoint_auth_methods_supported?.join() === 'none', JSON.stringify(asm));
+
+  const reg = async (body) => noFollow('/oauth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  r = await reg({ client_name: 'Smoke <b>Client</b>', redirect_uris: [REDIRECT] });
+  const client = await r.json();
+  check('OAuth: dynamic client registration -> 201 client_id', r.status === 201 && typeof client.client_id === 'string' && client.token_endpoint_auth_method === 'none', JSON.stringify(client));
+  r = await reg({ client_name: 'x', redirect_uris: ['javascript:alert(1)'] });
+  check('OAuth: javascript: redirect URI rejected', r.status === 400 && (await r.json()).error === 'invalid_redirect_uri');
+  r = await reg({ client_name: 'x', redirect_uris: ['http://evil.example/cb'] });
+  check('OAuth: plain http redirect to a remote host rejected', r.status === 400);
+
+  const authorizeUrl = (extra = {}, challenge = null) => {
+    const q = new URLSearchParams({ response_type: 'code', client_id: client.client_id, redirect_uri: REDIRECT, state: 'st-123', scope: 'mcp', ...(challenge ? { code_challenge: challenge, code_challenge_method: 'S256' } : {}), ...extra });
+    return `/oauth/authorize?${q}`;
+  };
+  const newPkce = () => { const verifier = b64url(randomBytes(32)); return { verifier, challenge: b64url(createHash('sha256').update(verifier).digest()) }; };
+
+  // consent screen
+  const pk = newPkce();
+  r = await noFollow(authorizeUrl({}, pk.challenge));
+  let html = await r.text();
+  const txn = (html.match(/name="txn" value="([^"]+)"/) || [])[1];
+  check('OAuth: consent screen renders, client name escaped, framing denied', r.status === 200 && html.includes('Allow') && html.includes('&lt;b&gt;Client&lt;/b&gt;') && !html.includes('<b>Client</b>') && (r.headers.get('content-security-policy') || '').includes("frame-ancestors 'none'") && !!txn, `${r.status}`);
+  r = await noFollow(authorizeUrl({ redirect_uri: 'http://localhost:9999/other' }, pk.challenge));
+  check('OAuth: unregistered redirect_uri shows an error page and does NOT redirect', r.status === 400 && !r.headers.get('location'));
+  r = await noFollow(authorizeUrl({ client_id: 'garbage' }, pk.challenge));
+  check('OAuth: unknown client_id shows an error page', r.status === 400 && !r.headers.get('location'));
+  r = await noFollow(authorizeUrl({}, null));
+  check('OAuth: missing PKCE challenge redirects with invalid_request', r.status === 302 && /error=invalid_request/.test(r.headers.get('location') || '') && /state=st-123/.test(r.headers.get('location') || ''));
+
+  const consent = (decision, password, t = txn) => noFollow('/oauth/authorize', form({ txn: t, decision, ...(password !== undefined ? { password } : {}) }));
+  r = await consent('allow', 'definitely-wrong');
+  check('OAuth: wrong admin password -> consent screen again, no code', r.status === 401 && (await r.text()).includes('Wrong password') && !r.headers.get('location'));
+  r = await consent('deny');
+  check('OAuth: deny -> redirect with access_denied and state', r.status === 303 && /error=access_denied/.test(r.headers.get('location')) && /state=st-123/.test(r.headers.get('location')));
+  r = await consent('allow', ADMIN_PASSWORD, 'forged.txn');
+  check('OAuth: forged approval token rejected', r.status === 400 && !r.headers.get('location'));
+
+  const getCode = async (challenge) => {
+    const page = await (await noFollow(authorizeUrl({}, challenge))).text();
+    const t = (page.match(/name="txn" value="([^"]+)"/) || [])[1];
+    const out = await consent('allow', ADMIN_PASSWORD, t);
+    const loc = new URL(out.headers.get('location') || 'http://x/');
+    return { status: out.status, location: loc, code: loc.searchParams.get('code') };
+  };
+  const approved = await getCode(pk.challenge);
+  check('OAuth: correct password -> redirect to the client with code, state and iss', approved.status === 303 && approved.location.origin + approved.location.pathname === REDIRECT && !!approved.code && approved.location.searchParams.get('state') === 'st-123' && approved.location.searchParams.get('iss') === BASE, approved.location.toString());
+
+  const exchange = (code, verifier, extra = {}) => noFollow('/oauth/token', form({ grant_type: 'authorization_code', code, redirect_uri: REDIRECT, client_id: client.client_id, code_verifier: verifier, ...extra }));
+  r = await exchange(approved.code, 'wrong-verifier-wrong-verifier-wrong-verifier-123');
+  check('OAuth: wrong PKCE verifier -> invalid_grant', r.status === 400 && (await r.json()).error === 'invalid_grant');
+  r = await exchange(approved.code, pk.verifier);
+  const tokens = await r.json();
+  check('OAuth: code + verifier -> access and refresh tokens', r.status === 200 && tokens.token_type === 'Bearer' && tokens.expires_in === 3600 && !!tokens.access_token && !!tokens.refresh_token && r.headers.get('cache-control') === 'no-store', JSON.stringify(tokens).slice(0, 120));
+  r = await exchange(approved.code, pk.verifier);
+  check('OAuth: authorization code cannot be used twice', r.status === 400 && (await r.json()).error === 'invalid_grant');
+  const pk2 = newPkce();
+  const second = await getCode(pk2.challenge);
+  r = await exchange(second.code, pk2.verifier, { redirect_uri: 'http://localhost:7777/elsewhere' });
+  check('OAuth: redirect_uri mismatch at the token endpoint -> invalid_grant', r.status === 400);
+
+  let m = await mcpCall(tokens.access_token, 'tools/list');
+  check('OAuth: access token unlocks /mcp with all 9 tools', m.status === 200 && m.body.result.tools.length === 9, JSON.stringify(m.body).slice(0, 100));
+  m = await mcpCall(tokens.access_token, 'tools/call', { name: 'get_config', arguments: {} });
+  check('OAuth: admin tool works with an access token', m.status === 200 && m.body.result.isError === false);
+  m = await mcpCall('not-a-valid-token', 'tools/list');
+  check('OAuth: garbage Bearer -> 401 invalid_token', m.status === 401 && m.body.error === 'invalid_token');
+
+  r = await noFollow('/oauth/token', form({ grant_type: 'refresh_token', refresh_token: tokens.refresh_token, client_id: client.client_id }));
+  const refreshed = await r.json();
+  check('OAuth: refresh token -> new access token that works', r.status === 200 && !!refreshed.access_token && (await mcpCall(refreshed.access_token, 'tools/list')).status === 200);
+  r = await noFollow('/oauth/token', form({ grant_type: 'refresh_token', refresh_token: tokens.access_token }));
+  check('OAuth: an access token is not accepted as a refresh token', r.status === 400);
+  const asCookie = await fetch(`${BASE}/api/admin/status`, { headers: { Cookie: `tete_admin=${tokens.access_token}` } });
+  check('OAuth: an access token is NOT accepted as an admin session cookie', (await asCookie.json()).isAdmin === false);
+  const clientAsCookie = await fetch(`${BASE}/api/admin/status`, { headers: { Cookie: `tete_admin=${client.client_id}` } });
+  check('OAuth: a client_id is NOT accepted as an admin session cookie', (await clientAsCookie.json()).isAdmin === false);
+  const publicWithToken = await fetch(`${BASE}/mcp/public`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer junk' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }) });
+  check('OAuth: /mcp/public ignores credentials and stays public (5 tools)', (await publicWithToken.json()).result.tools.length === 5);
+
+  if (/^(localhost|127\.0\.0\.1)$/.test(new URL(BASE).hostname) || process.env.OAUTH_REVOKE_TEST === '1') {
+    const adm = makeClient();
+    await postJson(adm, '/api/admin/login', { password: ADMIN_PASSWORD });
+    res = await postJson(adm, '/api/admin/revoke-oauth', {});
+    check('OAuth: admin can sign out every connected application', res.status === 200);
+    m = await mcpCall(refreshed.access_token, 'tools/list');
+    check('OAuth: after sign-out the old access token is rejected', m.status === 401);
+    r = await noFollow('/oauth/token', form({ grant_type: 'refresh_token', refresh_token: tokens.refresh_token }));
+    check('OAuth: after sign-out the old refresh token is rejected', r.status === 400);
+    res = await alice('/api/admin/revoke-oauth', { method: 'POST' });
+    check('OAuth: revoke needs an admin session', res.status === 403);
+  } else {
+    console.log('SKIP  OAuth sign-out checks (they would disconnect real clients; set OAUTH_REVOKE_TEST=1 to run them)');
+  }
 }
 
 // --- two hostnames, one Worker (only checkable with a custom Host header, i.e. against local dev)

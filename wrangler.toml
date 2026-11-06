@@ -14,7 +14,7 @@ fallthrough = true
 [assets]
 directory = "./client"
 binding = "ASSETS"
-run_worker_first = ["/", "/api", "/api/*", "/file/*", "/mcp", "/README.md", "/AGENT.md", "/api.md"]
+run_worker_first = ["/", "/api", "/api/*", "/file/*", "/mcp", "/mcp/*", "/oauth/*", "/.well-known/*", "/README.md", "/AGENT.md", "/api.md"]
 
 # Both hostnames serve the same Worker (UI + API). Uncomment after the zone exists in your account.
 # routes = [

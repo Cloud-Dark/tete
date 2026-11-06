@@ -39,25 +39,53 @@ PASS  admin logout clears session
 PASS  MCP initialize negotiates version
 PASS  MCP notification -> 202
 PASS  MCP tools/list exposes 5 tools
-PASS  MCP upload_text (locked) returns share link on the public origin
+PASS  MCP public: upload_text (locked) returns share link on the frontend origin
 PASS  MCP read_text decrypts
 PASS  MCP read_text wrong password -> tool error
 PASS  MCP upload_base64 (never expires)
 PASS  MCP file_info
 PASS  MCP delete_file bad token -> tool error
 PASS  MCP delete_file with token
-PASS  GET /mcp -> 405
+PASS  GET /mcp/public -> 405
 PASS  MCP unknown method -> JSON-RPC error
-PASS  MCP token: admin tools are listed (9 tools)
-PASS  MCP without token: only the 5 public tools
-PASS  MCP wrong token -> 401
-PASS  MCP admin tool without token -> tool error
+PASS  MCP static token on /mcp: admin tools are listed (9 tools)
+PASS  MCP /mcp/public: only the 5 public tools
+PASS  MCP /mcp with a wrong token -> 401 invalid_token
+PASS  MCP admin tool on /mcp/public -> tool error
 PASS  MCP list_files sees files of every owner
 PASS  MCP get_config
 PASS  MCP update_config applies
 PASS  MCP purge_expired returns a count
 PASS  MCP delete_file without per-file token (admin)
 PASS  deleted file is gone
+PASS  OAuth: /mcp without credentials -> 401 with resource_metadata hint
+PASS  OAuth: unauthenticated GET /mcp -> 401 too
+PASS  OAuth: protected resource metadata points at /mcp and this server
+PASS  OAuth: server metadata (S256 only, public clients, registration)
+PASS  OAuth: dynamic client registration -> 201 client_id
+PASS  OAuth: javascript: redirect URI rejected
+PASS  OAuth: plain http redirect to a remote host rejected
+PASS  OAuth: consent screen renders, client name escaped, framing denied
+PASS  OAuth: unregistered redirect_uri shows an error page and does NOT redirect
+PASS  OAuth: unknown client_id shows an error page
+PASS  OAuth: missing PKCE challenge redirects with invalid_request
+PASS  OAuth: wrong admin password -> consent screen again, no code
+PASS  OAuth: deny -> redirect with access_denied and state
+PASS  OAuth: forged approval token rejected
+PASS  OAuth: correct password -> redirect to the client with code, state and iss
+PASS  OAuth: wrong PKCE verifier -> invalid_grant
+PASS  OAuth: code + verifier -> access and refresh tokens
+PASS  OAuth: authorization code cannot be used twice
+PASS  OAuth: redirect_uri mismatch at the token endpoint -> invalid_grant
+PASS  OAuth: access token unlocks /mcp with all 9 tools
+PASS  OAuth: admin tool works with an access token
+PASS  OAuth: garbage Bearer -> 401 invalid_token
+PASS  OAuth: refresh token -> new access token that works
+PASS  OAuth: an access token is not accepted as a refresh token
+PASS  OAuth: an access token is NOT accepted as an admin session cookie
+PASS  OAuth: a client_id is NOT accepted as an admin session cookie
+PASS  OAuth: /mcp/public ignores credentials and stays public (5 tools)
+SKIP  OAuth sign-out checks (they would disconnect real clients; set OAUTH_REVOKE_TEST=1 to run them)
 PASS  /README.md served
 PASS  /api.md has BASE_URL substituted
 PASS  frontend / serves web UI

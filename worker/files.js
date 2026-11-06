@@ -6,6 +6,7 @@ import {
 } from './crypto.js';
 import { HttpError, attachmentDisposition, json, readJson } from './http.js';
 import { linksFor } from './links.js';
+import { purgeOauthCodes } from './oauth.js';
 import { deleteObjects, getObject, putObject } from './storage.js';
 
 // Columns needed to describe a file publicly; excludes the enc blob and delete token.
@@ -296,5 +297,6 @@ export async function purgeExpired(env) {
     await env.DB.prepare(`DELETE FROM files WHERE id IN (${placeholders})`).bind(...ids).run();
     purged += ids.length;
   }
+  await purgeOauthCodes(env);
   return purged;
 }

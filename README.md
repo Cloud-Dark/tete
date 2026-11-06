@@ -39,7 +39,7 @@ Browser / curl ──► Cloudflare Worker (worker/index.js)
 - Optional password: AES-256-GCM content + filename encryption, key wrapped with PBKDF2-SHA256
 - Per-upload expiration, short URLs, REST API with CORS
 - Admin panel: view all files, upload limits, extension whitelist, password change
-- MCP server at `/mcp` for AI agents: public tools (upload, read, inspect, delete) plus admin tools (list every file, change limits, purge) with an MCP token
+- MCP server at `/mcp` with OAuth 2.1 sign-in (consent screen) for Claude and other agents: upload, read, inspect, delete, list every file, change limits, purge; `/mcp/public` for the five public tools without sign-in
 - No servers to run: Workers + D1 + Supabase Storage, free-tier friendly for small usage
 
 ## Deploy to Cloudflare
@@ -60,7 +60,7 @@ npx wrangler d1 create tete            # copy the printed database_id into wrang
 npx wrangler secret put SESSION_SECRET          # 32+ random characters
 npx wrangler secret put ADMIN_PASSWORD          # initial admin password
 npx wrangler secret put SUPABASE_SERVICE_KEY    # Supabase Settings -> API -> service_role key
-npx wrangler secret put MCP_TOKEN               # optional: enables the admin MCP tools (e.g. openssl rand -hex 24)
+npx wrangler secret put MCP_TOKEN               # optional: static Bearer token for scripts (e.g. openssl rand -hex 24)
 # set SUPABASE_URL in wrangler.toml [vars]
 
 # 4. Schema + deploy
@@ -107,18 +107,24 @@ curl -X DELETE "https://tetein.apipedia.id/file/a1b2c3?token=<deleteToken>"     
 
 Complete reference: [api.md](api.md) (also served at `/api.md`). AI agents: [AGENT.md](AGENT.md).
 
-### MCP
+### MCP (with OAuth sign-in)
 
-`POST https://tetein.apipedia.id/mcp` speaks MCP (Streamable HTTP, stateless). Tools: `upload_text`, `upload_base64`, `file_info`, `read_text`, `delete_file`. Add it to Claude Code as a remote HTTP server:
+`https://tetein.apipedia.id/mcp` is an MCP server (Streamable HTTP) protected by **OAuth 2.1**: the client registers itself,
+opens a **consent screen** where you approve it with the admin password, and then gets tokens (1 hour access token, 30 day
+refresh token, PKCE). All tools are available after sign-in: upload, read, inspect, delete, **list every file, change limits,
+purge**. `https://tetein.apipedia.id/mcp/public` needs no sign-in and has the five public tools only.
 
 ```bash
 claude mcp add --transport http tete https://tetein.apipedia.id/mcp
-# with admin tools (list all files, limits, purge, delete any file):
-claude mcp add --transport http tete https://tetein.apipedia.id/mcp --header "Authorization: Bearer <MCP_TOKEN>"
+# inside Claude Code: /mcp -> tete -> Authenticate (a browser opens with the consent screen)
 ```
 
-Claude Desktop (via `mcp-remote`) and the exact tool list are on the site under *API & MCP* and in [api.md](api.md). Static
-Bearer headers work in Claude Code and `mcp-remote`; the claude.ai connector UI expects OAuth and is not supported.
+claude.ai and Claude Desktop: *Settings → Connectors → Add custom connector*, paste `https://tetein.apipedia.id/mcp`, approve
+with your admin password. Scripts can still send a static header (`Authorization: Bearer <MCP_TOKEN>`, optional secret).
+The Admin section has **Sign out all connected applications**. Details: [api.md](api.md) and
+[docs/05_ARCHITECTURE.md](docs/05_ARCHITECTURE.md).
+
+---
 
 ## Configuration
 
@@ -131,12 +137,12 @@ Defaults live in `wrangler.toml` `[vars]`; the admin **Config** tab overrides th
 | `MAX_FILES_PER_UPLOAD` | `10` | Files per request |
 | `FILE_WHITELIST` | empty | Comma-separated extensions; empty allows all |
 | `PBKDF2_ITERATIONS` | `100000` | Key-derivation cost for locked files and the admin password |
-| `SESSION_SECRET` (secret) | – | Signs the admin cookie. Required for admin login |
+| `SESSION_SECRET` (secret) | – | Signs the admin cookie and every OAuth token. Required for admin login and MCP. Rotating it signs out everything |
 | `ADMIN_PASSWORD` (secret) | – | Initial admin password; replaced once changed in the UI |
 | `FRONTEND_HOST` / `API_HOST` | `tete.apipedia.id` / `tetein.apipedia.id` | Hostnames used when building links (other hosts such as workers.dev use their own origin) |
 | `SUPABASE_URL` | – | Supabase project URL (not shown to users) |
 | `SUPABASE_SERVICE_KEY` (secret) | – | `service_role` key; only the Worker holds it |
-| `MCP_TOKEN` (secret) | – | Optional. A Bearer token that unlocks the admin MCP tools. Treat it like the admin password |
+| `MCP_TOKEN` (secret) | – | Optional static Bearer token for `/mcp` (scripts). OAuth works without it. Treat it like the admin password |
 
 See [docs/16_CONFIG_REFERENCE.md](docs/16_CONFIG_REFERENCE.md).
 

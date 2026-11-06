@@ -147,6 +147,7 @@ Admin endpoints use a signed `tete_admin` cookie (24 h). Use `-c cookies.txt` / 
 | POST | `/api/admin/logout` | – | Clears the cookie |
 | GET | `/api/admin/status` | – | `{ "isAdmin": true/false }` |
 | POST | `/api/admin/verify-password` | `{ "password" }` | Admin only |
+| POST | `/api/admin/revoke-oauth` | – | Admin only. Signs out every OAuth-connected MCP application |
 | POST | `/api/admin/change-password` | `{ "newPassword" }` | Admin only, min. 8 characters. Overrides the `ADMIN_PASSWORD` secret from then on |
 | GET | `/api/config` | – | Admin only |
 | POST | `/api/config` | any of the fields below | Admin only. All fields are validated first; a rejected request changes nothing |
@@ -161,10 +162,16 @@ curl -b cookies.txt -H "Content-Type: application/json" -d '{"maxFileSize": 10}'
 
 ## MCP
 
-`POST /mcp` implements the Model Context Protocol (Streamable HTTP transport, stateless, JSON responses).
+Model Context Protocol, Streamable HTTP transport, stateless, JSON responses.
+
+| Endpoint | Access | Tools |
+|----------|--------|-------|
+| `POST /mcp` | OAuth 2.1 access token (or the static `MCP_TOKEN`) | all 9 |
+| `POST /mcp/public` | none | the 5 public tools |
 
 ```bash
-claude mcp add --transport http tete {{BASE_URL}}/mcp
+claude mcp add --transport http tete {{BASE_URL}}/mcp        # then /mcp -> tete -> Authenticate
+claude mcp add --transport http tete-public {{BASE_URL}}/mcp/public
 ```
 
 | Tool | Arguments | Result |
@@ -173,27 +180,30 @@ claude mcp add --transport http tete {{BASE_URL}}/mcp
 | `upload_base64` | `filename`, `content_base64`, `mime_type?`, `password?`, `expiration_ms?` | Same object as `POST /api` |
 | `file_info` | `id` | Same object as `GET /api/file/:id` |
 | `read_text` | `id`, `password?` | `{ "text": "..." }` for text files up to 1 MB |
-| `delete_file` | `id`, `token` | `{ "success": true }` |
+| `delete_file` | `id`, `token` (optional after sign-in) | `{ "success": true }` |
+| `list_files` | – | Every file, all owners (up to 200, newest first). Sign-in only |
+| `get_config` | – | Runtime limits. Sign-in only |
+| `update_config` | `defaultExpiration?`, `maxFileSize?` (MB), `maxFilesPerUpload?`, `fileWhitelist?` | New limits; a rejected request changes nothing. Sign-in only |
+| `purge_expired` | – | `{ "purged": <count> }`. Sign-in only |
 
-### Admin tools (MCP token)
+Tool failures are `isError: true` results with the same messages as the REST errors. A tool that needs sign-in, called on
+`/mcp/public`, returns a tool error.
 
-Send `Authorization: Bearer <MCP_TOKEN>` (the `MCP_TOKEN` Worker secret). The server then lists these extra tools and
-`delete_file` no longer needs a per-file token. A wrong token returns `401` (JSON-RPC error `-32001`); calling an admin
-tool without a token returns a tool error.
+### OAuth 2.1 (for `/mcp`)
 
-| Tool | Arguments | Result |
-|------|-----------|--------|
-| `list_files` | – | Every stored file (up to 200, newest first), all owners |
-| `get_config` | – | Runtime limits |
-| `update_config` | `defaultExpiration?`, `maxFileSize?` (MB), `maxFilesPerUpload?`, `fileWhitelist?` | New limits. A rejected request changes nothing |
-| `purge_expired` | – | `{ "purged": <count> }` |
-| `delete_file` | `id`, `token?` | `{ "success": true }` |
+| Step | Endpoint |
+|------|----------|
+| Discovery (RFC 9728) | `GET /.well-known/oauth-protected-resource` → `{ resource, authorization_servers }` |
+| Server metadata (RFC 8414) | `GET /.well-known/oauth-authorization-server` |
+| Client registration (RFC 7591) | `POST /oauth/register` `{ client_name, redirect_uris }` → `client_id` (public client, no secret) |
+| Authorization | `GET /oauth/authorize?response_type=code&client_id&redirect_uri&code_challenge&code_challenge_method=S256&state` shows the consent screen; the admin password approves it; the browser returns to `redirect_uri` with `code`, `state` and `iss` |
+| Token | `POST /oauth/token` (`application/x-www-form-urlencoded`): `authorization_code` with `code_verifier`, or `refresh_token` |
 
-```bash
-claude mcp add --transport http tete {{BASE_URL}}/mcp --header "Authorization: Bearer <MCP_TOKEN>"
-```
-
-Tool failures are returned as `isError: true` results with the same messages as the REST errors. `GET /mcp` returns `405`.
+- Redirect URIs must be `https`, or `http` on `localhost` / `127.0.0.1` / `[::1]`, and must match the registration exactly.
+- PKCE with `S256` is mandatory. Authorization codes live 60 s and work once. Access tokens last 1 hour, refresh tokens 30 days.
+- A signed-out application (Admin → *Sign out all connected applications*) loses access at once.
+- Without a valid token `/mcp` answers `401` with `WWW-Authenticate: Bearer resource_metadata="<origin>/.well-known/oauth-protected-resource"`.
+- Scripts may instead send `Authorization: Bearer <MCP_TOKEN>` if that secret is configured.
 
 ## Documentation endpoints
 

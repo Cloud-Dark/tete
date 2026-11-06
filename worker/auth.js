@@ -4,6 +4,7 @@ import { ADMIN_SESSION_MS, getConfigValue } from './config.js';
 import { parseCookies, serializeCookie } from './http.js';
 import { randomHex, safeEqual, sha256Hex, signToken, verifyToken, verifyPassword } from './crypto.js';
 
+const ADMIN_PURPOSE = 'admin-session';
 const USER_COOKIE = 'tete_uid';
 const ADMIN_COOKIE = 'tete_admin';
 const USER_COOKIE_MAX_AGE = 30 * 24 * 60 * 60;
@@ -30,11 +31,12 @@ export async function isAdmin(request, env) {
   const secret = requireSecret(env);
   if (!secret) return false;
   const token = parseCookies(request)[ADMIN_COOKIE];
-  return !!(await verifyToken(token, secret));
+  const payload = await verifyToken(token, secret, ADMIN_PURPOSE);
+  return payload?.role === 'admin';
 }
 
 export async function adminSessionCookie(request, env) {
-  const token = await signToken({ role: 'admin', exp: Date.now() + ADMIN_SESSION_MS }, requireSecret(env));
+  const token = await signToken({ role: 'admin', exp: Date.now() + ADMIN_SESSION_MS }, requireSecret(env), ADMIN_PURPOSE);
   return serializeCookie(ADMIN_COOKIE, token, { maxAge: ADMIN_SESSION_MS / 1000, secure: isSecure(request) });
 }
 

@@ -242,9 +242,10 @@ select.input { appearance: none; background-image: linear-gradient(45deg, transp
 .grid-3 .cell:first-child { grid-column: 1 / -1; }
 .cell { padding: 26px; min-width: 0; background: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-radius: var(--r-lg); }
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.grid-span { grid-column: 1 / -1; }
 .code { position: relative; margin-top: 14px; background: hsl(var(--code-bg)); color: hsl(var(--code-fg)); border-radius: var(--r-md); }
-.code pre { margin: 0; padding: 18px; font-size: 0.78rem; line-height: 1.7; overflow-x: auto; }
-.code pre code { display: block; padding-right: 64px; }
+.code pre { margin: 0; padding: 46px 18px 18px; font-size: 0.78rem; line-height: 1.7; overflow-x: auto; }
+.code pre code { display: block; }
 .code .copy-btn { position: absolute; top: 10px; right: 10px; padding: 4px 12px; font-size: 0.76rem; background: hsl(var(--card)); color: hsl(var(--foreground)); }
 
 /* ---------- Footer & misc ---------- */
@@ -323,3 +324,37 @@ select.input { appearance: none; background-image: linear-gradient(45deg, transp
 /* "Admin login" appears in the nav only on small screens, where the header text button is hidden. */
 .nav-login { display: none; }
 @media (max-width: 720px) { .nav-login { display: block; } .nav-login[hidden] { display: none !important; } }
+
+/* Pages without JavaScript (the OAuth consent screen) follow the system theme. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --background: 165 22% 8%;
+    --foreground: 40 30% 95%;
+    --body: 150 12% 72%;
+    --muted: 150 10% 62%;
+    --card: 165 18% 12%;
+    --border: 166 16% 21%;
+    --line: 166 16% 18%;
+    --line-strong: 166 14% 30%;
+    --secondary: 165 20% 15%;
+    --primary: 158 48% 62%;
+    --primary-hover: 158 52% 70%;
+    --primary-fg: 166 58% 10%;
+    --mint: 158 48% 62%;
+    --mint-ink: 158 55% 72%;
+    --amber: 32 84% 62%;
+    --amber-ink: 36 85% 72%;
+    --amber-soft: 32 40% 18%;
+    --danger: 6 80% 70%;
+    --danger-soft: 6 40% 17%;
+    --code-bg: 168 28% 6%;
+    --code-fg: 42 22% 88%;
+    --shadow-ink: 0 0% 0%;
+    --glow-a: 166 40% 14%;
+    --glow-b: 32 30% 14%;
+}
+}
+
+.perm-list { margin: 0 0 14px; padding-left: 22px; }
+.perm-list li { margin: 4px 0; color: hsl(var(--foreground)); }
+.consent-app { font-style: italic; color: hsl(var(--mint-ink)); }

@@ -55,6 +55,13 @@ that handled it and in all others within 60 seconds. The value in D1 is always c
 
 No password or password hash is stored.
 
+## Table `oauth_codes`
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `jti` | TEXT PK | Id of an authorization code; inserted when the code is redeemed, so a replay finds it taken |
+| `exp` | INTEGER | Epoch ms when the code could no longer be redeemed; rows are purged with the expired files |
+
 ## Table `config`
 
 Key/value overrides written by the admin panel.
@@ -63,6 +70,7 @@ Key/value overrides written by the admin panel.
 |-----|-------|
 | `defaultExpiration`, `maxFileSize`, `maxFilesPerUpload` | Integer as text |
 | `fileWhitelist` | Comma-separated extensions |
+| `oauthEpoch` | Integer as text. Every OAuth token carries the epoch it was issued under; incrementing it signs out all clients |
 | `adminPasswordHash` | `pbkdf2$<iterations>$<salt>$<hash>` |
 
 ## Supabase Storage

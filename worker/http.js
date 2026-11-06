@@ -3,8 +3,8 @@
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, X-Delete-Token, X-Password',
-  'Access-Control-Expose-Headers': 'Content-Disposition, Content-Length',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Delete-Token, X-Password, MCP-Protocol-Version, Mcp-Session-Id',
+  'Access-Control-Expose-Headers': 'Content-Disposition, Content-Length, WWW-Authenticate',
   'Access-Control-Max-Age': '86400',
 };
 

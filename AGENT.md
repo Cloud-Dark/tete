@@ -31,12 +31,14 @@ Always keep `deleteToken` / `deleteUrl` from the upload response: it is shown on
 
 ## MCP
 
-`POST {{BASE_URL}}/mcp` (Streamable HTTP, JSON responses). Tools: `upload_text`, `upload_base64`, `file_info`, `read_text`, `delete_file`.
-They behave exactly like the REST endpoints; keep the `deleteToken` from the upload result.
-
-With `Authorization: Bearer <MCP_TOKEN>` four more tools appear: `list_files` (every owner), `get_config`, `update_config`,
-`purge_expired`, and `delete_file` no longer needs the per-file token. A wrong token is rejected with `401`; without a
-token only the public tools exist.
+- `{{BASE_URL}}/mcp` (Streamable HTTP, JSON responses) requires OAuth 2.1. An unauthenticated request gets `401` with
+  `WWW-Authenticate: Bearer resource_metadata="..."`; clients discover `/.well-known/oauth-protected-resource` and
+  `/.well-known/oauth-authorization-server`, register at `/oauth/register`, send the user to `/oauth/authorize` (PKCE S256,
+  consent screen with the admin password) and exchange the code at `/oauth/token`. Tools after sign-in: `upload_text`,
+  `upload_base64`, `file_info`, `read_text`, `delete_file` (no per-file token needed), `list_files`, `get_config`,
+  `update_config`, `purge_expired`.
+- `{{BASE_URL}}/mcp/public` needs nothing and offers the first five tools (delete needs the per-file `deleteToken`).
+- Scripts can send `Authorization: Bearer <MCP_TOKEN>` to `/mcp` instead of doing OAuth (only if the secret is set).
 
 ## Rules an agent must know
 

@@ -123,26 +123,32 @@ export async function verifyPassword(password, stored) {
   return safeEqual(toB64(bits), hash);
 }
 
-// Signed, expiring tokens for stateless sessions: base64url(payload).base64url(hmac)
-async function hmacKey(secret) {
-  return crypto.subtle.importKey('raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign', 'verify']);
+// Signed, expiring tokens: base64url(payload).base64url(hmac). The HMAC key is derived from the secret AND a purpose
+// label, so a token minted for one purpose (admin cookie, OAuth code, access token...) never verifies for another.
+async function hmacKey(secret, purpose) {
+  return crypto.subtle.importKey('raw', enc.encode(`${purpose}\u0000${secret}`), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign', 'verify']);
 }
 
-export async function signToken(payload, secret) {
+export async function signToken(payload, secret, purpose = 'session') {
   const body = toB64Url(enc.encode(JSON.stringify(payload)));
-  const sig = await crypto.subtle.sign('HMAC', await hmacKey(secret), enc.encode(body));
+  const sig = await crypto.subtle.sign('HMAC', await hmacKey(secret, purpose), enc.encode(body));
   return `${body}.${toB64Url(sig)}`;
 }
 
-export async function verifyToken(token, secret) {
+export async function verifyToken(token, secret, purpose = 'session') {
   const [body, sig] = String(token || '').split('.');
   if (!body || !sig) return null;
   try {
-    const ok = await crypto.subtle.verify('HMAC', await hmacKey(secret), fromB64Url(sig), enc.encode(body));
+    const ok = await crypto.subtle.verify('HMAC', await hmacKey(secret, purpose), fromB64Url(sig), enc.encode(body));
     if (!ok) return null;
     const payload = JSON.parse(dec.decode(fromB64Url(body)));
     return payload.exp && payload.exp > Date.now() ? payload : null;
   } catch {
     return null;
   }
+}
+
+// PKCE S256: base64url(SHA-256(verifier)).
+export async function sha256B64Url(text) {
+  return toB64Url(new Uint8Array(await crypto.subtle.digest('SHA-256', enc.encode(text))));
 }

@@ -88,7 +88,7 @@ Architecture decision records. Newest decisions are appended; numbers are perman
 - **Context:** A first redesign used hard offset shadows, square corners and a mono-heavy look; the owner rejected it in favour of the apipedia.id look.
 - **Alternatives rejected:** Hard-shadow editorial style (rejected by the owner); a UI framework (not needed for a one-page tool, and there is no build step).
 
-## D-015 — Admin MCP tools behind a static Bearer token (2026-11-06)
+## D-015 — Admin MCP tools behind a static Bearer token (2026-11-06; superseded by D-017 for `/mcp`)
 
 - **Decision:** `MCP_TOKEN` (Worker secret) unlocks `list_files`, `get_config`, `update_config`, `purge_expired` and token-less `delete_file` over `/mcp`. Public tools stay open.
 - **Context:** The owner wants to control the service from Claude. A static header works in Claude Code and `mcp-remote`.
@@ -98,3 +98,16 @@ Architecture decision records. Newest decisions are appended; numbers are perman
 ## D-016 — Config updates are all-or-nothing (2026-11-06)
 
 - **Decision:** `updateConfig` validates every field, then writes. Found in a live test: a rejected request had already written `defaultExpiration`, silently changing the production default from 1 hour to 30 minutes.
+
+## D-017 — OAuth 2.1 with a consent screen for /mcp (2026-11-06)
+
+- **Decision:** `/mcp` is an OAuth 2.1 protected resource (discovery, dynamic client registration, authorization code + PKCE S256, refresh tokens). Approval happens on a consent screen that asks for the admin password. All tools require sign-in; the anonymous tools moved to `/mcp/public`. The static `MCP_TOKEN` remains as an optional fallback for scripts.
+- **Context:** The owner asked for OAuth with a consent screen. claude.ai connectors and Claude Code only start OAuth when the server answers `401` to an unauthenticated request, so one URL cannot be both anonymous and OAuth-protected; hence the split.
+- **Alternatives rejected:** Keeping only the static token (no consent, not supported by claude.ai connectors); a "mixed" `/mcp` that is anonymous with optional OAuth (clients would never start the flow); storing clients and tokens in D1 (more writes and cleanup; stateless signed tokens plus a revocation epoch cover the need).
+- **Consequence:** Breaking change for anyone who used `/mcp` anonymously: use `/mcp/public`. Dynamic registration is open by protocol design, so safety rests on the consent screen: admin password on every approval, signed approval request, exact redirect matching, frame denial, short single-use codes (R-17).
+
+## D-018 — Signing keys are bound to a purpose (2026-11-06)
+
+- **Decision:** `signToken` / `verifyToken` derive the HMAC key from `SESSION_SECRET` plus a purpose label (`admin-session`, `oauth-client`, `oauth-txn`, `oauth-code`, `oauth-access`, `oauth-refresh`), and the admin cookie additionally requires `role: admin`.
+- **Context:** Before OAuth, any validly signed unexpired token was accepted as an admin session. With OAuth, anyone can obtain signed values (a registered client id), so this would have been privilege escalation. Covered by smoke checks that present an access token and a client id as an admin cookie.
+- **Consequence:** Existing admin sessions were invalidated once at deployment (admins log in again).

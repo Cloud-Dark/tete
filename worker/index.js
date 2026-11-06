@@ -7,6 +7,7 @@ import * as admin from './admin.js';
 import { isAdmin, resolveUser } from './auth.js';
 import * as files from './files.js';
 import { handleMcp } from './mcp.js';
+import * as oauth from './oauth.js';
 import { HttpError, errorResponse, json, withCors } from './http.js';
 import { isApiHost, linksFor } from './links.js';
 
@@ -36,7 +37,9 @@ function apiIndex() {
       download: 'GET /file/:id/download',
       delete: 'DELETE /file/:id',
       listFiles: 'GET /api/files',
-      mcp: 'POST /mcp (Model Context Protocol, tools: upload_text, upload_base64, file_info, read_text, delete_file)',
+      mcp: 'POST /mcp (Model Context Protocol, OAuth 2.1 sign-in, all tools)',
+      mcpPublic: 'POST /mcp/public (no sign-in: upload_text, upload_base64, file_info, read_text, delete_file)',
+      oauthDiscovery: 'GET /.well-known/oauth-authorization-server',
     },
   });
 }
@@ -76,7 +79,18 @@ async function route(request, env, ctx) {
   if (pathname === '/api' || pathname === '/api/') {
     return method === 'POST' ? files.uploadFiles(request, env, ctx) : apiIndex();
   }
-  if (pathname === '/mcp') return handleMcp(request, env, ctx);
+  if (pathname === '/.well-known/oauth-protected-resource' || pathname.startsWith('/.well-known/oauth-protected-resource/')) {
+    return oauth.protectedResourceMetadata(request);
+  }
+  if (pathname === '/.well-known/oauth-authorization-server' || pathname.startsWith('/.well-known/oauth-authorization-server/')) {
+    return oauth.authorizationServerMetadata(request);
+  }
+  if (pathname === '/oauth/register' && method === 'POST') return oauth.register(request, env);
+  if (pathname === '/oauth/authorize' && method === 'GET') return oauth.authorizeGet(request, env);
+  if (pathname === '/oauth/authorize' && method === 'POST') return oauth.authorizePost(request, env);
+  if (pathname === '/oauth/token' && method === 'POST') return oauth.token(request, env);
+  if (pathname === '/mcp') return handleMcp(request, env, ctx, 'full');
+  if (pathname === '/mcp/public') return handleMcp(request, env, ctx, 'public');
   if (pathname === '/api/upload' && method === 'POST') return files.uploadFiles(request, env, ctx);
   if (pathname === '/api/text' && method === 'POST') return files.uploadText(request, env, ctx);
   if (pathname === '/api/files' && method === 'GET') return files.listFiles(request, env, ctx);
@@ -102,6 +116,7 @@ async function route(request, env, ctx) {
   if (pathname === '/api/admin/status' && method === 'GET') return admin.status(ctx);
   if (pathname === '/api/admin/verify-password' && method === 'POST') return admin.verifyPassword(request, env, ctx);
   if (pathname === '/api/admin/change-password' && method === 'POST') return admin.changePassword(request, env, ctx);
+  if (pathname === '/api/admin/revoke-oauth' && method === 'POST') return admin.revokeOauth(env, ctx);
   if (pathname === '/api/config' && method === 'GET') return admin.getConfigHandler(env, ctx);
   if (pathname === '/api/config' && method === 'POST') return admin.updateConfig(request, env, ctx);
 

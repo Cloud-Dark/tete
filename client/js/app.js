@@ -483,6 +483,14 @@
       } catch (err) { toast(err.message, 'error'); }
     });
 
+    $('#revokeBtn').addEventListener('click', async () => {
+      if (!confirm('Sign out every connected application? They will have to be approved again.')) return;
+      try {
+        await api('/api/admin/revoke-oauth', { method: 'POST' });
+        toast('All connected applications signed out');
+      } catch (err) { toast(err.message, 'error'); }
+    });
+
     $('#passwordForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const json = (body) => ({ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -513,28 +521,13 @@ curl -OJ ${API}/file/<id>/download
 curl -X DELETE "${API}/file/<id>?token=<token>"`;
 
     $('#mcpSnippet').textContent =
-`# public tools
-claude mcp add --transport http tete ${API}/mcp
+`claude mcp add --transport http tete ${API}/mcp
 
-# + admin tools (list all files, limits, purge)
-claude mcp add --transport http tete ${API}/mcp \\
-  --header "Authorization: Bearer <MCP_TOKEN>"`;
+# then, inside Claude Code:
+#   /mcp  ->  tete  ->  Authenticate
+# a browser opens with the consent screen`;
 
-    $('#desktopSnippet').textContent =
-`{
-  "mcpServers": {
-    "tete": {
-      "command": "npx",
-      "args": [
-        "-y", "mcp-remote",
-        "${API}/mcp",
-        "--header",
-        "Authorization:\${AUTH_HEADER}"
-      ],
-      "env": { "AUTH_HEADER": "Bearer <MCP_TOKEN>" }
-    }
-  }
-}`;
+    $('#desktopSnippet').textContent = `${API}/mcp`;
 
     document.addEventListener('click', (e) => {
       const btn = e.target.closest('[data-copy-target]');

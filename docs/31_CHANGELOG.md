@@ -16,6 +16,12 @@ Format: [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- OAuth 2.1 for MCP: protected resource and authorization server metadata, dynamic client registration, consent screen with admin password, authorization code + PKCE S256, refresh tokens, single-use codes (`oauth_codes`), revocation of all clients (`oauthEpoch`, Admin button, `POST /api/admin/revoke-oauth`).
+- `POST /mcp/public`: anonymous endpoint with the five public tools.
+
+### Changed
+
+- **Breaking:** `POST /mcp` now requires OAuth (or the optional static `MCP_TOKEN`); the anonymous tools moved to `/mcp/public`. All nine tools are available on `/mcp` after sign-in. CORS allows the `Authorization` header and exposes `WWW-Authenticate`.
 - MCP admin tools behind `MCP_TOKEN`: `list_files`, `get_config`, `update_config`, `purge_expired`, token-less `delete_file`.
 - New web UI: single page, apipedia.id palette and typography, light and dark, hero with upload card, expiry chips, password toggle, real upload progress, one-click file actions, cURL/MCP/Claude Desktop snippets with copy buttons, mobile menu, sticky header with scroll progress, footer and back-to-top. Share page restyled to match.
 - Production domains attached to the Worker: `tete.apipedia.id` (frontend) and `tetein.apipedia.id` (API/MCP). Smoke test accepts `FRONTEND_URL`.
@@ -53,6 +59,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/).
 ### Security
 
 - `DELETE /file/:id` now requires the owner, an admin, or the delete token (breaking change for scripts that deleted by id alone).
+
+### Security
+
+- OAuth tokens and admin sessions use purpose-bound signing keys, and the admin cookie requires `role: admin`. Previously any validly signed, unexpired token would have passed as an admin session, which OAuth (open client registration) would have turned into a privilege escalation. Existing admin sessions were invalidated once.
 
 ### Fixed
 
