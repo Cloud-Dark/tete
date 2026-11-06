@@ -1,0 +1,2 @@
+SESSION_SECRET=change-me-to-a-long-random-string-at-least-32-chars
+ADMIN_PASSWORD=change-me

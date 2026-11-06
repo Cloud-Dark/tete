@@ -1,14 +1,11 @@
 ﻿// TETE Client Application
-const API_BASE = 'https://tetein.apipedia.id';
+// UI and API are served by the same Worker, so every request is same-origin.
+const API_BASE = window.location.origin;
 let selectedFiles = [];
 let openDropdown = null;
 let pendingDownloadUrl = null;
 let pendingDownloadIsEncrypted = false;
 let isAdmin = false;
-
-function getSessionId() {
-  return localStorage.getItem('tete-session-id');
-}
 
 // Theme toggle
 function initTheme() {
@@ -26,26 +23,6 @@ function toggleTheme() {
 }
 
 initTheme();
-
-// Initialize session
-async function initSession() {
-  if (localStorage.getItem('tete-session-id')) return;
-
-  try {
-    const response = await fetch(`${API_BASE}/api/session`, {
-      method: 'POST'
-    });
-    const data = await response.json();
-    if (data.id) {
-      localStorage.setItem('tete-session-id', data.id);
-      console.log('Session initialized:', data.id);
-    }
-  } catch (error) {
-    console.error('Session init failed:', error);
-  }
-}
-
-initSession();
 
 // Custom Dropdown with Search
 function initCustomDropdowns() {
@@ -226,9 +203,12 @@ async function downloadEncryptedFile(url) {
     const contentDisposition = response.headers.get('Content-Disposition');
     let filename = 'downloaded_file';
     if (contentDisposition) {
-      const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
-      if (filenameMatch) {
-        filename = filenameMatch[1];
+      const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
+      const plainMatch = contentDisposition.match(/filename="([^"]+)"/);
+      if (utf8Match) {
+        filename = decodeURIComponent(utf8Match[1]);
+      } else if (plainMatch) {
+        filename = plainMatch[1];
       }
     }
     
@@ -1022,11 +1002,7 @@ async function loadFiles() {
   fileList.innerHTML = '<li class="empty"><p>Loading files…</p></li>';
 
   try {
-    const response = await fetch(`${API_BASE}/api/files`, {
-      headers: {
-        'X-Session-ID': getSessionId()
-      }
-    });
+    const response = await fetch(`${API_BASE}/api/files`, { credentials: 'include' });
     const files = await response.json();
 
     if (files.length === 0) {
@@ -1088,7 +1064,8 @@ async function deleteFile(id) {
 
   try {
     const response = await fetch(`${API_BASE}/file/${id}`, {
-      method: 'DELETE'
+      method: 'DELETE',
+      credentials: 'include'
     });
 
     if (response.ok) {

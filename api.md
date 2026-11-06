@@ -1,399 +1,175 @@
-# TETE - Transient Endpoint for Transfer & Encryption
+# TETE API
 
-## API Documentation
+> Base URL: `{{BASE_URL}}` — the Web UI and the API are the same Cloudflare Worker, on the same origin.
 
-Simple, secure file sharing server with password protection. Self-hosted alternative to temp.sh.
+TETE (Transient Endpoint for Transfer & Encryption) is a temporary file-sharing service. Files are stored in
+Cloudflare R2, metadata in D1, and deleted automatically when they expire.
 
-## Server Info
+## Conventions
 
-| Setting | Value | Description |
-|---------|-------|-------------|
-| **Web UI** | `https://tete.apipedia.id` | Browser interface for uploads & management |
-| **API Base URL** | `https://tetein.apipedia.id` | Endpoint for integrators & automation |
-| **Default Port** | 3232 | HTTP server port |
-| **Host** | 0.0.0.0 | Listen on all interfaces |
-| **File ID Format** | 6-character hex (e.g., `a1b2c3`) |
-| **Password Hashing** | SHA-256 |
-| **File Encryption** | AES-256-GCM |
+| Topic | Behaviour |
+|-------|-----------|
+| File ID | 6 lowercase hex characters, e.g. `a1b2c3` |
+| Errors | JSON `{ "error": "message" }` with the matching HTTP status |
+| CORS | `Access-Control-Allow-Origin: *`, no credentials. Cookies only work on the same origin |
+| Identity | An anonymous `tete_uid` cookie marks you as the owner of your uploads. curl users can ignore it and use the delete token |
+| Expiration | `expiration` is milliseconds. Omitted or empty = server default, `0` = never expires |
+| Limits | Default 25 MB per file, 10 files per request, 60 MB per request (hard cap). Admins can lower the per-file limit; the hard cap per file is 50 MB |
 
-> **Note:** Both domains point to the same server. Use `tetein.apipedia.id` for API/curl commands and `tete.apipedia.id` for the web interface.
+## Upload
 
----
+### `POST /api` — upload one or more files
 
-## API Endpoints
+`multipart/form-data`, field `file` (or `files`). Optional fields: `password`, `expiration`.
 
-### 1. Upload Single File (curl compatible)
-
-Upload a single file via multipart/form-data.
-
-**Endpoint:** `POST /api`
-
-**Request:**
 ```bash
-curl -X POST -F "file=@xyz.txt" https://tetein.apipedia.id/api
-curl -X POST -F "file=@file1.txt" -F "file=@file2.txt" https://tetein.apipedia.id/api
+curl -F "file=@report.pdf" {{BASE_URL}}/api
+curl -F "file=@secret.txt" -F "password=s3cret" -F "expiration=7200000" {{BASE_URL}}/api
 ```
 
-**Upload with password protection:**
-```bash
-curl -X POST -F "file=@secret.txt" -F "password=mysecret123" https://tetein.apipedia.id/api
-```
+Returns one object for a single file, or an array for several:
 
-**Response:**
 ```json
 {
   "id": "a1b2c3",
-  "originalName": "xyz.txt",
-  "filename": "a1b2c3.txt",
-  "mimeType": "text/plain",
+  "originalName": "report.pdf",
+  "mimeType": "application/pdf",
   "size": 1024,
-  "uploadedAt": "2024-01-15T10:30:00.000Z",
-  "locked": true,
-  "url": "https://tete.apipedia.id/file/a1b2c3",
-  "downloadUrl": "https://tete.apipedia.id/file/a1b2c3/download",
-  "deleteUrl": "https://tete.apipedia.id/file/a1b2c3"
+  "uploadedAt": "2026-11-06T10:30:00.000Z",
+  "expiresAt": 1793961000000,
+  "locked": false,
+  "encrypted": false,
+  "url": "{{BASE_URL}}/file/a1b2c3",
+  "downloadUrl": "{{BASE_URL}}/file/a1b2c3/download",
+  "deleteUrl": "{{BASE_URL}}/file/a1b2c3?token=9f2c...",
+  "deleteToken": "9f2c..."
 }
 ```
 
----
+`deleteUrl` and `deleteToken` are returned **only at upload time** and cannot be recovered. `expiresAt` is epoch
+milliseconds, or `null` when the file never expires.
 
-### 2. Upload Multiple Files
+### `POST /api/upload` — same as above
 
-Upload multiple files at once.
+Identical behaviour; kept for the web UI. Field name `files`.
 
-**Endpoint:** `POST /api/upload`
-
-**Request:**
 ```bash
-curl -X POST -F "files=@file1.txt" -F "files=@file2.pdf" -F "files=@image.png" https://tetein.apipedia.id/api/upload
+curl -F "files=@a.txt" -F "files=@b.txt" {{BASE_URL}}/api/upload
 ```
 
-**Response:**
-```json
-[
-  {
-    "id": "uuid-1",
-    "originalName": "file1.txt",
-    "mimeType": "text/plain",
-    "size": 1024,
-    "uploadedAt": "2024-01-15T10:30:00.000Z",
-    "url": "https://tete.apipedia.id/file/uuid-1",
-    "downloadUrl": "https://tete.apipedia.id/file/uuid-1/download",
-    "deleteUrl": "https://tete.apipedia.id/file/uuid-1"
-  },
-  {
-    "id": "uuid-2",
-    "originalName": "file2.pdf",
-    "mimeType": "application/pdf",
-    "size": 2048,
-    "uploadedAt": "2024-01-15T10:30:01.000Z",
-    "url": "https://tete.apipedia.id/file/uuid-2",
-    "downloadUrl": "https://tete.apipedia.id/file/uuid-2/download",
-    "deleteUrl": "https://tete.apipedia.id/file/uuid-2"
-  }
-]
-```
+### `POST /api/text` — upload text
 
----
+JSON body: `text` (required), `filename`, `password`, `expiration`.
 
-### 3. Upload Text Content
-
-Upload plain text content.
-
-**Endpoint:** `POST /api/text`
-
-**Request:**
 ```bash
-curl -X POST -H "Content-Type: application/json" \
+curl -H "Content-Type: application/json" \
   -d '{"text": "Hello World", "filename": "greeting.txt"}' \
-  https://tetein.apipedia.id/api/text
+  {{BASE_URL}}/api/text
 ```
 
-**Response:**
-```json
-{
-  "id": "550e8400-e29b-41d4-a716-446655440000",
-  "originalName": "greeting.txt",
-  "filename": "550e8400-e29b-41d4-a716-446655440000.txt",
-  "mimeType": "text/plain",
-  "size": 11,
-  "uploadedAt": "2024-01-15T10:30:00.000Z",
-  "url": "https://tete.apipedia.id/file/550e8400-e29b-41d4-a716-446655440000",
-  "downloadUrl": "https://tete.apipedia.id/file/550e8400-e29b-41d4-a716-446655440000/download",
-  "deleteUrl": "https://tete.apipedia.id/file/550e8400-e29b-41d4-a716-446655440000"
-}
-```
+## Read
 
----
+### `GET /api/file/:id` — file info
 
-### 4. Get File Info
-
-Get information about an uploaded file.
-
-**Endpoint:** `GET /file/:id`
-
-**Request:**
 ```bash
-curl https://tetein.apipedia.id/file/550e8400-e29b-41d4-a716-446655440000
+curl {{BASE_URL}}/api/file/a1b2c3
 ```
 
-**Response:**
 ```json
 {
-  "id": "550e8400-e29b-41d4-a716-446655440000",
-  "originalName": "xyz.txt",
-  "mimeType": "text/plain",
+  "id": "a1b2c3",
+  "originalName": "report.pdf",
+  "mimeType": "application/pdf",
   "size": 1024,
-  "uploadedAt": "2024-01-15T10:30:00.000Z",
-  "url": "https://tete.apipedia.id/file/550e8400-e29b-41d4-a716-446655440000",
-  "downloadUrl": "https://tete.apipedia.id/file/550e8400-e29b-41d4-a716-446655440000/download",
-  "deleteUrl": "https://tete.apipedia.id/file/550e8400-e29b-41d4-a716-446655440000"
+  "uploadedAt": "2026-11-06T10:30:00.000Z",
+  "expiresAt": 1793961000000,
+  "locked": false,
+  "encrypted": false,
+  "url": "{{BASE_URL}}/file/a1b2c3",
+  "downloadUrl": "{{BASE_URL}}/file/a1b2c3/download"
 }
 ```
 
----
+For a **locked** file the real name and MIME type are encrypted: `originalName` is `<id>.enc` and `mimeType` is
+`application/octet-stream` until the file is downloaded with the right password.
 
-### 5. Download File
+`GET /file/:id` returns the same JSON to API clients, and the HTML file page to browsers
+(`Sec-Fetch-Dest: document`, or an `Accept` header that names `text/html`).
 
-Direct download of a file.
+### `GET /file/:id/download` — download
 
-**Endpoint:** `GET /file/:id/download`
-
-**Request (public file):**
 ```bash
-curl -O https://tetein.apipedia.id/file/a1b2c3/download
-# or
-wget https://tetein.apipedia.id/file/a1b2c3/download
+curl -OJ {{BASE_URL}}/file/a1b2c3/download
+curl -OJ "{{BASE_URL}}/file/a1b2c3/download?password=s3cret"   # locked file
+curl -OJ -H "X-Password: s3cret" {{BASE_URL}}/file/a1b2c3/download   # keeps the password out of URLs/logs
 ```
 
-**Request (locked file with password):**
+Locked files are decrypted on the fly; the original filename and MIME type are restored in the response headers.
+A wrong or missing password returns `401`.
+
+### `POST /file/:id/verify` — check a password without downloading
+
 ```bash
-curl -O "https://tetein.apipedia.id/file/a1b2c3/download?password=mysecret123"
-# or
-wget "https://tetein.apipedia.id/file/a1b2c3/download?password=mysecret123"
+curl -H "Content-Type: application/json" -d '{"password": "s3cret"}' {{BASE_URL}}/file/a1b2c3/verify
 ```
 
-**Response (locked file, no password):**
-```json
-{
-  "error": "Password required"
-}
-```
+`200 { "success": true }` when the file is unlocked or the password is right, `401` otherwise.
 
-**Response:** Binary file download with appropriate Content-Type and Content-Disposition headers.
+### `GET /api/files` — list your files
 
----
+Returns an array of file-info objects: the files owned by the caller's cookie. An admin session sees every file
+(up to 500, newest first). Expired files are never listed.
 
-### 6. Verify Password (for locked files)
+## Delete
 
-Verify password for a password-protected file.
+### `DELETE /file/:id`
 
-**Endpoint:** `POST /file/:id/verify`
+Allowed for any one of:
 
-**Request:**
+1. the owner (same `tete_uid` cookie that uploaded the file),
+2. an admin session,
+3. the holder of the delete token: `?token=<token>` or header `X-Delete-Token: <token>`.
+
 ```bash
-curl -X POST -H "Content-Type: application/json" \
-  -d '{"password": "mysecret123"}' \
-  https://tetein.apipedia.id/file/a1b2c3/verify
+curl -X DELETE "{{BASE_URL}}/file/a1b2c3?token=9f2c..."
 ```
 
-**Response (correct password):**
-```json
-{
-  "success": true,
-  "message": "Password correct"
-}
-```
+Anything else returns `403`.
 
-**Response (wrong password):**
-```json
-{
-  "error": "Invalid password"
-}
-```
+## Admin
 
----
+Admin endpoints use a signed `tete_admin` cookie (24 h). Use `-c cookies.txt` / `-b cookies.txt` with curl.
 
-### 7. Delete File
+| Method | Path | Body | Notes |
+|--------|------|------|-------|
+| POST | `/api/admin/login` | `{ "password" }` | Sets the admin cookie |
+| POST | `/api/admin/logout` | – | Clears the cookie |
+| GET | `/api/admin/status` | – | `{ "isAdmin": true/false }` |
+| POST | `/api/admin/verify-password` | `{ "password" }` | Admin only |
+| POST | `/api/admin/change-password` | `{ "newPassword" }` | Admin only, min. 8 characters. Overrides the `ADMIN_PASSWORD` secret from then on |
+| GET | `/api/config` | – | Admin only |
+| POST | `/api/config` | any of the fields below | Admin only |
 
-Delete an uploaded file.
+Config fields: `defaultExpiration` (ms), `maxFileSize` (MB, or bytes when the value is above 1000; max 50 MB),
+`maxFilesPerUpload`, `fileWhitelist` (`"png,pdf"` or array; empty allows every extension).
 
-**Endpoint:** `DELETE /file/:id`
-
-**Request:**
 ```bash
-curl -X DELETE https://tetein.apipedia.id/file/550e8400-e29b-41d4-a716-446655440000
+curl -c cookies.txt -H "Content-Type: application/json" -d '{"password": "..."}' {{BASE_URL}}/api/admin/login
+curl -b cookies.txt -H "Content-Type: application/json" -d '{"maxFileSize": 10}' {{BASE_URL}}/api/config
 ```
 
-**Response:**
-```json
-{
-  "success": true,
-  "message": "File deleted successfully"
-}
-```
+## Documentation endpoints
 
----
+`GET /README.md`, `GET /api.md`, `GET /AGENT.md` — Markdown, with `{{BASE_URL}}` filled in.
 
-### 8. List All Files
+## Status codes
 
-Get a list of all uploaded files.
-
-**Endpoint:** `GET /api/files`
-
-**Request:**
-```bash
-curl https://tetein.apipedia.id/api/files
-```
-
-**Response:**
-```json
-[
-  {
-    "id": "uuid-1",
-    "originalName": "file1.txt",
-    "mimeType": "text/plain",
-    "size": 1024,
-    "uploadedAt": "2024-01-15T10:30:00.000Z",
-    "url": "https://tete.apipedia.id/file/uuid-1",
-    "downloadUrl": "https://tete.apipedia.id/file/uuid-1/download",
-    "deleteUrl": "https://tete.apipedia.id/file/uuid-1"
-  }
-]
-```
-
----
-
-### 9. Get Agent Documentation
-
-Get the AGENT.md file for AI agent context.
-
-**Endpoint:** `GET /AGENT.md`
-
-**Request:**
-```bash
-curl https://tetein.apipedia.id/AGENT.md
-```
-
-**Response:** Plain text markdown content of the AGENT.md file.
-
----
-
-### 10. Admin Endpoints
-
-#### Admin Login
-```bash
-curl -X POST -H "Content-Type: application/json" \
-  -d '{"password": "admin123"}' \
-  https://tetein.apipedia.id/api/admin/login \
-  -c cookies.txt
-```
-
-#### Admin Logout
-```bash
-curl -X POST https://tetein.apipedia.id/api/admin/logout -b cookies.txt
-```
-
-#### Admin Status
-```bash
-curl https://tetein.apipedia.id/api/admin/status -b cookies.txt
-```
-
-#### Get Configuration (Admin)
-```bash
-curl https://tetein.apipedia.id/api/config -b cookies.txt
-```
-
-#### Update Configuration (Admin)
-```bash
-curl -X POST -H "Content-Type: application/json" \
-  -d '{"defaultExpiration": 3600000}' \
-  https://tetein.apipedia.id/api/config \
-  -b cookies.txt
-```
-
-#### Change Admin Password (Admin)
-```bash
-# First verify current password
-curl -X POST -H "Content-Type: application/json" \
-  -d '{"password": "admin123"}' \
-  https://tetein.apipedia.id/api/admin/verify-password \
-  -b cookies.txt
-
-# Then change password
-curl -X POST -H "Content-Type: application/json" \
-  -d '{"newPassword": "newpass123"}' \
-  https://tetein.apipedia.id/api/admin/change-password \
-  -b cookies.txt
-```
-
----
-
-## URL Formats
-
-| Purpose | URL Pattern | Example |
-|---------|-------------|---------|
-| Web UI | `https://tete.apipedia.id` | Browser interface |
-| API Base | `https://tetein.apipedia.id` | Integrator endpoint |
-| File Info | `/file/:id` | `https://tetein.apipedia.id/file/abc123` |
-| Download (public) | `/file/:id/download` | `https://tetein.apipedia.id/file/abc123/download` |
-| Download (locked) | `/file/:id/download?password=xxx` | `https://tetein.apipedia.id/file/abc123/download?password=secret` |
-| Verify Password | `POST /file/:id/verify` | `curl -X POST -d '{"password":"xxx"}' ...` |
-| Delete | `DELETE /file/:id` | `curl -X DELETE https://tetein.apipedia.id/file/abc123` |
-| Admin Login | `POST /api/admin/login` | `curl -X POST -d '{"password":"admin123"}' ...` |
-| Admin Config | `GET/POST /api/config` | Admin configuration endpoints |
-
----
-
-## Quick Start
-
-### Start the server:
-```bash
-cd /path/to/tete
-node server/index.js
-```
-
-### Upload a file (public):
-```bash
-curl -F "file=@myfile.txt" https://tetein.apipedia.id/api
-```
-
-### Upload a file (locked with password):
-```bash
-curl -F "file=@secret.txt" -F "password=mysecret123" https://tetein.apipedia.id/api
-```
-
-### Download a file (public):
-```bash
-curl -O https://tetein.apipedia.id/file/abc123/download
-```
-
-### Download a file (locked):
-```bash
-curl -O "https://tetein.apipedia.id/file/abc123/download?password=mysecret123"
-```
-
-### Open in browser:
-```
-https://tete.apipedia.id
-```
-
----
-
-## Limits
-
-- Maximum file size: 100MB per file
-- Maximum files per upload: 100 files
-- Storage: In-memory metadata (files persist on disk until server restart or manual delete)
-
----
-
-## Web Interface
-
-Open `https://tete.apipedia.id` in your browser for a web interface with:
-- Drag & drop file upload
-- Text content upload
-- File list with download/delete actions
-- Admin panel with config management
-- Real-time upload results
-- Built-in documentation viewer
+| Code | Meaning |
+|------|---------|
+| 200 | OK |
+| 400 | Bad input (missing file/text, bad JSON, extension not allowed, bad `expiration`) |
+| 401 | Missing/invalid file password or admin password |
+| 403 | Not owner / not admin / missing delete token |
+| 404 | Unknown ID, expired file, unknown route |
+| 413 | File or request over the size limit |
+| 503 | Admin not configured, or no free file ID (retry) |

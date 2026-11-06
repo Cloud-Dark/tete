@@ -1,6 +1,6 @@
 // File View Page JavaScript
 
-const API_BASE = 'https://tetein.apipedia.id';
+const API_BASE = window.location.origin;
 let currentFileId = null;
 let currentFileMetadata = null;
 
@@ -184,30 +184,43 @@ async function submitPassword() {
   downloadFile(password);
 }
 
-// Download file with optional password
-function downloadFile(password = null) {
+// Download file with optional password. Fetched as a blob so a wrong password
+// shows an error instead of saving the JSON error body as a file.
+async function downloadFile(password = null) {
   const downloadBtn = document.getElementById('downloadBtn');
   downloadBtn.disabled = true;
   downloadBtn.innerHTML = '<span class="loading"></span> Downloading...';
-  
-  let downloadUrl = `${API_BASE}/api/storage/${currentFileId}`;
-  if (password) {
-    downloadUrl += `?password=${encodeURIComponent(password)}`;
-  }
-  
-  const link = document.createElement('a');
-  link.href = downloadUrl;
-  link.download = currentFileMetadata.originalName;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  
-  setTimeout(() => {
+
+  try {
+    const response = await fetch(`${API_BASE}/file/${currentFileId}/download`, {
+      headers: password ? { 'X-Password': password } : {}
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      showToast(error.error || 'Download failed', 'error');
+      return;
+    }
+
+    let filename = currentFileMetadata.originalName;
+    const disposition = response.headers.get('Content-Disposition') || '';
+    const utf8Match = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+    if (utf8Match) filename = decodeURIComponent(utf8Match[1]);
+
+    const url = URL.createObjectURL(await response.blob());
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    showToast('Download started!', 'success');
+  } catch (error) {
+    showToast('Download failed: ' + error.message, 'error');
+  } finally {
     downloadBtn.disabled = false;
     downloadBtn.innerHTML = '⬇️ Download';
-  }, 2000);
-  
-  showToast('Download started!', 'success');
+  }
 }
 
 // Copy share link to clipboard

@@ -1,0 +1,43 @@
+PASS  GET /api returns endpoint index
+PASS  POST /api/text -> 200 with id
+PASS  upload returns deleteUrl with token
+PASS  GET /api/file/:id -> metadata
+PASS  download unlocked text
+PASS  GET /file/:id with Accept */* returns JSON (curl)
+PASS  GET /file/:id from browser serves file-view page
+PASS  POST /api multipart (field file)
+PASS  binary download is byte-identical
+PASS  POST /api/upload multiple files -> array
+PASS  locked upload -> locked+encrypted, name returned to uploader
+PASS  public info hides real filename of locked file
+PASS  locked download without password -> 401
+PASS  locked download wrong password -> 401
+PASS  locked download right password decrypts + restores name
+PASS  verify wrong password -> 401
+PASS  verify right password -> 200
+PASS  list: owner sees own files
+PASS  list: other user does not see them
+PASS  delete by stranger -> 403
+PASS  delete with token -> 200
+PASS  deleted file -> 404
+PASS  owner (cookie) can delete
+PASS  expired file -> 404
+PASS  text without content -> 400
+PASS  upload without file -> 400
+PASS  bad id -> 404
+PASS  file over limit -> 413
+PASS  config without admin -> 403
+PASS  admin login wrong -> 401
+PASS  admin login ok -> 200 + cookie
+PASS  admin status true
+PASS  admin can read config
+PASS  admin can update whitelist
+PASS  whitelist rejects .exe -> 400
+PASS  admin list sees all users files
+PASS  admin logout clears session
+PASS  /README.md served
+PASS  /api.md has BASE_URL substituted
+PASS  / serves web UI
+PASS  CORS preflight -> 204
+
+All checks passed

@@ -1,352 +1,85 @@
-# TETE - Transient Endpoint for Transfer & Encryption
+# TETE — Agent Reference
 
-## Project Identity
+Context file for AI agents and scripts. Base URL: `{{BASE_URL}}` (Web UI and API share one origin).
+Full endpoint reference: `{{BASE_URL}}/api.md`.
 
-**Name:** TETE - Transient Endpoint for Transfer & Encryption
+## What it is
 
-**Description:** Simple, secure file sharing server with password protection. Self-hosted alternative to temp.sh.
+TETE is a temporary file-sharing service that runs entirely on **Cloudflare Workers**: one Worker serves the web
+UI (static assets) and the API; files live in **R2**, metadata in **D1**; a cron trigger deletes expired files.
 
-**Domains:**
-- **Web UI:** `https://tete.apipedia.id` — Browser interface
-- **API:** `https://tetein.apipedia.id` — Integrator/automation endpoint
+## Quick recipes
 
-**Version:** 1.0.0
+```bash
+# Upload (public)
+curl -F "file=@document.pdf" {{BASE_URL}}/api
 
-**License:** ISC
+# Upload locked (AES-256-GCM, password required to download) and expiring in 2 hours
+curl -F "file=@secret.pdf" -F "password=pass123" -F "expiration=7200000" {{BASE_URL}}/api
 
----
+# Upload text
+curl -H "Content-Type: application/json" -d '{"text":"hello","filename":"note.txt"}' {{BASE_URL}}/api/text
 
-## Quick Reference
+# Info / download / delete
+curl {{BASE_URL}}/api/file/a1b2c3
+curl -OJ {{BASE_URL}}/file/a1b2c3/download
+curl -OJ -H "X-Password: pass123" {{BASE_URL}}/file/a1b2c3/download
+curl -X DELETE "{{BASE_URL}}/file/a1b2c3?token=<deleteToken from the upload response>"
+```
 
-### Start Server
+Always keep `deleteToken` / `deleteUrl` from the upload response: it is shown once.
+
+## Rules an agent must know
+
+1. IDs are 6 hex characters. Unlocked files are readable by **anyone who knows the ID**.
+2. `expiration` is in milliseconds; `0` means never; omitted means the server default (1 hour unless changed).
+3. Locked files: content **and** the real filename/MIME type are encrypted. The server never stores the password.
+   A lost password means the file cannot be recovered.
+4. Deleting needs the owner cookie, an admin session, or the delete token. Plain `DELETE /file/:id` from a stranger is `403`.
+5. Limits: 25 MB per file by default (hard cap 50 MB), 10 files and 60 MB per request.
+6. Errors are `{ "error": "..." }`. Do not retry `4xx`; `503` is retryable.
+
+## Architecture in one screen
+
+```
+Browser / curl ──► Cloudflare Worker (worker/index.js)
+                     ├─ static UI      ◄── ASSETS binding  (client/)
+                     ├─ file bytes     ◄─► R2  binding BUCKET  (key = file id)
+                     ├─ metadata+config◄─► D1  binding DB      (tables: files, config)
+                     └─ cron */5 min  ──► purge expired files
+```
+
+## Repository layout
+
+```
+worker/index.js     entry point + routing + scheduled handler
+worker/files.js     upload, info, verify, download, delete, list, purge
+worker/admin.js     admin login/session, password change, runtime config
+worker/auth.js      owner cookie, signed admin session
+worker/crypto.js    AES-256-GCM, PBKDF2, HMAC, hashing (WebCrypto)
+worker/config.js    defaults from wrangler vars + overrides stored in D1
+worker/http.js      JSON/CORS/cookie helpers
+client/             static web UI (index, file-view, readme)
+migrations/         D1 schema
+wrangler.toml       bindings, assets, cron, default vars
+test/smoke.mjs      end-to-end smoke test (local or deployed)
+docs/               numbered project documentation
+```
+
+## Develop and deploy
+
 ```bash
 npm install
-npm start
-# Server runs on http://localhost:3232
+cp .dev.vars.example .dev.vars        # local secrets
+npm run migrate:local && npm run dev   # http://localhost:8787
+npm run test:smoke                     # in another terminal
+
+npx wrangler r2 bucket create tete-files
+npx wrangler d1 create tete            # put database_id in wrangler.toml
+npx wrangler secret put SESSION_SECRET
+npx wrangler secret put ADMIN_PASSWORD
+npm run migrate:remote && npm run deploy
+BASE_URL=https://<your-host> ADMIN_PASSWORD=... npm run test:smoke
 ```
 
-### Production with PM2
-```bash
-pm2 start server/index.js --name tete
-pm2 logs tete
-pm2 restart tete
-```
-
----
-
-## Core Features
-
-1. **File Upload** — Drag & drop or API (max 100MB per file)
-2. **Text Upload** — Paste text content directly
-3. **Full Encryption** — AES-256-GCM for file content AND filename
-4. **Password Protection** — Lock files with SHA-256 hashed passwords
-5. **Auto-Delete** — Configurable expiration time for files
-6. **Short URLs** — 6-character hex IDs
-7. **REST API** — Full automation support (`https://tetein.apipedia.id`)
-8. **Admin Panel** — Dashboard, config, password management
-9. **Minimalist UI** — Clean, responsive design (`https://tete.apipedia.id`)
-
----
-
-## API Endpoints Summary
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api` | Upload single file |
-| POST | `/api/upload` | Upload multiple files |
-| POST | `/api/text` | Upload text content |
-| GET | `/file/:id` | Get file info |
-| GET | `/file/:id/download` | Download file |
-| POST | `/file/:id/verify` | Verify password |
-| DELETE | `/file/:id` | Delete file |
-| GET | `/api/files` | List all files |
-| POST | `/api/admin/login` | Admin login |
-| POST | `/api/admin/logout` | Admin logout |
-| GET | `/api/admin/status` | Admin session status |
-| GET | `/api/config` | Get configuration |
-| POST | `/api/config` | Update configuration |
-| POST | `/api/admin/verify-password` | Verify admin password |
-| POST | `/api/admin/change-password` | Change admin password |
-| GET | `/AGENT.md` | Get agent documentation |
-| GET | `/API.md` | Get API documentation |
-| GET | `/README.md` | Get README documentation |
-
----
-
-## Common API Examples
-
-### Upload File (Public)
-```bash
-curl -F "file=@myfile.txt" https://tetein.apipedia.id/api
-```
-
-### Upload File (Locked)
-```bash
-curl -F "file=@secret.txt" -F "password=mysecret" https://tetein.apipedia.id/api
-```
-
-### Upload Text
-```bash
-curl -H "Content-Type: application/json" \
-  -d '{"text": "Hello World", "filename": "test.txt"}' \
-  https://tetein.apipedia.id/api/text
-```
-
-### Download (Public)
-```bash
-curl -O https://tetein.apipedia.id/file/a1b2c3/download
-```
-
-### Download (Locked)
-```bash
-curl -O "https://tetein.apipedia.id/file/a1b2c3/download?password=mysecret"
-```
-
-### Get File Info
-```bash
-curl https://tetein.apipedia.id/file/a1b2c3
-```
-
-### Delete File
-```bash
-curl -X DELETE https://tetein.apipedia.id/file/a1b2c3
-```
-
-### Verify Password
-```bash
-curl -X POST -H "Content-Type: application/json" \
-  -d '{"password": "mysecret"}' \
-  https://tetein.apipedia.id/file/a1b2c3/verify
-```
-
-### Admin Login
-```bash
-curl -X POST -H "Content-Type: application/json" \
-  -d '{"password": "admin123"}' \
-  https://tetein.apipedia.id/api/admin/login \
-  -c cookies.txt
-```
-
----
-
-## Response Formats
-
-### Upload Response
-```json
-{
-  "id": "a1b2c3",
-  "originalName": "myfile.txt",
-  "filename": "a1b2c3.txt",
-  "mimeType": "text/plain",
-  "size": 1024,
-  "uploadedAt": "2024-01-15T10:30:00.000Z",
-  "expiresAt": "2024-01-15T11:30:00.000Z",
-  "locked": true,
-  "url": "https://tete.apipedia.id/file/a1b2c3",
-  "downloadUrl": "https://tete.apipedia.id/file/a1b2c3/download",
-  "deleteUrl": "https://tete.apipedia.id/file/a1b2c3"
-}
-```
-
-### File Info Response
-```json
-{
-  "id": "a1b2c3",
-  "originalName": "myfile.txt",
-  "mimeType": "text/plain",
-  "size": 1024,
-  "uploadedAt": "2024-01-15T10:30:00.000Z",
-  "locked": true,
-  "url": "https://tete.apipedia.id/file/a1b2c3",
-  "downloadUrl": "https://tete.apipedia.id/file/a1b2c3/download",
-  "deleteUrl": "https://tete.apipedia.id/file/a1b2c3"
-}
-```
-
-### Error Response
-```json
-{
-  "error": "Password required"
-}
-```
-
----
-
-## Configuration
-
-| Setting | Value | Description |
-|---------|-------|-------------|
-| Port | 3232 | Default HTTP port |
-| Host | 0.0.0.0 | Listen on all interfaces |
-| Max File Size | 100MB | Upload limit per file |
-| Max Files | 100 | Files per multipart upload |
-| ID Length | 6 chars | Hex file identifier |
-| Password Hash | SHA-256 | Hashing algorithm |
-| File Encryption | AES-256-GCM | Content + filename encryption |
-| Default Expiration | 1 hour | Auto-delete time |
-
----
-
-## File Structure
-
-```
-tete/
-├── server/
-│   └── index.js          # Express server (600+ lines)
-├── client/
-│   ├── index.html        # Web UI (290+ lines)
-│   ├── css/
-│   │   └── style.css     # Styles (700+ lines)
-│   └── js/
-│       └── app.js        # JavaScript (1085 lines)
-├── db/
-│   ├── config.json       # App configuration
-│   ├── memory.json       # File metadata
-│   ├── admin.json        # Admin data
-│   └── sessions.json     # Session storage
-├── uploads/              # Stored files (gitignored)
-├── node_modules/         # Dependencies (gitignored)
-├── package.json          # Project config
-├── README.md             # User documentation
-├── API.md                # API documentation
-├── AGENT.md              # This file
-└── .gitignore            # Git ignore rules
-```
-
----
-
-## Dependencies
-
-```json
-{
-  "cors": "^2.8.6",
-  "express": "^5.2.1",
-  "multer": "^2.1.1",
-  "uuid": "^13.0.0",
-  "cookie-parser": "^1.4.6",
-  "express-session": "^1.17.3"
-}
-```
-
-**Note:** Using Node.js built-in `crypto` module for password hashing and encryption.
-
----
-
-## Security Model
-
-1. **Password Storage:** SHA-256 hash (not plaintext)
-2. **File Encryption:** AES-256-GCM for content + filename (one-way)
-3. **File Access:** Locked files require password query parameter
-4. **Metadata:** Stored in-memory (lost on server restart)
-5. **Admin Auth:** Session-based authentication
-6. **Admin Cannot Decrypt:** Even admins cannot view encrypted file content
-
----
-
-## URL Patterns
-
-| Type | Pattern | Example |
-|------|---------|---------|
-| Web UI | `https://tete.apipedia.id` | Browser interface |
-| API Base | `https://tetein.apipedia.id` | Integrator endpoint |
-| Info | `/file/:id` | `/file/a1b2c3` |
-| Download (public) | `/file/:id/download` | `/file/a1b2c3/download` |
-| Download (locked) | `/file/:id/download?password=xxx` | `/file/a1b2c3/download?password=secret` |
-| Delete | `DELETE /file/:id` | `curl -X DELETE /file/a1b2c3` |
-| Verify | `POST /file/:id/verify` | `curl -X POST -d '{"password":"x"}' /file/a1b2c3/verify` |
-
----
-
-## Web UI Features
-
-- **Tabs:** Upload | Files | Config (admin) | Docs
-- **Upload:** Drag & drop, multi-file, text content
-- **Encryption:** Optional AES-256-GCM per file
-- **Password Lock:** Optional field for each upload
-- **Expiration:** Configurable auto-delete per file
-- **File List:** Dropdown menu per file with actions
-- **Actions:** Copy link, Copy details, Download, View info, Delete
-- **Password Modal:** Prompt for locked file downloads
-- **Admin Panel:** Config, password change, upload limits
-- **Docs Viewer:** In-app README, API.md, AGENT.md display
-- **Toast Notifications:** User feedback
-
----
-
-## Common Use Cases
-
-### 1. Share Public File
-```bash
-curl -F "file=@document.pdf" https://tetein.apipedia.id/api
-# Open: https://tete.apipedia.id
-```
-
-### 2. Share Secret File
-```bash
-curl -F "file=@secret.pdf" -F "password=pass123" https://tetein.apipedia.id/api
-# Share: https://tetein.apipedia.id/file/abc123/download?password=pass123
-```
-
-### 3. Share Text Snippet
-```bash
-curl -H "Content-Type: application/json" \
-  -d '{"text": "Sensitive data here", "password": "secret"}' \
-  https://tetein.apipedia.id/api/text
-```
-
-### 4. Automate Backup
-```bash
-tar czf backup.tar.gz /data
-curl -F "file=@backup.tar.gz" -F "password=backup123" https://tetein.apipedia.id/api
-# Save the downloadUrl for retrieval
-```
-
-### 5. Set Expiration
-```bash
-# 2 hours expiration (7200000ms)
-curl -F "files=@file.txt" -F "expiration=7200000" https://tetein.apipedia.id/api/upload
-```
-
----
-
-## Troubleshooting
-
-**Server won't start:**
-```bash
-# Check if port 3232 is in use
-lsof -i :3232
-# Kill process or change PORT in server/index.js
-```
-
-**File not found:**
-- Check file ID is 6 hex characters
-- Verify server is running
-- Check uploads/ directory exists
-
-**Password not working:**
-- Ensure password is URL-encoded in query string
-- Verify exact password match (case-sensitive)
-
-**Dropdown not working:**
-- Clear browser cache
-- Check browser console for errors
-- Ensure JavaScript is enabled
-
-**Auto-delete not working:**
-- Check server logs
-- Verify expiration time is set
-- Check server time is correct
-
----
-
-## Contact & Support
-
-**Repository:** https://github.com/Cloud-Dark/tete
-
-**Issues:** GitHub Issues tab
-
----
-
-## Copy All Documentation
-
-Use the copy button below to copy this entire AGENT.md file for AI context.
+Details: `docs/18_INSTALLATION.md`.

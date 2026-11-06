@@ -1,0 +1,56 @@
+name = "tete"
+main = "worker/index.js"
+compatibility_date = "2025-09-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Markdown docs are bundled into the Worker as text and served at /README.md, /AGENT.md, /api.md.
+[[rules]]
+type = "Text"
+globs = ["**/*.md"]
+fallthrough = true
+
+# Static web UI (client/). The Worker handles only the paths listed in run_worker_first;
+# everything else is served directly from the asset store.
+[assets]
+directory = "./client"
+binding = "ASSETS"
+run_worker_first = ["/api", "/api/*", "/file/*", "/README.md", "/AGENT.md", "/api.md"]
+
+# Both hostnames serve the same Worker (UI + API). Uncomment after the zone exists in your account.
+# routes = [
+#   { pattern = "tete.apipedia.id", custom_domain = true },
+#   { pattern = "tetein.apipedia.id", custom_domain = true },
+# ]
+
+# File content. Create with: wrangler r2 bucket create tete-files
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "tete-files"
+
+# File metadata + runtime config. Create with: wrangler d1 create tete
+# then paste the printed database_id below.
+[[d1_databases]]
+binding = "DB"
+database_name = "tete"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+migrations_dir = "migrations"
+
+# Expired files are purged every 5 minutes.
+[triggers]
+crons = ["*/5 * * * *"]
+
+# Defaults. The admin Config tab overrides the first four at runtime (stored in D1).
+[vars]
+DEFAULT_EXPIRATION_MS = "3600000"
+MAX_FILE_SIZE_BYTES = "26214400"
+MAX_FILES_PER_UPLOAD = "10"
+FILE_WHITELIST = ""
+PBKDF2_ITERATIONS = "100000"
+
+# Secrets (never in this file):
+#   wrangler secret put SESSION_SECRET   # >= 32 random chars, signs cookies
+#   wrangler secret put ADMIN_PASSWORD   # initial admin password (replaced once changed in the UI)
+# For local dev copy .dev.vars.example to .dev.vars.
+
+[observability]
+enabled = true

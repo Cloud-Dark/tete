@@ -1,27 +1,19 @@
 {
-  "name": "temp-share",
-  "version": "1.0.0",
-  "description": "Simple file sharing server like temp.sh",
-  "main": "server/index.js",
+  "name": "tete",
+  "version": "2.0.0",
+  "description": "TETE - Transient Endpoint for Transfer & Encryption. Temporary file sharing on Cloudflare Workers (R2 + D1).",
+  "private": true,
+  "type": "module",
   "scripts": {
-    "start": "node server/index.js",
-    "dev": "node server/index.js",
-    "build": "echo 'App runs as Express server - use pm2 start server/index.js. Static files in client/'"
+    "dev": "wrangler dev",
+    "migrate:local": "wrangler d1 migrations apply tete --local",
+    "migrate:remote": "wrangler d1 migrations apply tete --remote",
+    "deploy": "wrangler deploy",
+    "test:smoke": "node test/smoke.mjs"
   },
-  "keywords": [
-    "file-sharing",
-    "upload",
-    "temp"
-  ],
-  "author": "",
+  "keywords": ["file-sharing", "upload", "cloudflare-workers", "r2", "d1"],
   "license": "ISC",
-  "type": "commonjs",
-  "dependencies": {
-    "cookie-parser": "^1.4.7",
-    "cors": "^2.8.6",
-    "express": "^5.2.1",
-    "express-session": "^1.19.0",
-    "multer": "^2.1.1",
-    "uuid": "^13.0.0"
+  "devDependencies": {
+    "wrangler": "^4.0.0"
   }
 }
