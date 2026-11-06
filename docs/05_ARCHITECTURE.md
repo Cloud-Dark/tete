@@ -12,7 +12,7 @@ flowchart LR
     W -->|static paths| A[(ASSETS<br/>client/)]
     W -->|file bytes| R[(R2 BUCKET)]
     W -->|metadata, config| D[(D1 DB)]
-    C[Cron every 5 min] --> W
+    C[Cron every 30 min] --> W
 ```
 
 Static files are answered by the assets layer directly. Only these paths run the Worker first
@@ -58,7 +58,7 @@ Unlocked files stream straight from R2.
 
 ### Expiry
 
-Reads treat `expires_at <= now` as `404`. Every 5 minutes the cron handler selects up to 100 expired rows per round
+Reads treat `expires_at <= now` as `404`. Every 30 minutes the cron handler selects up to 100 expired rows per round
 (max 20 rounds), deletes the R2 objects, then the rows.
 
 ### Identity and admin

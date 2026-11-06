@@ -46,7 +46,7 @@ Browser / curl ──► Cloudflare Worker (worker/index.js)
                      ├─ static UI      ◄── ASSETS binding  (client/)
                      ├─ file bytes     ◄─► R2  binding BUCKET  (key = file id)
                      ├─ metadata+config◄─► D1  binding DB      (tables: files, config)
-                     └─ cron */5 min  ──► purge expired files
+                     └─ cron */30 min ──► purge expired files
 ```
 
 ## Repository layout

@@ -6,6 +6,9 @@ import {
 } from './crypto.js';
 import { HttpError, attachmentDisposition, json, readJson } from './http.js';
 
+// Columns needed to describe a file publicly; excludes the enc blob and delete token.
+const PUBLIC_COLS = 'id, original_name, mime_type, size, uploaded_at, expires_at, locked';
+
 const ID_PATTERN = /^[a-f0-9]{6}$/;
 
 const isExpired = (row) => row.expires_at !== null && row.expires_at <= Date.now();
@@ -14,9 +17,9 @@ function assertId(id) {
   if (!ID_PATTERN.test(id)) throw new HttpError(404, 'File not found');
 }
 
-async function getRow(env, id) {
+async function getRow(env, id, cols = PUBLIC_COLS) {
   assertId(id);
-  const row = await env.DB.prepare('SELECT * FROM files WHERE id = ?').bind(id).first();
+  const row = await env.DB.prepare(`SELECT ${cols} FROM files WHERE id = ?`).bind(id).first();
   if (!row || isExpired(row)) throw new HttpError(404, 'File not found');
   return row;
 }
@@ -191,7 +194,7 @@ export async function fileInfo(request, env, id) {
 
 // POST /file/:id/verify - JSON { password }
 export async function verifyFile(request, env, id) {
-  const row = await getRow(env, id);
+  const row = await getRow(env, id, 'id, expires_at, locked, enc');
   if (!row.locked) return json({ success: true, message: 'File is not locked' });
 
   const { password } = await readJson(request);
@@ -206,7 +209,7 @@ export async function verifyFile(request, env, id) {
 
 // GET /file/:id/download[?password=...] (password may also be sent as X-Password)
 export async function downloadFile(request, env, id) {
-  const row = await getRow(env, id);
+  const row = await getRow(env, id, `${PUBLIC_COLS}, enc`);
   const object = await env.BUCKET.get(id);
   if (!object) throw new HttpError(404, 'File not found');
 
@@ -248,7 +251,7 @@ export async function downloadFile(request, env, id) {
 
 // DELETE /file/:id - allowed for the owner (cookie), an admin session, or the holder of the delete token.
 export async function deleteFile(request, env, id, ctx) {
-  const row = await getRow(env, id);
+  const row = await getRow(env, id, 'id, expires_at, user_id, delete_token');
   const url = new URL(request.url);
   const token = url.searchParams.get('token') || request.headers.get('X-Delete-Token');
 
@@ -268,8 +271,8 @@ export async function listFiles(request, env, ctx) {
   const base = new URL(request.url).origin;
   const now = Date.now();
   const query = ctx.isAdmin
-    ? env.DB.prepare('SELECT * FROM files WHERE (expires_at IS NULL OR expires_at > ?) ORDER BY uploaded_at DESC LIMIT 500').bind(now)
-    : env.DB.prepare('SELECT * FROM files WHERE user_id = ? AND (expires_at IS NULL OR expires_at > ?) ORDER BY uploaded_at DESC LIMIT 500').bind(ctx.userId, now);
+    ? env.DB.prepare(`SELECT ${PUBLIC_COLS} FROM files WHERE (expires_at IS NULL OR expires_at > ?) ORDER BY uploaded_at DESC LIMIT 200`).bind(now)
+    : env.DB.prepare(`SELECT ${PUBLIC_COLS} FROM files WHERE user_id = ? AND (expires_at IS NULL OR expires_at > ?) ORDER BY uploaded_at DESC LIMIT 200`).bind(ctx.userId, now);
   const { results } = await query.all();
   return json(results.map((row) => publicView(row, base)));
 }

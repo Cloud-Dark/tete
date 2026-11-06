@@ -48,3 +48,10 @@ Architecture decision records. Newest decisions are appended; numbers are perman
 
 - **Decision:** Admin login works only when `SESSION_SECRET` is set; the initial password is the `ADMIN_PASSWORD` secret, replaced by a salted hash in D1 once changed. Minimum new password length is 8.
 - **Context:** `admin123` was hardcoded and documented.
+
+## D-009 — Resource-lean D1 and CPU usage (2026-11-06)
+
+- **Decision:** Two indexes only (owner listing, partial expiry index), narrow `SELECT` lists, per-isolate config cache (60 s), list limit 200, cron every 30 minutes, log sampling at 10 %.
+- **Context:** Requirement to minimise database and CPU cost. Measured locally: an unlocked upload takes about 9 ms wall time, a locked one about 27 ms; one PBKDF2 derivation at 100,000 iterations costs about 17 ms CPU.
+- **Alternatives rejected:** Lowering the default `PBKDF2_ITERATIONS` (fits the Free plan's 10 ms CPU limit at roughly 10,000 iterations, but makes weak file passwords far easier to brute-force); a dedicated index for the admin list (extra write per upload for a rarely used view).
+- **Consequence:** Locked uploads and admin password changes still need the Paid plan, or a lower `PBKDF2_ITERATIONS` chosen by the operator ([10_RISK_REGISTER.md](10_RISK_REGISTER.md) R-02).

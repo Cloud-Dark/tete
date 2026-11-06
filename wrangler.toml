@@ -35,9 +35,9 @@ database_name = "tete"
 database_id = "REPLACE_WITH_D1_DATABASE_ID"
 migrations_dir = "migrations"
 
-# Expired files are purged every 5 minutes.
+# Expired files already return 404 at read time, so the purge only reclaims storage: every 30 minutes is plenty.
 [triggers]
-crons = ["*/5 * * * *"]
+crons = ["*/30 * * * *"]
 
 # Defaults. The admin Config tab overrides the first four at runtime (stored in D1).
 [vars]
@@ -54,3 +54,5 @@ PBKDF2_ITERATIONS = "100000"
 
 [observability]
 enabled = true
+[observability.logs]
+head_sampling_rate = 0.1

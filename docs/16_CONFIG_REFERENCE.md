@@ -39,7 +39,7 @@ Only the first four settings can be changed at runtime; the rest require a redep
 
 ## Cron
 
-`*/5 * * * *` — purge expired files.
+`*/30 * * * *` — purge expired files.
 
 ## Cookies
 
@@ -56,4 +56,4 @@ Only the first four settings can be changed at runtime; the rest require a redep
 | Max request size | 60 MB | `TOTAL_REQUEST_CAP` in `worker/config.js` |
 | Admin session | 24 h | `ADMIN_SESSION_MS` in `worker/config.js` |
 | Min admin password | 8 chars | `worker/admin.js` |
-| List size | 500 files | `worker/files.js` |
+| List size | 200 files | `worker/files.js` |

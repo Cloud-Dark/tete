@@ -20,7 +20,7 @@ Browser / curl ──► Cloudflare Worker (worker/index.js)
                      ├─ web UI         ◄── static assets  (client/)
                      ├─ file content   ◄─► R2  bucket   (key = file id)
                      ├─ metadata       ◄─► D1  database (files, config)
-                     └─ cron every 5 min ──► delete expired files
+                     └─ cron every 30 min ──► delete expired files
 ```
 
 1. **Upload** a file or text (UI or `curl`). You get a 6-character ID, a link, and a one-time **delete token**.

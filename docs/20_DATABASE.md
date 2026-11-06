@@ -21,7 +21,21 @@ D1 database `tete`, migrations in [`migrations/`](../migrations/). Applied with 
 | `locked` | INTEGER | `1` when password-protected and encrypted |
 | `enc` | TEXT | JSON descriptor, locked files only (below) |
 
-Indexes: `idx_files_expires (expires_at)`, `idx_files_user (user_id)`.
+Indexes (deliberately only two: each index adds one written row to every upload):
+
+| Index | Serves | Query plan |
+|-------|--------|------------|
+| `idx_files_user_uploaded (user_id, uploaded_at DESC)` | Owner listing, already newest-first | `SEARCH ... USING INDEX`, no sort step |
+| `idx_files_expiring (expires_at) WHERE expires_at IS NOT NULL` | Cron purge; stays empty for never-expiring files | `SEARCH ... USING INDEX` |
+
+Reads by id use the primary key. The admin "all files" list is a bounded scan (200 rows) of a table that only holds
+temporary files, so it has no dedicated index.
+
+### Query rules
+
+- Never `SELECT *`: the `enc` blob and `delete_token` are fetched only by the endpoints that need them.
+- Runtime config is cached per isolate for 60 s, so uploads do not query D1 for config.
+- `config` is `WITHOUT ROWID`; the admin password hash is excluded from the config query.
 
 ### `enc` descriptor
 

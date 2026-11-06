@@ -12,7 +12,7 @@
 | UI hosting | Workers Static Assets (`client/`), binding `ASSETS` |
 | File content | R2, binding `BUCKET`, object key = file id |
 | Metadata and config | D1, binding `DB` ([20_DATABASE.md](20_DATABASE.md)) |
-| Scheduling | Cron Trigger `*/5 * * * *` |
+| Scheduling | Cron Trigger `*/30 * * * *` |
 | Crypto | WebCrypto: AES-256-GCM, PBKDF2-SHA256, HMAC-SHA256 |
 | Tooling | Wrangler 4 (dev, migrations, deploy) |
 
@@ -34,6 +34,8 @@
 | TR-012 | Per-file limit defaults to 25 MB with a hard cap of 50 MB; a request is capped at 60 MB (Worker memory is 128 MB). |
 | TR-013 | Downloads send `Content-Disposition: attachment` (header-injection safe, UTF-8 names) and `X-Content-Type-Options: nosniff`. |
 | TR-014 | API errors are JSON `{ "error": "..." }` with accurate status codes; unexpected errors are logged and return `500`. |
+| TR-016 | D1 usage is minimised: two indexes only, narrow column lists, config cached per isolate (60 s), list capped at 200 rows ([20_DATABASE.md](20_DATABASE.md)). |
+| TR-017 | CPU usage is minimised: unlocked files are streamed from R2 without buffering or hashing; PBKDF2 runs only for locked files, the admin password hash and password changes; the owner cookie is issued only on uploads; rendered docs are cached per isolate; the purge cron runs every 30 minutes. |
 | TR-015 | `test/smoke.mjs` exercises the full API and runs against local dev or a deployed URL. |
 
 ## Technical constraints

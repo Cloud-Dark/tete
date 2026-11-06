@@ -18,14 +18,26 @@ export function pbkdf2Iterations(env) {
   return int(env.PBKDF2_ITERATIONS, 100000) || 100000;
 }
 
+// Config rarely changes, so keep it per isolate for a short time instead of querying D1 on every upload.
+// Writes through setConfigValue invalidate this isolate immediately; other isolates catch up within the TTL.
+const CONFIG_TTL_MS = 60_000;
+let cached = null;
+
 export async function getConfig(env) {
+  if (cached && cached.expires > Date.now()) return cached.value;
+  const value = await loadConfig(env);
+  cached = { value, expires: Date.now() + CONFIG_TTL_MS };
+  return value;
+}
+
+async function loadConfig(env) {
   const cfg = {
     defaultExpiration: int(env.DEFAULT_EXPIRATION_MS, 3600000),
     maxFileSize: int(env.MAX_FILE_SIZE_BYTES, 25 * 1024 * 1024),
     maxFilesPerUpload: int(env.MAX_FILES_PER_UPLOAD, 10) || 10,
     fileWhitelist: parseWhitelist(env.FILE_WHITELIST),
   };
-  const { results } = await env.DB.prepare('SELECT key, value FROM config').all();
+  const { results } = await env.DB.prepare("SELECT key, value FROM config WHERE key != 'adminPasswordHash'").all();
   for (const { key, value } of results) {
     if (key === 'defaultExpiration' || key === 'maxFileSize' || key === 'maxFilesPerUpload') cfg[key] = int(value, cfg[key]);
     else if (key === 'fileWhitelist') cfg.fileWhitelist = parseWhitelist(value);
@@ -38,6 +50,7 @@ export async function setConfigValue(env, key, value) {
   await env.DB.prepare('INSERT INTO config (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value')
     .bind(key, String(value))
     .run();
+  cached = null;
 }
 
 export async function getConfigValue(env, key) {

@@ -8,6 +8,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/).
 
 ## [2.0.0] - 2026-11-06
 
+### Performance
+
+- D1: reduced to two indexes (`user_id, uploaded_at DESC` and a partial index on `expires_at`); no `SELECT *`; config cached per isolate; list limit 200.
+- CPU: owner cookie only on uploads, docs rendered once per isolate, purge cron every 30 minutes (was 5), 10 % log sampling.
+
 ### Added
 
 - Cloudflare Workers runtime: Worker (`worker/`), Static Assets for `client/`, R2 bucket, D1 database, cron purge, `wrangler.toml`.

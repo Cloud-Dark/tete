@@ -10,6 +10,12 @@ import { HttpError, errorResponse, json, withCors } from './http.js';
 
 const DOCS = { '/README.md': readmeDoc, '/AGENT.md': agentDoc, '/api.md': apiDoc };
 
+// Rendered docs per origin: the substitution only has to run once per isolate.
+const renderedDocs = new Map();
+
+// Only uploads create ownership, so only they need to issue the owner cookie.
+const UPLOAD_PATHS = new Set(['/api', '/api/', '/api/upload', '/api/text']);
+
 const wantsHtml = (request) => {
   if (request.headers.get('Sec-Fetch-Dest') === 'document') return true;
   const accept = request.headers.get('Accept') || '';
@@ -39,8 +45,12 @@ async function route(request, env, ctx) {
   let m;
 
   if (method === 'GET' && DOCS[pathname]) {
-    const base = url.origin;
-    const body = DOCS[pathname].replace(/{{BASE_URL}}/g, base).replace(/http:\/\/localhost:3232/g, base);
+    const key = url.origin + pathname;
+    let body = renderedDocs.get(key);
+    if (body === undefined) {
+      body = DOCS[pathname].replace(/{{BASE_URL}}/g, url.origin).replace(/http:\/\/localhost:3232/g, url.origin);
+      renderedDocs.set(key, body);
+    }
     return new Response(body, { headers: { 'Content-Type': 'text/markdown; charset=utf-8', 'Cache-Control': 'public, max-age=300' } });
   }
 
@@ -94,7 +104,7 @@ export default {
     }
 
     response = withCors(response);
-    if (user.setCookie) response.headers.append('Set-Cookie', user.setCookie);
+    if (user.setCookie && request.method === 'POST' && UPLOAD_PATHS.has(new URL(request.url).pathname)) response.headers.append('Set-Cookie', user.setCookie);
     return response;
   },
 

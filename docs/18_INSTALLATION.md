@@ -65,7 +65,7 @@ Local R2 and D1 are emulated under `.wrangler/state` (git-ignored). To test the 
 
 ```bash
 curl -X POST "http://localhost:8787/cdn-cgi/local/explorer/api/local/scheduled?worker=tete" \
-  -H 'Content-Type: application/json' -d '{"cron":"*/5 * * * *"}'
+  -H 'Content-Type: application/json' -d '{"cron":"*/30 * * * *"}'
 ```
 
 ## Updating

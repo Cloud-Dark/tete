@@ -118,7 +118,7 @@ curl -H "Content-Type: application/json" -d '{"password": "s3cret"}' {{BASE_URL}
 ### `GET /api/files` — list your files
 
 Returns an array of file-info objects: the files owned by the caller's cookie. An admin session sees every file
-(up to 500, newest first). Expired files are never listed.
+(up to 200, newest first). Expired files are never listed.
 
 ## Delete
 

@@ -20,8 +20,10 @@
 - [x] Smoke test: 41/41 checks pass on `wrangler dev` ([uat](uat/2026-11-06_api-test-output.txt))
 - [x] README, AGENT.md, api.md rewritten; numbered docs created
 
-## Phase 2 — First production deployment (pending)
+## Phase 2 — First production deployment (blocked: R2 is not enabled on the Cloudflare account)
 
+- [x] D1/CPU optimisation pass (indexes, narrow selects, config cache, cron 30 min)
+- [ ] Enable R2 in the Cloudflare dashboard (both accounts currently answer error 10042)
 - [ ] Create R2 bucket `tete-files` and D1 database `tete` in the target account
 - [ ] Put the real `database_id` in `wrangler.toml`
 - [ ] Set `SESSION_SECRET` and `ADMIN_PASSWORD` secrets
