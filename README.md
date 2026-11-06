@@ -22,14 +22,14 @@ Browser / curl ──► Cloudflare Worker (worker/index.js)
                      ├─ web UI         ◄── static assets  (client/)
                      ├─ metadata       ◄─► D1  database (files, config)
                      ├─ file content   ◄─► Supabase Storage (private bucket, server-side only)
-                     └─ cron every 30 min ──► delete expired files
+                     └─ expired files purged after uploads (and by cron, optional)
 ```
 
 1. **Upload** a file or text (UI or `curl`). You get a 6-character ID, a link, and a one-time **delete token**.
 2. With a **password**, the content is encrypted with AES-256-GCM before it leaves the Worker. The real filename and MIME
    type are encrypted too. The password is never stored, so a lost password means a lost file.
 3. Files **expire** automatically (default 1 hour; `0` = never). Expired files return `404` immediately and are
-   physically purged by a cron trigger.
+   physically purged in the background after uploads (plus an optional cron trigger).
 4. Only the **owner** (anonymous cookie), an **admin**, or the holder of the **delete token** can delete a file.
 
 ## Features

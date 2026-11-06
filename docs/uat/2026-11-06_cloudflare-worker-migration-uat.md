@@ -32,6 +32,7 @@
 | 18 | MCP | initialize, notification, tools/list, `upload_text` (locked), `read_text` right/wrong password, `upload_base64`, `file_info`, `delete_file` bad/good token, `GET /mcp`, unknown method | Negotiated version, 5 tools, links on the public origin, tool errors flagged `isError`, 405, -32601 | As expected | PASS |
 | 19 | Cron purge removes Storage objects | 3 expiring uploads, trigger scheduled handler, count objects in the stand-in | Objects removed with their rows | 13 to 8 objects, log `Purged 5 expired file(s)` | PASS |
 | 20 | Storage down | Stop the stand-in, upload | Error response, no orphan D1 row | `500`, row count 8 before and after | PASS |
+| 22 | Purge without cron | `PURGE_INTERVAL_MS=1`, 3 expiring uploads, one more upload, count objects | Expired objects removed by the upload-triggered purge | 7 to 5 objects (net of the new upload) | PASS |
 | 21 | Storage not configured | Empty `SUPABASE_URL` / key, upload | Clear error, no orphan row | `503 Storage is not configured ...`, row count unchanged | PASS |
 
 ## Not covered

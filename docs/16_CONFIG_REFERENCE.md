@@ -21,6 +21,7 @@ Only the first four settings can be changed at runtime; the rest require a redep
 | `MAX_FILES_PER_UPLOAD` | `10` | `maxFilesPerUpload` | Files per request (request total capped at 60 MB) |
 | `FILE_WHITELIST` | empty | `fileWhitelist` | Comma-separated extensions without dots; empty allows all |
 | `SUPABASE_URL` | – (set in `wrangler.toml`) | – | Supabase project URL, e.g. `https://<ref>.supabase.co`. Server-side only |
+| `PURGE_INTERVAL_MS` | `600000` | – | Minimum gap between background purges per isolate |
 | `PBKDF2_ITERATIONS` | `100000` | – | Cost for locked files and the admin password. Stored per file, so changing it never breaks existing files |
 
 ## Secrets (`wrangler secret put`, or `.dev.vars` locally)
@@ -39,9 +40,12 @@ Only the first four settings can be changed at runtime; the rest require a redep
 | `SUPABASE_URL` + `SUPABASE_SERVICE_KEY` | Supabase Storage bucket `tete` (private) | File content |
 | `DB` | D1 (`tete`) | `files` and `config` tables |
 
-## Cron
+## Purging expired files
 
-`*/30 * * * *` — purge expired files (D1 rows and Storage objects).
+| Mechanism | Default | Notes |
+|-----------|---------|-------|
+| Background purge after uploads | On | Throttled by `PURGE_INTERVAL_MS` (default `600000`, 10 minutes, per isolate) |
+| Cron `*/30 * * * *` | Off (commented in `wrangler.toml`) | Needs a free cron slot (Free plan: 5 per account) or the Paid plan |
 
 ## Cookies
 

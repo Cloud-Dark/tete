@@ -10,12 +10,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/).
 
 ### Performance
 
-- Purge: `*/30` cron deletes Storage objects before D1 rows.
+- Purge: Storage objects are deleted before D1 rows, in the background after uploads and optionally by a `*/30` cron.
 - D1: reduced to two indexes (`user_id, uploaded_at DESC` and a partial index on `expires_at`); no `SELECT *`; config cached per isolate; list limit 200.
 - CPU: owner cookie only on uploads, docs rendered once per isolate, purge cron every 30 minutes (was 5), 10 % log sampling.
 
 ### Added
 
+- Background purge after uploads (`maybePurge`, `PURGE_INTERVAL_MS`), so no cron slot is needed.
 - Cloudflare Workers runtime: Worker (`worker/`), Static Assets for `client/`, D1 database, cron purge, `wrangler.toml`.
 - File content in a private Supabase Storage bucket, accessed only by the Worker (`worker/storage.js`, `supabase-storage.sql`). Supabase never appears in a public URL.
 - MCP server at `POST /mcp` with tools `upload_text`, `upload_base64`, `file_info`, `read_text`, `delete_file` (`worker/mcp.js`).

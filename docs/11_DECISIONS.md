@@ -67,3 +67,10 @@ Architecture decision records. Newest decisions are appended; numbers are perman
 
 - **Decision:** `POST /mcp` (stateless Streamable HTTP, JSON responses) implements `initialize`, `ping`, `tools/list` and `tools/call` and calls the REST handlers internally.
 - **Rationale:** One code path for limits, encryption, expiry and errors; no session state to store. Deletion through MCP requires the delete token because MCP clients carry no cookie.
+
+## D-012 — Purge after uploads instead of requiring a cron (2026-11-06)
+
+- **Decision:** A successful upload starts a throttled background purge (`maybePurge`). The cron trigger is optional and commented out.
+- **Context:** The first deployment failed to register the cron: the Cloudflare account is on the Workers Free plan and had used its 5 cron triggers (error 10072).
+- **Alternatives rejected:** Upgrading the plan or removing another project's cron (not ours to decide); a Supabase `pg_cron` job (Postgres is not used here).
+- **Consequence:** Storage is reclaimed only while uploads happen (R-15). Correctness is unaffected because reads reject expired files.

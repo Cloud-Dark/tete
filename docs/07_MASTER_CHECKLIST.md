@@ -26,14 +26,15 @@
 
 - [x] D1/CPU optimisation pass (indexes, narrow selects, config cache, cron 30 min)
 - [ ] Run `supabase-storage.sql` in the Supabase project (private bucket `tete`)
-- [ ] Create D1 database `tete` in the target account
+- [x] D1 database `tete` created (id in `wrangler.toml`) and migrated remotely
 - [ ] Put the real `database_id` in `wrangler.toml`
-- [ ] Set `SESSION_SECRET`, `ADMIN_PASSWORD` and `SUPABASE_SERVICE_KEY` secrets; confirm `SUPABASE_URL`
-- [ ] `npm run migrate:remote` and `npm run deploy`
+- [x] `SESSION_SECRET` and `ADMIN_PASSWORD` secrets set
+- [ ] Set the `SUPABASE_SERVICE_KEY` secret; confirm `SUPABASE_URL` (currently the project ref seen in an error message, unconfirmed)
+- [x] `npm run migrate:remote` and `npm run deploy` to `https://tete.apipedia.workers.dev` (2026-11-06)
 - [ ] Run `npm run test:smoke` against the deployed URL
 - [ ] Attach `tete.apipedia.id` and `tetein.apipedia.id` (uncomment `routes`)
 - [ ] Confirm the Workers plan covers PBKDF2 CPU cost (R-02)
-- [ ] Confirm the cron trigger runs in the dashboard
+- [ ] Cron trigger: not registered (Free plan, 5-slot limit); background purge is the fallback (R-15)
 
 ## Phase 3 — Hardening (backlog)
 

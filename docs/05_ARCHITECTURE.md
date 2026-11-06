@@ -12,7 +12,7 @@ flowchart LR
     W -->|static paths| A[(ASSETS<br/>client/)]
     W -->|metadata, config| D[(D1 DB)]
     W -->|file bytes, server-side only| S[(Supabase Storage<br/>private bucket)]
-    C[Cron every 30 min] --> W
+    C[Optional cron every 30 min] --> W
 ```
 
 Static files are answered by the assets layer directly. Only these paths run the Worker first
@@ -60,8 +60,11 @@ Unlocked files stream through the Worker straight from Storage.
 
 ### Expiry
 
-Reads treat `expires_at <= now` as `404`. Every 30 minutes the cron handler selects up to 100 expired rows per round
-(max 20 rounds), deletes the Storage objects, then the rows.
+Reads treat `expires_at <= now` as `404`. Physical deletion happens in two ways: after a successful upload the Worker
+starts a background purge (at most once per 10 minutes per isolate, `maybePurge` in `worker/index.js`), and, if the
+optional cron trigger is enabled, every 30 minutes. A purge selects up to 100 expired rows per round (max 20 rounds),
+deletes the Storage objects, then the rows. With no traffic nothing new is uploaded, so expired objects can stay in
+Storage until the next upload; they are never readable ([10_RISK_REGISTER.md](10_RISK_REGISTER.md) R-15).
 
 ### Identity and admin
 

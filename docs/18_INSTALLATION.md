@@ -94,4 +94,5 @@ domains at the Worker. Note that `tete.apipedia.id` and `tetein.apipedia.id` are
 | `no such table: files` | Migrations not applied: `npm run migrate:remote` (or `migrate:local`) |
 | `Storage is not configured` (503) | `SUPABASE_URL` empty or `SUPABASE_SERVICE_KEY` secret missing |
 | Uploads/downloads fail with `500` | Check Worker logs for `Supabase Storage ... failed: <status>`: `401` wrong key, `404` bucket `tete` missing, project paused (R-11) |
-| Files never disappear from Storage | Check the cron trigger in the Cloudflare dashboard and Worker logs |
+| Files never disappear from Storage | Purging runs after uploads (and by cron if enabled). With no uploads nothing triggers it; enable the cron trigger (needs a free cron slot or Paid plan) |
+| `wrangler deploy` reports `reached the Workers Free limit of 5 cron triggers` | Keep the `[triggers]` block commented out, or free a cron slot / upgrade |

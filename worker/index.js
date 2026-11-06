@@ -40,6 +40,17 @@ function apiIndex() {
   });
 }
 
+// Fallback for accounts without a free cron slot: a successful upload also purges expired files in the
+// background, at most once per interval per isolate. Reads already treat expired files as 404, so this only
+// reclaims storage.
+let lastPurge = 0;
+function maybePurge(env, execCtx) {
+  const interval = parseInt(env.PURGE_INTERVAL_MS, 10) || 10 * 60 * 1000;
+  if (Date.now() - lastPurge < interval) return;
+  lastPurge = Date.now();
+  execCtx.waitUntil(files.purgeExpired(env).catch((err) => console.error('Background purge failed:', err?.message || err)));
+}
+
 async function route(request, env, ctx) {
   const url = new URL(request.url);
   const { pathname } = url;
@@ -88,7 +99,7 @@ async function route(request, env, ctx) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, execCtx) {
     if (request.method === 'OPTIONS') return withCors(new Response(null, { status: 204 }));
 
     const user = resolveUser(request);
@@ -105,6 +116,8 @@ export default {
         response = errorResponse(500, 'Internal server error');
       }
     }
+
+    if (response.ok && request.method === 'POST' && UPLOAD_PATHS.has(new URL(request.url).pathname)) maybePurge(env, execCtx);
 
     response = withCors(response);
     if (user.setCookie && request.method === 'POST' && UPLOAD_PATHS.has(new URL(request.url).pathname)) response.headers.append('Set-Cookie', user.setCookie);

@@ -6,7 +6,7 @@ Full endpoint reference: `{{BASE_URL}}/api.md`.
 ## What it is
 
 TETE is a temporary file-sharing service that runs entirely on **Cloudflare Workers**: one Worker serves the web
-UI (static assets), the REST API and an MCP server; metadata lives in **D1**, file content in a private **Supabase Storage** bucket (only the Worker talks to it); a cron trigger deletes expired files. Everything is reachable under one hostname; Supabase is never exposed.
+UI (static assets), the REST API and an MCP server; metadata lives in **D1**, file content in a private **Supabase Storage** bucket (only the Worker talks to it); expired files are purged in the background (and optionally by cron). Everything is reachable under one hostname; Supabase is never exposed.
 
 ## Quick recipes
 
@@ -52,7 +52,7 @@ Browser / curl ──► Cloudflare Worker (worker/index.js)
                      ├─ metadata+config◄─► D1  binding DB      (tables: files, config)
                      ├─ file bytes     ◄─► Supabase Storage (bucket tete, key = file id)
                      ├─ /mcp           ──► MCP tools over the same handlers
-                     └─ cron */30 min ──► purge expired files
+                     └─ purge expired files after uploads (+ optional cron)
 ```
 
 ## Repository layout

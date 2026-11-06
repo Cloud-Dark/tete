@@ -27,12 +27,14 @@ run_worker_first = ["/api", "/api/*", "/file/*", "/mcp", "/README.md", "/AGENT.m
 [[d1_databases]]
 binding = "DB"
 database_name = "tete"
-database_id = "REPLACE_WITH_D1_DATABASE_ID"
+database_id = "15b26207-de6b-4365-b5a0-6913ccaf9e93"
 migrations_dir = "migrations"
 
-# Expired files already return 404 at read time, so the purge only reclaims storage: every 30 minutes is plenty.
-[triggers]
-crons = ["*/30 * * * *"]
+# Optional (needs a free cron slot or the Paid plan; the Free plan allows 5 cron triggers per account).
+# Without it, expired files are still 404 immediately and are purged in the background after uploads
+# (worker/index.js maybePurge). Uncomment to also purge on a schedule:
+# [triggers]
+# crons = ["*/30 * * * *"]
 
 # Defaults. The admin Config tab overrides the first four at runtime (stored in D1).
 [vars]
