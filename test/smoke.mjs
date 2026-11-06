@@ -154,6 +154,42 @@ res = await postJson(alice, '/api/admin/logout', {});
 res = await alice('/api/admin/status');
 check('admin logout clears session', (await res.json()).isAdmin === false);
 
+
+// --- MCP (/mcp)
+const rpc = async (method, params, id = 1) => {
+  const r = await fetch(`${BASE}/mcp`, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream' }, body: JSON.stringify({ jsonrpc: '2.0', id, method, params }) });
+  return { status: r.status, body: r.status === 202 ? null : await r.json() };
+};
+const tool = async (name, args) => {
+  const { body } = await rpc('tools/call', { name, arguments: args });
+  const text = body.result.content[0].text;
+  return { isError: body.result.isError, text, data: body.result.isError ? null : JSON.parse(text) };
+};
+let m = await rpc('initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'smoke', version: '1' } });
+check('MCP initialize negotiates version', m.body.result.protocolVersion === '2025-06-18' && m.body.result.serverInfo.name === 'tete');
+res = await fetch(`${BASE}/mcp`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) });
+check('MCP notification -> 202', res.status === 202);
+m = await rpc('tools/list');
+check('MCP tools/list exposes 5 tools', m.body.result.tools.length === 5);
+const up = await tool('upload_text', { text: 'via mcp', filename: 'mcp.txt', password: 'mcp-pw' });
+check('MCP upload_text (locked) returns share link on the public origin', !up.isError && up.data.url === `${BASE}/file/${up.data.id}` && up.data.deleteToken, up.text);
+const rd = await tool('read_text', { id: up.data.id, password: 'mcp-pw' });
+check('MCP read_text decrypts', !rd.isError && rd.data.text === 'via mcp', rd.text);
+const rdBad = await tool('read_text', { id: up.data.id, password: 'nope' });
+check('MCP read_text wrong password -> tool error', rdBad.isError === true && /Invalid password/.test(rdBad.text));
+const b64 = await tool('upload_base64', { filename: 'b.bin', content_base64: Buffer.from('binary!').toString('base64'), expiration_ms: 0 });
+check('MCP upload_base64 (never expires)', !b64.isError && b64.data.size === 7 && b64.data.expiresAt === null, b64.text);
+const fi = await tool('file_info', { id: b64.data.id });
+check('MCP file_info', !fi.isError && fi.data.originalName === 'b.bin');
+const dBad = await tool('delete_file', { id: b64.data.id, token: 'wrong' });
+check('MCP delete_file bad token -> tool error', dBad.isError === true);
+const dOk = await tool('delete_file', { id: b64.data.id, token: b64.data.deleteToken });
+check('MCP delete_file with token', !dOk.isError && dOk.data.success === true);
+res = await fetch(`${BASE}/mcp`);
+check('GET /mcp -> 405', res.status === 405);
+m = await rpc('nope/method');
+check('MCP unknown method -> JSON-RPC error', m.body.error?.code === -32601);
+
 // --- docs
 res = await alice('/README.md');
 check('/README.md served', res.status === 200 && (await res.text()).includes('TETE'));

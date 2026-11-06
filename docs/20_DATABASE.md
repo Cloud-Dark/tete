@@ -10,7 +10,7 @@ D1 database `tete`, migrations in [`migrations/`](../migrations/). Applied with 
 
 | Column | Type | Notes |
 |--------|------|-------|
-| `id` | TEXT PK | 6 hex characters; also the R2 object key |
+| `id` | TEXT PK | 6 hex characters; also the Supabase Storage object name |
 | `original_name` | TEXT | `NULL` for locked files |
 | `mime_type` | TEXT | `application/octet-stream` for locked files |
 | `size` | INTEGER | Plaintext size in bytes |
@@ -45,7 +45,7 @@ temporary files, so it has no dedicated index.
 | `iterations` | PBKDF2 iteration count used for this file |
 | `salt` | Base64 16-byte PBKDF2 salt |
 | `wrappedKey`, `keyIv` | Data key encrypted with the password-derived key (AES-GCM, base64) |
-| `iv` | Base64 12-byte IV for the content (R2 object = ciphertext + 16-byte tag) |
+| `iv` | Base64 12-byte IV for the content (Storage object = ciphertext + 16-byte tag) |
 | `meta`, `metaIv` | Encrypted JSON `{ name, mime }` |
 
 No password or password hash is stored.
@@ -60,6 +60,7 @@ Key/value overrides written by the admin panel.
 | `fileWhitelist` | Comma-separated extensions |
 | `adminPasswordHash` | `pbkdf2$<iterations>$<salt>$<hash>` |
 
-## R2
+## Supabase Storage
 
-Bucket `tete-files`, object key = file id, body = file bytes (unlocked) or ciphertext (locked).
+Private bucket `tete` (created by `supabase-storage.sql`, 50 MB per object). Object name = file id; body = file bytes
+(unlocked) or ciphertext (locked). The bucket has no policies: only the Worker, with the service-role key, can access it.

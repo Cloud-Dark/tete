@@ -10,19 +10,21 @@
 flowchart LR
     U[Browser / curl] --> W[Worker<br/>worker/index.js]
     W -->|static paths| A[(ASSETS<br/>client/)]
-    W -->|file bytes| R[(R2 BUCKET)]
     W -->|metadata, config| D[(D1 DB)]
+    W -->|file bytes, server-side only| S[(Supabase Storage<br/>private bucket)]
     C[Cron every 30 min] --> W
 ```
 
 Static files are answered by the assets layer directly. Only these paths run the Worker first
-(`run_worker_first` in `wrangler.toml`): `/api`, `/api/*`, `/file/*`, `/README.md`, `/AGENT.md`, `/api.md`.
+(`run_worker_first` in `wrangler.toml`): `/api`, `/api/*`, `/file/*`, `/mcp`, `/README.md`, `/AGENT.md`, `/api.md`.
 
 ## Modules
 
 | File | Responsibility |
 |------|----------------|
 | `worker/index.js` | Routing, error mapping, CORS, owner cookie, `scheduled` handler, docs endpoints |
+| `worker/storage.js` | Supabase Storage client: upload, download (streamed), bulk delete |
+| `worker/mcp.js` | MCP server: JSON-RPC over `POST /mcp`, tools wrap the REST handlers |
 | `worker/files.js` | Upload (multipart, text), info, verify, download, delete, list, purge |
 | `worker/admin.js` | Login, logout, status, password change, runtime config |
 | `worker/auth.js` | Owner cookie, signed admin session, admin password check |
@@ -39,7 +41,7 @@ sequenceDiagram
     participant C as Client
     participant W as Worker
     participant D as D1
-    participant R as R2
+    participant R as Supabase Storage
     C->>W: POST /api (file, password, expiration)
     W->>W: check size, extension, expiry
     W->>W: encrypt content + {name,mime} with random key; wrap key with PBKDF2(password)
@@ -48,23 +50,29 @@ sequenceDiagram
     W-->>C: id, url, downloadUrl, deleteUrl + deleteToken
 ```
 
-If the R2 write fails the D1 row is removed again.
+If the Storage write fails the D1 row is removed again.
 
 ### Download (locked)
 
-`GET /file/:id/download?password=...` (or `X-Password`) loads the row, fetches the object from R2, unwraps the key with
+`GET /file/:id/download?password=...` (or `X-Password`) loads the row, fetches the object from Supabase Storage, unwraps the key with
 the password (wrong password: `401`), decrypts content and metadata, and returns the plaintext with the real filename.
-Unlocked files stream straight from R2.
+Unlocked files stream through the Worker straight from Storage.
 
 ### Expiry
 
 Reads treat `expires_at <= now` as `404`. Every 30 minutes the cron handler selects up to 100 expired rows per round
-(max 20 rounds), deletes the R2 objects, then the rows.
+(max 20 rounds), deletes the Storage objects, then the rows.
 
 ### Identity and admin
 
 - Every visitor receives a random `tete_uid` cookie (30 days); uploads record it as owner.
 - Admin login verifies the password and sets a signed `tete_admin` cookie. No server-side session storage exists.
+
+## Why Supabase stays invisible
+
+Browsers, `curl` users and MCP clients only talk to the Worker. The Worker calls Supabase Storage server-side with the
+service-role key, so share links are always `https://tete.apipedia.id/file/<id>` and the Supabase hostname and key never
+leave the Worker. The cost is one extra network hop on every upload and download.
 
 ## Browser vs API on `/file/:id`
 

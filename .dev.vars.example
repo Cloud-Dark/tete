@@ -1,2 +1,5 @@
 SESSION_SECRET=change-me-to-a-long-random-string-at-least-32-chars
 ADMIN_PASSWORD=change-me
+# Real project, or the local stand-in: node test/fake-supabase.mjs
+SUPABASE_URL=http://localhost:8790
+SUPABASE_SERVICE_KEY=test-key

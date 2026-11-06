@@ -10,7 +10,7 @@
 2. Otherwise the `[vars]` in `wrangler.toml` apply.
 3. Otherwise the built-in defaults below.
 
-Only the first four settings can be changed at runtime; the rest require a redeploy or a secret update.
+Only the first four settings can be changed at runtime; the rest require a redeploy or a secret update. `SUPABASE_URL` is a plain variable (it is a hostname, not a secret).
 
 ## Variables (`wrangler.toml` `[vars]`)
 
@@ -20,6 +20,7 @@ Only the first four settings can be changed at runtime; the rest require a redep
 | `MAX_FILE_SIZE_BYTES` | `26214400` | `maxFileSize` | Per-file limit; capped at 50 MB (52428800) |
 | `MAX_FILES_PER_UPLOAD` | `10` | `maxFilesPerUpload` | Files per request (request total capped at 60 MB) |
 | `FILE_WHITELIST` | empty | `fileWhitelist` | Comma-separated extensions without dots; empty allows all |
+| `SUPABASE_URL` | – (set in `wrangler.toml`) | – | Supabase project URL, e.g. `https://<ref>.supabase.co`. Server-side only |
 | `PBKDF2_ITERATIONS` | `100000` | – | Cost for locked files and the admin password. Stored per file, so changing it never breaks existing files |
 
 ## Secrets (`wrangler secret put`, or `.dev.vars` locally)
@@ -27,6 +28,7 @@ Only the first four settings can be changed at runtime; the rest require a redep
 | Name | Required | Description |
 |------|----------|-------------|
 | `SESSION_SECRET` | Yes (for admin) | At least 16 characters, 32+ recommended. Signs the admin cookie. Rotating it logs every admin out |
+| `SUPABASE_SERVICE_KEY` | Yes | `service_role` key of the Supabase project. Never exposed to browsers |
 | `ADMIN_PASSWORD` | Yes (first login) | Initial admin password. After "Change Password" in the UI, the hash in D1 takes over and this secret is ignored |
 
 ## Bindings
@@ -34,12 +36,12 @@ Only the first four settings can be changed at runtime; the rest require a redep
 | Binding | Type | Purpose |
 |---------|------|---------|
 | `ASSETS` | Static Assets (`client/`) | Web UI |
-| `BUCKET` | R2 (`tete-files`) | File content |
+| `SUPABASE_URL` + `SUPABASE_SERVICE_KEY` | Supabase Storage bucket `tete` (private) | File content |
 | `DB` | D1 (`tete`) | `files` and `config` tables |
 
 ## Cron
 
-`*/30 * * * *` — purge expired files.
+`*/30 * * * *` — purge expired files (D1 rows and Storage objects).
 
 ## Cookies
 

@@ -6,6 +6,7 @@ import readmeDoc from '../README.md';
 import * as admin from './admin.js';
 import { isAdmin, resolveUser } from './auth.js';
 import * as files from './files.js';
+import { handleMcp } from './mcp.js';
 import { HttpError, errorResponse, json, withCors } from './http.js';
 
 const DOCS = { '/README.md': readmeDoc, '/AGENT.md': agentDoc, '/api.md': apiDoc };
@@ -34,6 +35,7 @@ function apiIndex() {
       download: 'GET /file/:id/download',
       delete: 'DELETE /file/:id',
       listFiles: 'GET /api/files',
+      mcp: 'POST /mcp (Model Context Protocol, tools: upload_text, upload_base64, file_info, read_text, delete_file)',
     },
   });
 }
@@ -57,6 +59,7 @@ async function route(request, env, ctx) {
   if (pathname === '/api' || pathname === '/api/') {
     return method === 'POST' ? files.uploadFiles(request, env, ctx) : apiIndex();
   }
+  if (pathname === '/mcp') return handleMcp(request, env, ctx);
   if (pathname === '/api/upload' && method === 'POST') return files.uploadFiles(request, env, ctx);
   if (pathname === '/api/text' && method === 'POST') return files.uploadText(request, env, ctx);
   if (pathname === '/api/files' && method === 'GET') return files.listFiles(request, env, ctx);

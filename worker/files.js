@@ -5,6 +5,7 @@ import {
   decryptContent, decryptMeta, encryptWithPassword, randomHex, safeEqual, sha256Hex, unwrapDataKey,
 } from './crypto.js';
 import { HttpError, attachmentDisposition, json, readJson } from './http.js';
+import { deleteObjects, getObject, putObject } from './storage.js';
 
 // Columns needed to describe a file publicly; excludes the enc blob and delete token.
 const PUBLIC_COLS = 'id, original_name, mime_type, size, uploaded_at, expires_at, locked';
@@ -58,7 +59,7 @@ function publicView(row, base, { reveal } = {}) {
   };
 }
 
-// Persists one file: D1 row first (claims the id), then the R2 object; rolls back the row on R2 failure.
+// Persists one file: D1 row first (claims the id), then the Storage object; rolls back the row if the upload fails.
 async function storeFile(env, cfg, { name, mime, data, size, password, expiresAt, userId, base }) {
   let storedBody = data;
   let enc = null;
@@ -94,7 +95,7 @@ async function storeFile(env, cfg, { name, mime, data, size, password, expiresAt
   if (!id) throw new HttpError(503, 'Could not allocate a file id, please retry');
 
   try {
-    await env.BUCKET.put(id, storedBody);
+    await putObject(env, id, storedBody, password ? 'application/octet-stream' : publicMime);
   } catch (err) {
     await env.DB.prepare('DELETE FROM files WHERE id = ?').bind(id).run();
     throw err;
@@ -210,7 +211,7 @@ export async function verifyFile(request, env, id) {
 // GET /file/:id/download[?password=...] (password may also be sent as X-Password)
 export async function downloadFile(request, env, id) {
   const row = await getRow(env, id, `${PUBLIC_COLS}, enc`);
-  const object = await env.BUCKET.get(id);
+  const object = await getObject(env, id);
   if (!object) throw new HttpError(404, 'File not found');
 
   const common = { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' };
@@ -227,7 +228,10 @@ export async function downloadFile(request, env, id) {
   }
 
   const password = new URL(request.url).searchParams.get('password') || request.headers.get('X-Password');
-  if (!password) throw new HttpError(401, 'Password required');
+  if (!password) {
+    await object.body?.cancel();
+    throw new HttpError(401, 'Password required');
+  }
 
   const descriptor = JSON.parse(row.enc);
   let plain;
@@ -261,7 +265,7 @@ export async function deleteFile(request, env, id, ctx) {
     (token && safeEqual(await sha256Hex(token), row.delete_token));
   if (!allowed) throw new HttpError(403, 'Not allowed to delete this file');
 
-  await env.BUCKET.delete(id);
+  await deleteObjects(env, [id]);
   await env.DB.prepare('DELETE FROM files WHERE id = ?').bind(id).run();
   return json({ success: true, message: 'File deleted successfully' });
 }
@@ -286,7 +290,7 @@ export async function purgeExpired(env) {
     ).bind(Date.now()).all();
     if (results.length === 0) break;
     const ids = results.map((r) => r.id);
-    await env.BUCKET.delete(ids);
+    await deleteObjects(env, ids);
     const placeholders = ids.map(() => '?').join(',');
     await env.DB.prepare(`DELETE FROM files WHERE id IN (${placeholders})`).bind(...ids).run();
     purged += ids.length;

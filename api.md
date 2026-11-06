@@ -3,7 +3,7 @@
 > Base URL: `{{BASE_URL}}` — the Web UI and the API are the same Cloudflare Worker, on the same origin.
 
 TETE (Transient Endpoint for Transfer & Encryption) is a temporary file-sharing service. Files are stored in
-Cloudflare R2, metadata in D1, and deleted automatically when they expire.
+a private Supabase Storage bucket (never exposed to clients), metadata in D1, and deleted automatically when they expire.
 
 ## Conventions
 
@@ -157,6 +157,24 @@ Config fields: `defaultExpiration` (ms), `maxFileSize` (MB, or bytes when the va
 curl -c cookies.txt -H "Content-Type: application/json" -d '{"password": "..."}' {{BASE_URL}}/api/admin/login
 curl -b cookies.txt -H "Content-Type: application/json" -d '{"maxFileSize": 10}' {{BASE_URL}}/api/config
 ```
+
+## MCP
+
+`POST /mcp` implements the Model Context Protocol (Streamable HTTP transport, stateless, JSON responses).
+
+```bash
+claude mcp add --transport http tete {{BASE_URL}}/mcp
+```
+
+| Tool | Arguments | Result |
+|------|-----------|--------|
+| `upload_text` | `text`, `filename?`, `password?`, `expiration_ms?` | Same object as `POST /api/text` |
+| `upload_base64` | `filename`, `content_base64`, `mime_type?`, `password?`, `expiration_ms?` | Same object as `POST /api` |
+| `file_info` | `id` | Same object as `GET /api/file/:id` |
+| `read_text` | `id`, `password?` | `{ "text": "..." }` for text files up to 1 MB |
+| `delete_file` | `id`, `token` | `{ "success": true }` |
+
+Tool failures are returned as `isError: true` results with the same messages as the REST errors. `GET /mcp` returns `405`.
 
 ## Documentation endpoints
 

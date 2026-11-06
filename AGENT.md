@@ -6,7 +6,7 @@ Full endpoint reference: `{{BASE_URL}}/api.md`.
 ## What it is
 
 TETE is a temporary file-sharing service that runs entirely on **Cloudflare Workers**: one Worker serves the web
-UI (static assets) and the API; files live in **R2**, metadata in **D1**; a cron trigger deletes expired files.
+UI (static assets), the REST API and an MCP server; metadata lives in **D1**, file content in a private **Supabase Storage** bucket (only the Worker talks to it); a cron trigger deletes expired files. Everything is reachable under one hostname; Supabase is never exposed.
 
 ## Quick recipes
 
@@ -29,6 +29,11 @@ curl -X DELETE "{{BASE_URL}}/file/a1b2c3?token=<deleteToken from the upload resp
 
 Always keep `deleteToken` / `deleteUrl` from the upload response: it is shown once.
 
+## MCP
+
+`POST {{BASE_URL}}/mcp` (Streamable HTTP, JSON responses). Tools: `upload_text`, `upload_base64`, `file_info`, `read_text`, `delete_file`.
+They behave exactly like the REST endpoints; keep the `deleteToken` from the upload result.
+
 ## Rules an agent must know
 
 1. IDs are 6 hex characters. Unlocked files are readable by **anyone who knows the ID**.
@@ -44,8 +49,9 @@ Always keep `deleteToken` / `deleteUrl` from the upload response: it is shown on
 ```
 Browser / curl ──► Cloudflare Worker (worker/index.js)
                      ├─ static UI      ◄── ASSETS binding  (client/)
-                     ├─ file bytes     ◄─► R2  binding BUCKET  (key = file id)
                      ├─ metadata+config◄─► D1  binding DB      (tables: files, config)
+                     ├─ file bytes     ◄─► Supabase Storage (bucket tete, key = file id)
+                     ├─ /mcp           ──► MCP tools over the same handlers
                      └─ cron */30 min ──► purge expired files
 ```
 
@@ -56,6 +62,8 @@ worker/index.js     entry point + routing + scheduled handler
 worker/files.js     upload, info, verify, download, delete, list, purge
 worker/admin.js     admin login/session, password change, runtime config
 worker/auth.js      owner cookie, signed admin session
+worker/storage.js   Supabase Storage client (put/get/delete)
+worker/mcp.js       MCP server (JSON-RPC over POST /mcp)
 worker/crypto.js    AES-256-GCM, PBKDF2, HMAC, hashing (WebCrypto)
 worker/config.js    defaults from wrangler vars + overrides stored in D1
 worker/http.js      JSON/CORS/cookie helpers
@@ -74,10 +82,11 @@ cp .dev.vars.example .dev.vars        # local secrets
 npm run migrate:local && npm run dev   # http://localhost:8787
 npm run test:smoke                     # in another terminal
 
-npx wrangler r2 bucket create tete-files
+# Supabase: run supabase-storage.sql once, set SUPABASE_URL in wrangler.toml
 npx wrangler d1 create tete            # put database_id in wrangler.toml
 npx wrangler secret put SESSION_SECRET
 npx wrangler secret put ADMIN_PASSWORD
+npx wrangler secret put SUPABASE_SERVICE_KEY
 npm run migrate:remote && npm run deploy
 BASE_URL=https://<your-host> ADMIN_PASSWORD=... npm run test:smoke
 ```

@@ -27,7 +27,8 @@ forever. Developers also want a `curl`-friendly endpoint they control.
 | F-06 | Personal file list; admin sees all files | Should |
 | F-07 | Admin config: size limit, files per upload, extension whitelist, password change | Should |
 | F-08 | Built-in docs viewer, `/README.md`, `/api.md`, `/AGENT.md` | Should |
-| F-09 | Direct-to-R2 large uploads | Could |
+| F-09 | Direct-to-storage large uploads | Could |
+| F-11 | MCP server (`/mcp`) so AI agents can upload, read, inspect and delete | Should |
 | F-10 | Rate limiting of password attempts | Could |
 
 ## User stories

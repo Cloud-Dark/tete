@@ -1,13 +1,15 @@
 # TETE - Transient Endpoint for Transfer & Encryption
 
-> Temporary file sharing with optional password encryption. Runs entirely on **Cloudflare Workers** (R2 + D1).
+> Temporary file sharing with optional password encryption. The app runs on **Cloudflare Workers** (UI, API, MCP, D1 metadata); file content is kept in a private **Supabase Storage** bucket. Users only ever see `tete.apipedia.id`.
 
 <img width="1763" height="1674" alt="image" src="https://github.com/user-attachments/assets/20085d0c-f2b8-4351-b5d7-f3b75ac2d266" />
 
 | Service | URL |
 |---------|-----|
 | Web UI | `https://tete.apipedia.id` |
-| API | `https://tetein.apipedia.id` (same Worker, same API) |
+| Share links | `https://tete.apipedia.id/file/a1b2c3` |
+| API | `https://tete.apipedia.id/api` (also `https://tetein.apipedia.id`, same Worker) |
+| MCP | `https://tete.apipedia.id/mcp` |
 
 ---
 
@@ -18,13 +20,13 @@ One Worker does everything. There is no server to run.
 ```
 Browser / curl ──► Cloudflare Worker (worker/index.js)
                      ├─ web UI         ◄── static assets  (client/)
-                     ├─ file content   ◄─► R2  bucket   (key = file id)
                      ├─ metadata       ◄─► D1  database (files, config)
+                     ├─ file content   ◄─► Supabase Storage (private bucket, server-side only)
                      └─ cron every 30 min ──► delete expired files
 ```
 
 1. **Upload** a file or text (UI or `curl`). You get a 6-character ID, a link, and a one-time **delete token**.
-2. With a **password**, the content is encrypted with AES-256-GCM before it reaches R2. The real filename and MIME
+2. With a **password**, the content is encrypted with AES-256-GCM before it leaves the Worker. The real filename and MIME
    type are encrypted too. The password is never stored, so a lost password means a lost file.
 3. Files **expire** automatically (default 1 hour; `0` = never). Expired files return `404` immediately and are
    physically purged by a cron trigger.
@@ -36,25 +38,30 @@ Browser / curl ──► Cloudflare Worker (worker/index.js)
 - Optional password: AES-256-GCM content + filename encryption, key wrapped with PBKDF2-SHA256
 - Per-upload expiration, short URLs, REST API with CORS
 - Admin panel: view all files, upload limits, extension whitelist, password change
-- Zero servers: Workers + R2 + D1, free-tier friendly for small usage
+- MCP server at `/mcp` for AI agents (upload, read, inspect, delete)
+- No servers to run: Workers + D1 + Supabase Storage, free-tier friendly for small usage
 
 ## Deploy to Cloudflare
 
-Prerequisites: a Cloudflare account, Node.js 20+.
+Prerequisites: a Cloudflare account, a Supabase project, Node.js 20+.
 
 ```bash
 npm install
 npx wrangler login
 
-# 1. Storage
-npx wrangler r2 bucket create tete-files
+# 1. Supabase: create the private bucket (SQL editor, or `supabase db push`)
+#    -> run supabase-storage.sql from this repo once
+
+# 2. Cloudflare: database
 npx wrangler d1 create tete            # copy the printed database_id into wrangler.toml
 
-# 2. Secrets
-npx wrangler secret put SESSION_SECRET   # 32+ random characters
-npx wrangler secret put ADMIN_PASSWORD   # initial admin password
+# 3. Secrets
+npx wrangler secret put SESSION_SECRET          # 32+ random characters
+npx wrangler secret put ADMIN_PASSWORD          # initial admin password
+npx wrangler secret put SUPABASE_SERVICE_KEY    # Supabase Settings -> API -> service_role key
+# set SUPABASE_URL in wrangler.toml [vars]
 
-# 3. Schema + deploy
+# 4. Schema + deploy
 npm run migrate:remote
 npm run deploy
 ```
@@ -72,8 +79,9 @@ this same Worker), then deploy again. Full guide: [docs/18_INSTALLATION.md](docs
 npm install
 cp .dev.vars.example .dev.vars     # local SESSION_SECRET / ADMIN_PASSWORD
 npm run migrate:local
-npm run dev                         # http://localhost:8787 (local R2 + D1 emulation)
-npm run test:smoke                  # 40+ end-to-end checks
+npm run dev                         # http://localhost:8787 (local D1 emulation; point SUPABASE_URL at the fake in test/ or a real project)
+# terminal 1: node test/fake-supabase.mjs   (stand-in for Supabase Storage)
+npm run test:smoke                  # 50+ end-to-end checks, in another terminal
 ```
 
 `npm run test:smoke` also works against production: `BASE_URL=https://tete.apipedia.id ADMIN_PASSWORD=... npm run test:smoke`.
@@ -97,6 +105,10 @@ curl -X DELETE "https://tetein.apipedia.id/file/a1b2c3?token=<deleteToken>"     
 
 Complete reference: [api.md](api.md) (also served at `/api.md`). AI agents: [AGENT.md](AGENT.md).
 
+### MCP
+
+`POST https://tete.apipedia.id/mcp` speaks MCP (Streamable HTTP, stateless). Tools: `upload_text`, `upload_base64`, `file_info`, `read_text`, `delete_file`. Add it to a client as a remote HTTP server, e.g. `claude mcp add --transport http tete https://tete.apipedia.id/mcp`.
+
 ## Configuration
 
 Defaults live in `wrangler.toml` `[vars]`; the admin **Config** tab overrides the first four at runtime (stored in D1).
@@ -110,19 +122,21 @@ Defaults live in `wrangler.toml` `[vars]`; the admin **Config** tab overrides th
 | `PBKDF2_ITERATIONS` | `100000` | Key-derivation cost for locked files and the admin password |
 | `SESSION_SECRET` (secret) | – | Signs the admin cookie. Required for admin login |
 | `ADMIN_PASSWORD` (secret) | – | Initial admin password; replaced once changed in the UI |
+| `SUPABASE_URL` | – | Supabase project URL (not shown to users) |
+| `SUPABASE_SERVICE_KEY` (secret) | – | `service_role` key; only the Worker holds it |
 
 See [docs/16_CONFIG_REFERENCE.md](docs/16_CONFIG_REFERENCE.md).
 
 ## Limits and security notes
 
 - **Size:** a Worker has 128 MB of memory and buffers uploads, so the practical ceiling is about 50 MB per file
-  (default 25 MB). Larger files need direct-to-R2 uploads (not implemented).
+  (default 25 MB). Larger files need direct-to-storage uploads (not implemented).
 - **Unlocked files are public to anyone who knows the 6-hex ID.** Use a password for anything sensitive.
 - **No rate limiting yet** on password attempts; PBKDF2 slows guessing but add a Cloudflare WAF rate-limit rule for
   public deployments.
 - **Admin sessions are stateless** (signed cookie, 24 h). Logout clears the cookie; rotating `SESSION_SECRET`
   invalidates every session.
-- Locked-file encryption protects data at rest in R2 and D1. The Worker briefly handles plaintext and the password
+- Locked-file encryption protects data at rest in Supabase Storage and D1. The Worker briefly handles plaintext and the password
   while uploading and downloading, as with any server-side encryption.
 
 Full list: [docs/10_RISK_REGISTER.md](docs/10_RISK_REGISTER.md).

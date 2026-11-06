@@ -63,7 +63,7 @@ async function aesDecrypt(key, iv, ct) {
 }
 
 // Encrypts content + metadata ({name, mime}) under a fresh data key, and wraps that key with the password.
-// Returns the ciphertext (stored in R2) and the descriptor (stored in D1, safe to persist).
+// Returns the ciphertext (stored in Supabase Storage) and the descriptor (stored in D1, safe to persist).
 export async function encryptWithPassword(plain, meta, password, iterations) {
   const dataKey = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']);
   const content = await aesEncrypt(dataKey, plain);

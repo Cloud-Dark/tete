@@ -10,17 +10,21 @@ Format: [Keep a Changelog](https://keepachangelog.com/).
 
 ### Performance
 
+- Purge: `*/30` cron deletes Storage objects before D1 rows.
 - D1: reduced to two indexes (`user_id, uploaded_at DESC` and a partial index on `expires_at`); no `SELECT *`; config cached per isolate; list limit 200.
 - CPU: owner cookie only on uploads, docs rendered once per isolate, purge cron every 30 minutes (was 5), 10 % log sampling.
 
 ### Added
 
-- Cloudflare Workers runtime: Worker (`worker/`), Static Assets for `client/`, R2 bucket, D1 database, cron purge, `wrangler.toml`.
+- Cloudflare Workers runtime: Worker (`worker/`), Static Assets for `client/`, D1 database, cron purge, `wrangler.toml`.
+- File content in a private Supabase Storage bucket, accessed only by the Worker (`worker/storage.js`, `supabase-storage.sql`). Supabase never appears in a public URL.
+- MCP server at `POST /mcp` with tools `upload_text`, `upload_base64`, `file_info`, `read_text`, `delete_file` (`worker/mcp.js`).
+- `test/fake-supabase.mjs`: local stand-in for Supabase Storage used by the smoke test.
 - D1 migration `0001_init.sql` (`files`, `config`).
 - One-time delete token returned on upload (`deleteToken`, `deleteUrl?token=`); `X-Delete-Token` header.
 - `GET /api/file/:id` JSON endpoint; `X-Password` header for locked downloads.
 - Per-owner anonymous cookie (`tete_uid`) and signed admin cookie (`tete_admin`).
-- `test/smoke.mjs` (41 checks), usable against local dev and deployed Workers.
+- `test/smoke.mjs` (53 checks), usable against local dev and deployed Workers.
 - Numbered documentation under `docs/` and a UAT record.
 
 ### Changed

@@ -13,8 +13,8 @@ with no servers to operate.
 
 1. Share a file or text snippet through a short link, with automatic expiry.
 2. Optional password protection backed by real encryption (content and filename).
-3. Run **entirely on Cloudflare Workers** (Worker + R2 + D1), including the web UI.
-4. One origin for UI and API; scriptable with `curl`.
+3. Run the application on **Cloudflare Workers** (UI, API, MCP, D1), with file content in a private Supabase Storage bucket.
+4. One public origin (`tete.apipedia.id`) for UI, API and MCP; Supabase is never exposed. Scriptable with `curl` and usable by AI agents.
 
 ## Scope
 
@@ -39,5 +39,5 @@ with no servers to operate.
 
 - `wrangler deploy` is the only deployment step after one-time resource creation ([18_INSTALLATION.md](18_INSTALLATION.md)).
 - `npm run test:smoke` passes locally and against the deployed Worker.
-- No Node.js server, local disk, or in-memory state is required at runtime.
+- No Node.js server, local disk, or in-memory state is required at runtime; no Supabase hostname ever appears in a user-facing URL.
 - Documentation matches the behaviour of the code ([31_CHANGELOG.md](31_CHANGELOG.md)).

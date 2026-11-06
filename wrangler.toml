@@ -14,18 +14,13 @@ fallthrough = true
 [assets]
 directory = "./client"
 binding = "ASSETS"
-run_worker_first = ["/api", "/api/*", "/file/*", "/README.md", "/AGENT.md", "/api.md"]
+run_worker_first = ["/api", "/api/*", "/file/*", "/mcp", "/README.md", "/AGENT.md", "/api.md"]
 
 # Both hostnames serve the same Worker (UI + API). Uncomment after the zone exists in your account.
 # routes = [
 #   { pattern = "tete.apipedia.id", custom_domain = true },
 #   { pattern = "tetein.apipedia.id", custom_domain = true },
 # ]
-
-# File content. Create with: wrangler r2 bucket create tete-files
-[[r2_buckets]]
-binding = "BUCKET"
-bucket_name = "tete-files"
 
 # File metadata + runtime config. Create with: wrangler d1 create tete
 # then paste the printed database_id below.
@@ -46,10 +41,14 @@ MAX_FILE_SIZE_BYTES = "26214400"
 MAX_FILES_PER_UPLOAD = "10"
 FILE_WHITELIST = ""
 PBKDF2_ITERATIONS = "100000"
+# File content lives in a private Supabase Storage bucket named "tete" (see docs/18_INSTALLATION.md).
+# Project URL only; the service key is a secret. Never exposed to browsers.
+SUPABASE_URL = "https://kheniasmdqflwawtopip.supabase.co"
 
 # Secrets (never in this file):
 #   wrangler secret put SESSION_SECRET   # >= 32 random chars, signs cookies
 #   wrangler secret put ADMIN_PASSWORD   # initial admin password (replaced once changed in the UI)
+#   wrangler secret put SUPABASE_SERVICE_KEY   # service_role key of the Supabase project
 # For local dev copy .dev.vars.example to .dev.vars.
 
 [observability]
