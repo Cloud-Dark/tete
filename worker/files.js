@@ -1,6 +1,6 @@
 // File endpoints: upload (multipart / text), info, verify, download, delete, list.
 
-import { TOTAL_REQUEST_CAP, getConfig, pbkdf2Iterations, storageQuota } from './config.js';
+import { HARD_MAX_FILE_BYTES, PUBLIC_MAX_EXPIRATION_MS, TOTAL_REQUEST_CAP, getConfig, pbkdf2Iterations, storageQuota } from './config.js';
 import {
   decryptContent, decryptMeta, encryptWithPassword, randomHex, safeEqual, sha256Hex, unwrapDataKey,
 } from './crypto.js';
@@ -42,7 +42,7 @@ export async function usage(env) {
   const quotaBytes = storageQuota(env);
   return json({
     storage: { usedBytes, quotaBytes, remainingBytes: Math.max(quotaBytes - usedBytes, 0), files },
-    limits: { maxFileSize: cfg.maxFileSize, maxFilesPerUpload: cfg.maxFilesPerUpload, defaultExpiration: cfg.defaultExpiration },
+    limits: { maxFileSize: cfg.maxFileSize, maxFilesPerUpload: cfg.maxFilesPerUpload, defaultExpiration: cfg.defaultExpiration, publicMaxExpiration: PUBLIC_MAX_EXPIRATION_MS },
   });
 }
 
@@ -62,14 +62,22 @@ async function getRow(env, id, cols = PUBLIC_COLS) {
 }
 
 // expiration: undefined/''/null -> default, 0 -> never, N -> N milliseconds.
-function resolveExpiresAt(raw, cfg) {
+// Public callers cannot keep a file forever and get at most 7 days; admins have no lifetime limit.
+function resolveExpiresAt(raw, cfg, isAdmin) {
   let ms = cfg.defaultExpiration;
+  if (!isAdmin && (ms === 0 || ms > PUBLIC_MAX_EXPIRATION_MS)) ms = PUBLIC_MAX_EXPIRATION_MS;
   if (raw !== undefined && raw !== null && raw !== '') {
     ms = parseInt(raw, 10);
     if (!Number.isFinite(ms) || ms < 0) throw new HttpError(400, 'expiration must be a non-negative number of milliseconds');
+    if (!isAdmin) {
+      if (ms === 0) throw new HttpError(403, 'Only an admin can keep a file forever. Choose a lifetime of up to 7 days');
+      if (ms > PUBLIC_MAX_EXPIRATION_MS) throw new HttpError(400, 'The longest lifetime is 7 days');
+    }
   }
   return ms > 0 ? Date.now() + ms : null;
 }
+
+const mb = (bytes) => `${+(bytes / 1024 / 1024).toFixed(1)} MB`;
 
 function checkExtension(name, cfg) {
   if (cfg.fileWhitelist.length === 0) return;
@@ -170,17 +178,20 @@ export async function uploadFiles(request, env, ctx) {
   if (files.length === 0) throw new HttpError(400, 'No file provided');
   if (files.length > cfg.maxFilesPerUpload) throw new HttpError(400, `Too many files. Maximum is ${cfg.maxFilesPerUpload}`);
 
+  // Buffered (in-memory) path: everyone is capped at 25 MB. Admins can send bigger files without a password
+  // through POST /api/admin/upload, which streams them.
+  const limit = ctx.isAdmin ? HARD_MAX_FILE_BYTES : cfg.maxFileSize;
   for (const f of files) {
-    if (f.size > cfg.maxFileSize) {
-      throw new HttpError(413, `File "${f.name}" exceeds the ${Math.round(cfg.maxFileSize / 1024 / 1024)} MB limit`);
+    if (f.size > limit) {
+      throw new HttpError(413, `File "${f.name}" exceeds the ${mb(limit)} limit${ctx.isAdmin ? ' for this upload type. Without a password it can be any size' : ''}`);
     }
     checkExtension(f.name, cfg);
   }
 
-  await assertQuota(env, files.reduce((sum, f) => sum + f.size, 0));
+  if (!ctx.isAdmin) await assertQuota(env, files.reduce((sum, f) => sum + f.size, 0));
 
   const password = form.get('password') || null;
-  const expiresAt = resolveExpiresAt(form.get('expiration'), cfg);
+  const expiresAt = resolveExpiresAt(form.get('expiration'), cfg, ctx.isAdmin);
   const links = linksFor(request, env);
 
   const results = [];
@@ -206,12 +217,13 @@ export async function uploadText(request, env, ctx) {
   if (typeof text !== 'string' || !text) throw new HttpError(400, 'Text content is required');
 
   const data = new Blob([text], { type: 'text/plain' });
-  if (data.size > cfg.maxFileSize) {
-    throw new HttpError(413, `Text exceeds the ${Math.round(cfg.maxFileSize / 1024 / 1024)} MB limit`);
+  const textLimit = ctx.isAdmin ? HARD_MAX_FILE_BYTES : cfg.maxFileSize;
+  if (data.size > textLimit) {
+    throw new HttpError(413, `Text exceeds the ${mb(textLimit)} limit`);
   }
   const name = typeof filename === 'string' && filename.trim() ? filename.trim() : null;
   if (name) checkExtension(name, cfg);
-  await assertQuota(env, data.size);
+  if (!ctx.isAdmin) await assertQuota(env, data.size);
 
   const links = linksFor(request, env);
   const result = await storeFile(env, cfg, {
@@ -220,11 +232,67 @@ export async function uploadText(request, env, ctx) {
     data,
     size: data.size,
     password: typeof password === 'string' && password ? password : null,
-    expiresAt: resolveExpiresAt(expiration, cfg),
+    expiresAt: resolveExpiresAt(expiration, cfg, ctx.isAdmin),
     userId: ctx.userId,
     links,
   });
   return json(result);
+}
+
+// POST /api/admin/upload - admin only, any size. The raw request body is streamed to storage (never held in memory), so
+// only files WITHOUT a password are supported here. Headers: X-File-Name (URL-encoded), Content-Type, Content-Length,
+// optional X-Expiration (ms, 0 = never). The practical ceiling is the storage provider's per-object limit and the
+// platform's request size limit, not TETE.
+export async function uploadStream(request, env, ctx) {
+  if (!ctx.isAdmin) throw new HttpError(403, 'Admin access required');
+  const cfg = await getConfig(env);
+
+  const length = parseInt(request.headers.get('Content-Length') || '', 10);
+  if (!Number.isFinite(length) || length <= 0) throw new HttpError(411, 'Content-Length is required and must be greater than 0');
+  if (!request.body) throw new HttpError(400, 'No file provided');
+
+  let name = 'file';
+  try { name = decodeURIComponent(request.headers.get('X-File-Name') || 'file').replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 255) || 'file'; } catch { /* keep the default */ }
+  checkExtension(name, cfg);
+  const mime = (request.headers.get('Content-Type') || 'application/octet-stream').split(';')[0].trim() || 'application/octet-stream';
+  const expiresAt = resolveExpiresAt(request.headers.get('X-Expiration'), cfg, true);
+
+  const deleteToken = randomHex(16);
+  const uploadedAt = new Date().toISOString();
+  const row = {
+    original_name: name, mime_type: mime, size: length, uploaded_at: uploadedAt, expires_at: expiresAt,
+    user_id: ctx.userId, delete_token: await sha256Hex(deleteToken), locked: 0,
+  };
+
+  let id = null;
+  for (let attempt = 0; attempt < 8 && !id; attempt++) {
+    const candidate = randomHex(3);
+    try {
+      await env.DB.prepare(
+        `INSERT INTO files (id, original_name, mime_type, size, uploaded_at, expires_at, user_id, delete_token, locked, enc)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, NULL)`,
+      ).bind(candidate, row.original_name, row.mime_type, row.size, row.uploaded_at, row.expires_at, row.user_id, row.delete_token).run();
+      id = candidate;
+    } catch (err) {
+      if (!/UNIQUE|constraint/i.test(String(err.message))) throw err;
+    }
+  }
+  if (!id) throw new HttpError(503, 'Could not allocate a file id, please retry');
+
+  try {
+    await putObject(env, id, request.body, mime, length);
+  } catch (err) {
+    await env.DB.prepare('DELETE FROM files WHERE id = ?').bind(id).run();
+    throw err;
+  }
+
+  dropUsageCache();
+  const links = linksFor(request, env);
+  return json({
+    ...publicView({ id, ...row, locked: 0 }, links),
+    deleteUrl: `${links.api}/file/${id}?token=${deleteToken}`,
+    deleteToken,
+  });
 }
 
 // GET /api/file/:id (also GET /file/:id for non-browser clients)

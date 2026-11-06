@@ -128,34 +128,46 @@ res = await alice('/api', { method: 'POST', body: new FormData() });
 check('upload without file -> 400', res.status === 400);
 res = await alice('/file/zzzzzz/download');
 check('bad id -> 404', res.status === 404);
-const MB5 = 5 * 1024 * 1024;
-const exact = new FormData();
-exact.append('file', new Blob([new Uint8Array(MB5)]), 'exact-5mb.bin');
-res = await alice('/api', { method: 'POST', body: exact });
-const exactJson = res.status === 200 ? await res.json() : null;
-check('a file of exactly 5 MB is accepted', res.status === 200 && exactJson.size === MB5, String(res.status));
-if (exactJson) {
-  const back = await alice(`/file/${exactJson.id}/download`);
-  check('the 5 MB file downloads with the same size', back.status === 200 && (await back.arrayBuffer()).byteLength === MB5);
-  await alice(`/file/${exactJson.id}`, { method: 'DELETE' });
+const MB = 1024 * 1024;
+const mid = new FormData();
+mid.append('file', new Blob([new Uint8Array(10 * MB)]), 'ten-mb.bin');
+res = await alice('/api', { method: 'POST', body: mid });
+const midJson = res.status === 200 ? await res.json() : null;
+check('a public 10 MB file is accepted (limit is 25 MB)', res.status === 200 && midJson.size === 10 * MB, String(res.status));
+if (midJson) {
+  const back = await alice(`/file/${midJson.id}/download`);
+  check('the 10 MB file downloads with the same size', back.status === 200 && (await back.arrayBuffer()).byteLength === 10 * MB);
+  await alice(`/file/${midJson.id}`, { method: 'DELETE' });
 }
 const over = new FormData();
-over.append('file', new Blob([new Uint8Array(MB5 + 1)]), 'over-5mb.bin');
+over.append('file', new Blob([new Uint8Array(25 * MB + 1)]), 'over-25mb.bin');
 res = await alice('/api', { method: 'POST', body: over });
-check('5 MB + 1 byte -> 413 mentioning the 5 MB limit', res.status === 413 && /5 MB/.test((await res.json()).error), String(res.status));
+check('public 25 MB + 1 byte -> 413 mentioning the 25 MB limit', res.status === 413 && /25 MB/.test((await res.json()).error), String(res.status));
 const big = new FormData();
-big.append('file', new Blob([new Uint8Array(26 * 1024 * 1024)]), 'big.bin');
+big.append('file', new Blob([new Uint8Array(26 * MB)]), 'big.bin');
 res = await alice('/api', { method: 'POST', body: big });
-check('26 MB file -> 413', res.status === 413, String(res.status));
-const bigText = await postJson(alice, '/api/text', { text: 'x'.repeat(MB5 + 1) });
-check('text above 5 MB -> 413', bigText.status === 413, String(bigText.status));
+check('public 26 MB file -> 413', res.status === 413, String(res.status));
+const bigText = await postJson(alice, '/api/text', { text: 'x'.repeat(25 * MB + 1) });
+check('public text above 25 MB -> 413', bigText.status === 413, String(bigText.status));
+
+// --- public lifetime rules: never is admin-only, at most 7 days
+res = await postJson(alice, '/api/text', { text: 'forever?', expiration: 0 });
+check('public "never" (expiration 0) -> 403', res.status === 403 && /admin/i.test((await res.json()).error), String(res.status));
+res = await postJson(alice, '/api/text', { text: 'too long', expiration: 8 * 24 * 3600 * 1000 });
+check('public lifetime above 7 days -> 400', res.status === 400, String(res.status));
+res = await postJson(alice, '/api/text', { text: 'week', expiration: 7 * 24 * 3600 * 1000 });
+const weekJson = res.status === 200 ? await res.json() : null;
+check('public lifetime of exactly 7 days is accepted', res.status === 200 && weekJson.expiresAt > Date.now(), String(res.status));
+if (weekJson) await alice(`/file/${weekJson.id}?token=${weekJson.deleteToken}`, { method: 'DELETE' });
+res = await alice('/api/admin/upload', { method: 'POST', headers: { 'Content-Type': 'text/plain', 'X-File-Name': 'x.txt' }, body: 'x' });
+check('public caller cannot use the admin streaming upload -> 403', res.status === 403);
 
 // --- resources (usage endpoint)
 res = await alice('/api/usage');
 const u0 = await res.json();
-check('GET /api/usage: shape, 5 MB per-file limit, remaining = quota - used', res.status === 200 && u0.limits.maxFileSize === MB5 && u0.storage.remainingBytes === Math.max(u0.storage.quotaBytes - u0.storage.usedBytes, 0) && u0.storage.quotaBytes > 0, JSON.stringify(u0));
+check('GET /api/usage: shape, 25 MB public limit, remaining = quota - used', res.status === 200 && u0.limits.maxFileSize === 25 * MB && u0.storage.remainingBytes === Math.max(u0.storage.quotaBytes - u0.storage.usedBytes, 0) && u0.storage.quotaBytes > 0, JSON.stringify(u0));
 check('usage exposes aggregates only (no file names)', !JSON.stringify(u0).includes('.txt') && Object.keys(u0.storage).sort().join() === 'files,quotaBytes,remainingBytes,usedBytes');
-const usedFile = await postJson(alice, '/api/text', { text: 'x'.repeat(1000), expiration: 0 });
+const usedFile = await postJson(alice, '/api/text', { text: 'x'.repeat(1000) });
 const uj = await usedFile.json();
 await new Promise((r) => setTimeout(r, 200));
 const u1 = await (await alice('/api/usage')).json();
@@ -174,8 +186,35 @@ check('admin status true', (await res.json()).isAdmin === true);
 res = await alice('/api/config');
 const cfg = await res.json();
 check('admin can read config', res.status === 200 && cfg.maxFilesPerUpload >= 1, JSON.stringify(cfg));
-res = await postJson(alice, '/api/config', { maxFileSize: 6 });
-check('admin cannot raise the per-file limit above 5 MB', res.status === 400 && /between 1 and 5 MB/.test((await res.json()).error));
+res = await postJson(alice, '/api/config', { maxFileSize: 26 });
+check('admin cannot set the public per-file limit above 25 MB', res.status === 400 && /between 1 and 25 MB/.test((await res.json()).error));
+
+// --- admin: never, streaming upload without a size limit, dashboard data
+res = await postJson(alice, '/api/text', { text: 'kept by admin', filename: 'forever.txt', expiration: 0 });
+const forever = res.status === 200 ? await res.json() : null;
+check('admin can choose "never" (expiresAt null)', res.status === 200 && forever.expiresAt === null, String(res.status));
+if (forever) await alice(`/file/${forever.id}`, { method: 'DELETE' });
+
+const BIG = 30 * MB; // above the 25 MB public limit
+const payload = new Uint8Array(BIG).map((_, i) => (i * 7) % 251);
+res = await alice('/api/admin/upload', { method: 'POST', headers: { 'Content-Type': 'application/octet-stream', 'X-File-Name': encodeURIComponent('besar ünïcode.bin'), 'X-Expiration': '0' }, body: payload });
+const bigJson = res.status === 200 ? await res.json() : null;
+check('admin streams a 30 MB file (public limit 25 MB), kept forever', res.status === 200 && bigJson.size === BIG && bigJson.expiresAt === null && bigJson.originalName === 'besar ünïcode.bin', `${res.status} ${bigJson ? '' : await res.text().catch(() => '')}`);
+if (bigJson) {
+  const back = new Uint8Array(await (await alice(`/file/${bigJson.id}/download`)).arrayBuffer());
+  check('the 30 MB admin file downloads byte-identical', back.length === BIG && back[0] === payload[0] && back[BIG - 1] === payload[BIG - 1] && back[12345678] === payload[12345678]);
+  const stats0 = await (await alice('/api/admin/stats')).json();
+  check('admin stats count it: files, never expire, largest', stats0.files >= 1 && stats0.neverExpire >= 1 && stats0.largestBytes >= BIG && stats0.public + stats0.locked === stats0.files, JSON.stringify(stats0));
+  const storage0 = await (await alice('/api/admin/storage?fresh=1')).json();
+  check('admin storage: real bucket usage from the provider, remaining = quota - used', storage0.source === 'supabase' && storage0.usedBytes >= BIG && storage0.objects >= 1 && storage0.remainingBytes === Math.max(storage0.quotaBytes - storage0.usedBytes, 0), JSON.stringify(storage0));
+  await alice(`/file/${bigJson.id}`, { method: 'DELETE' });
+}
+res = await alice('/api/admin/upload', { method: 'POST', headers: { 'X-File-Name': 'x' }, body: '' });
+check('streaming upload without a body -> error', res.status >= 400);
+res = await alice('/api/admin/stats');
+check('admin stats endpoint is JSON', res.status === 200 && typeof (await res.json()).files === 'number');
+const pubStats = await fetch(`${BASE}/api/admin/stats`);
+check('admin stats / storage need admin -> 403', pubStats.status === 403 && (await fetch(`${BASE}/api/admin/storage`)).status === 403);
 res = await postJson(alice, '/api/config', { fileWhitelist: 'txt,png' });
 check('admin can update whitelist', (await res.json()).fileWhitelist.join() === 'txt,png');
 const cfgBefore = await (await alice('/api/config')).json();
@@ -231,8 +270,10 @@ const rd = await tool('read_text', { id: up.data.id, password: 'mcp-pw' });
 check('MCP read_text decrypts', !rd.isError && rd.data.text === 'via mcp', rd.text);
 const rdBad = await tool('read_text', { id: up.data.id, password: 'nope' });
 check('MCP read_text wrong password -> tool error', rdBad.isError === true && /Invalid password/.test(rdBad.text));
-const b64 = await tool('upload_base64', { filename: 'b.bin', content_base64: Buffer.from('binary!').toString('base64'), expiration_ms: 0 });
-check('MCP upload_base64 (never expires)', !b64.isError && b64.data.size === 7 && b64.data.expiresAt === null, b64.text);
+const neverPublic = await tool('upload_base64', { filename: 'n.bin', content_base64: Buffer.from('x').toString('base64'), expiration_ms: 0 });
+check('MCP public: "never" is refused like in the REST API', neverPublic.isError === true && /admin/i.test(neverPublic.text), neverPublic.text);
+const b64 = await tool('upload_base64', { filename: 'b.bin', content_base64: Buffer.from('binary!').toString('base64'), expiration_ms: 3600000 });
+check('MCP upload_base64 (1 hour)', !b64.isError && b64.data.size === 7 && typeof b64.data.expiresAt === 'number', b64.text);
 const fi = await tool('file_info', { id: b64.data.id });
 check('MCP file_info', !fi.isError && fi.data.originalName === 'b.bin');
 const dBad = await tool('delete_file', { id: b64.data.id, token: 'wrong' });
@@ -256,7 +297,7 @@ if (MCP_TOKEN) {
     return { isError: body.result.isError, text, data: body.result.isError ? null : JSON.parse(text) };
   };
   let r2 = await rpcAs(MCP_TOKEN, 'tools/list');
-  check('MCP static token on /mcp: admin tools are listed (9 tools)', r2.body.result.tools.length === 9 && r2.body.result.tools.some((t) => t.name === 'purge_expired'), String(r2.body.result?.tools?.length));
+  check('MCP static token on /mcp: admin tools are listed (10 tools)', r2.body.result.tools.length === 10 && r2.body.result.tools.some((t) => t.name === 'purge_expired'), String(r2.body.result?.tools?.length));
   r2 = await rpcAs('', 'tools/list');
   check('MCP /mcp/public: only the 5 public tools', r2.body.result.tools.length === 5);
   r2 = await rpcAs('definitely-wrong', 'tools/list');
@@ -272,6 +313,8 @@ if (MCP_TOKEN) {
   const changed = await callAs(MCP_TOKEN, 'update_config', { maxFilesPerUpload: 7 });
   check('MCP update_config applies', changed.data.maxFilesPerUpload === 7, changed.text);
   await callAs(MCP_TOKEN, 'update_config', { maxFilesPerUpload: cfg0.data.maxFilesPerUpload });
+  const su = await callAs(MCP_TOKEN, 'storage_usage');
+  check('MCP storage_usage returns the real bucket numbers', su.data?.source === 'supabase' && su.data.remainingBytes === Math.max(su.data.quotaBytes - su.data.usedBytes, 0), su.text);
   const purged = await callAs(MCP_TOKEN, 'purge_expired');
   check('MCP purge_expired returns a count', typeof purged.data.purged === 'number', purged.text);
   const del = await callAs(MCP_TOKEN, 'delete_file', { id: seed.data.id });
@@ -363,7 +406,7 @@ if (MCP_TOKEN) {
   check('OAuth: redirect_uri mismatch at the token endpoint -> invalid_grant', r.status === 400);
 
   let m = await mcpCall(tokens.access_token, 'tools/list');
-  check('OAuth: access token unlocks /mcp with all 9 tools', m.status === 200 && m.body.result.tools.length === 9, JSON.stringify(m.body).slice(0, 100));
+  check('OAuth: access token unlocks /mcp with all 10 tools', m.status === 200 && m.body.result.tools.length === 10, JSON.stringify(m.body).slice(0, 100));
   m = await mcpCall(tokens.access_token, 'tools/call', { name: 'get_config', arguments: {} });
   check('OAuth: admin tool works with an access token', m.status === 200 && m.body.result.isError === false);
   m = await mcpCall('not-a-valid-token', 'tools/list');

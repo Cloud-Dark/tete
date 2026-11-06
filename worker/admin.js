@@ -4,10 +4,11 @@ import {
   adminConfigured, adminSessionCookie, checkAdminPassword, clearAdminCookie,
 } from './auth.js';
 import {
-  HARD_MAX_FILE_BYTES, getConfig, parseWhitelist, pbkdf2Iterations, publicConfig, setConfigValue,
+  HARD_MAX_FILE_BYTES, getConfig, parseWhitelist, pbkdf2Iterations, publicConfig, setConfigValue, storageQuota,
 } from './config.js';
 import { hashPassword } from './crypto.js';
 import { revokeAll } from './oauth.js';
+import { bucketUsage } from './storage.js';
 import { HttpError, json, readJson } from './http.js';
 
 const MIN_PASSWORD_LENGTH = 8;
@@ -96,4 +97,53 @@ export async function revokeOauth(env, ctx) {
   requireAdmin(ctx);
   await revokeAll(env);
   return json({ success: true, message: 'All connected applications were signed out' });
+}
+
+// GET /api/admin/stats - one aggregate query over live files.
+export async function stats(env, ctx) {
+  requireAdmin(ctx);
+  const now = Date.now();
+  const row = await env.DB.prepare(
+    `SELECT COUNT(*) AS files,
+            COALESCE(SUM(size), 0) AS bytes,
+            COALESCE(SUM(locked), 0) AS locked,
+            COALESCE(SUM(CASE WHEN expires_at IS NULL THEN 1 ELSE 0 END), 0) AS never,
+            COALESCE(SUM(CASE WHEN expires_at IS NOT NULL AND expires_at < ? THEN 1 ELSE 0 END), 0) AS soon,
+            COALESCE(SUM(CASE WHEN uploaded_at > ? THEN 1 ELSE 0 END), 0) AS last24,
+            COALESCE(MAX(size), 0) AS largest
+     FROM files WHERE expires_at IS NULL OR expires_at > ?`,
+  ).bind(now + 3600000, new Date(now - 86400000).toISOString(), now).first();
+  return json({
+    files: Number(row.files),
+    bytes: Number(row.bytes),
+    locked: Number(row.locked),
+    public: Number(row.files) - Number(row.locked),
+    neverExpire: Number(row.never),
+    expiringWithinHour: Number(row.soon),
+    uploadedLast24h: Number(row.last24),
+    largestBytes: Number(row.largest),
+  });
+}
+
+// GET /api/admin/storage - what Supabase itself reports for the bucket, against the configured quota.
+// Cached for 20 s per instance because it lists the bucket page by page.
+let storageCache = null;
+export async function storageStatus(env, ctx, { fresh = false } = {}) {
+  requireAdmin(ctx);
+  if (!fresh && storageCache && storageCache.expires > Date.now()) return json(storageCache.value);
+  const usage = await bucketUsage(env);
+  const quotaBytes = storageQuota(env);
+  const value = {
+    source: 'supabase',
+    bucket: 'tete',
+    objects: usage.objects,
+    usedBytes: usage.bytes,
+    quotaBytes,
+    remainingBytes: Math.max(quotaBytes - usage.bytes, 0),
+    truncated: usage.truncated,
+    checkedAt: new Date().toISOString(),
+    note: 'Used bytes are summed from the objects in the TETE bucket. Other buckets in the same Supabase project, and the plan limit itself, are not included; set STORAGE_QUOTA_BYTES to the real allowance.',
+  };
+  storageCache = { value, expires: Date.now() + 20_000 };
+  return json(value);
 }

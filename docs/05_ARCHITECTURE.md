@@ -83,6 +83,20 @@ Behaviour worth knowing: uploads use `XMLHttpRequest` so the button shows real p
 the admin limits form refuses to submit until the current values are loaded; locked files are downloaded with `fetch` and an
 `X-Password` header so a wrong password produces a message instead of a saved error file.
 
+## Roles and the admin dashboard
+
+| | Public | Admin (cookie or OAuth) |
+|---|--------|-------------------------|
+| Largest file | 25 MB | no limit from TETE for files without a password (streamed via `POST /api/admin/upload`); 25 MB with a password |
+| Lifetime | up to 7 days | any, including Never |
+| Storage quota | counted | not counted |
+| Sees | own files | every file |
+
+`/admin` (`client/admin.html`, `client/js/admin.js`) is a separate page with its own sign-in card: overview KPIs from
+`GET /api/admin/stats`, a Supabase panel from `GET /api/admin/storage` (real bucket usage, remaining against the configured quota),
+the file table (client-side search, filter and sort over the newest 200, bulk delete), limits and security. The main page, when
+an admin is signed in, shows the Never chip and uploads files without a password through the streaming endpoint.
+
 ## OAuth for MCP
 
 ```mermaid

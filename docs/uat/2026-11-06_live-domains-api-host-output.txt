@@ -25,12 +25,16 @@ PASS  expired file -> 404
 PASS  text without content -> 400
 PASS  upload without file -> 400
 PASS  bad id -> 404
-PASS  a file of exactly 5 MB is accepted
-PASS  the 5 MB file downloads with the same size
-PASS  5 MB + 1 byte -> 413 mentioning the 5 MB limit
-PASS  26 MB file -> 413
-PASS  text above 5 MB -> 413
-PASS  GET /api/usage: shape, 5 MB per-file limit, remaining = quota - used
+PASS  a public 10 MB file is accepted (limit is 25 MB)
+PASS  the 10 MB file downloads with the same size
+PASS  public 25 MB + 1 byte -> 413 mentioning the 25 MB limit
+PASS  public 26 MB file -> 413
+PASS  public text above 25 MB -> 413
+PASS  public "never" (expiration 0) -> 403
+PASS  public lifetime above 7 days -> 400
+PASS  public lifetime of exactly 7 days is accepted
+PASS  public caller cannot use the admin streaming upload -> 403
+PASS  GET /api/usage: shape, 25 MB public limit, remaining = quota - used
 PASS  usage exposes aggregates only (no file names)
 PASS  usage grows after an upload (same instance sees it at once)
 PASS  config without admin -> 403
@@ -38,7 +42,15 @@ PASS  admin login wrong -> 401
 PASS  admin login ok -> 200 + cookie
 PASS  admin status true
 PASS  admin can read config
-PASS  admin cannot raise the per-file limit above 5 MB
+PASS  admin cannot set the public per-file limit above 25 MB
+PASS  admin can choose "never" (expiresAt null)
+PASS  admin streams a 30 MB file (public limit 25 MB), kept forever
+PASS  the 30 MB admin file downloads byte-identical
+PASS  admin stats count it: files, never expire, largest
+PASS  admin storage: real bucket usage from the provider, remaining = quota - used
+PASS  streaming upload without a body -> error
+PASS  admin stats endpoint is JSON
+PASS  admin stats / storage need admin -> 403
 PASS  admin can update whitelist
 PASS  rejected config update changes nothing (atomic)
 PASS  whitelist rejects .exe -> 400
@@ -50,19 +62,21 @@ PASS  MCP tools/list exposes 5 tools
 PASS  MCP public: upload_text (locked) returns share link on the frontend origin
 PASS  MCP read_text decrypts
 PASS  MCP read_text wrong password -> tool error
-PASS  MCP upload_base64 (never expires)
+PASS  MCP public: "never" is refused like in the REST API
+PASS  MCP upload_base64 (1 hour)
 PASS  MCP file_info
 PASS  MCP delete_file bad token -> tool error
 PASS  MCP delete_file with token
 PASS  GET /mcp/public -> 405
 PASS  MCP unknown method -> JSON-RPC error
-PASS  MCP static token on /mcp: admin tools are listed (9 tools)
+PASS  MCP static token on /mcp: admin tools are listed (10 tools)
 PASS  MCP /mcp/public: only the 5 public tools
 PASS  MCP /mcp with a wrong token -> 401 invalid_token
 PASS  MCP admin tool on /mcp/public -> tool error
 PASS  MCP list_files sees files of every owner
 PASS  MCP get_config
 PASS  MCP update_config applies
+PASS  MCP storage_usage returns the real bucket numbers
 PASS  MCP purge_expired returns a count
 PASS  MCP delete_file without per-file token (admin)
 PASS  deleted file is gone
@@ -85,7 +99,7 @@ PASS  OAuth: wrong PKCE verifier -> invalid_grant
 PASS  OAuth: code + verifier -> access and refresh tokens
 PASS  OAuth: authorization code cannot be used twice
 PASS  OAuth: redirect_uri mismatch at the token endpoint -> invalid_grant
-PASS  OAuth: access token unlocks /mcp with all 9 tools
+PASS  OAuth: access token unlocks /mcp with all 10 tools
 PASS  OAuth: admin tool works with an access token
 PASS  OAuth: garbage Bearer -> 401 invalid_token
 PASS  OAuth: refresh token -> new access token that works

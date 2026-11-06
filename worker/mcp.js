@@ -1,7 +1,7 @@
 // Minimal MCP server (Streamable HTTP transport, stateless JSON responses) at POST /mcp.
 // Tools reuse the exact same handlers as the REST API, so limits, encryption and expiry behave identically.
 
-import { getConfigHandler, updateConfig } from './admin.js';
+import { getConfigHandler, storageStatus, updateConfig } from './admin.js';
 import { safeEqual, sha256Hex } from './crypto.js';
 import { deleteFile, downloadFile, fileInfo, listFiles, purgeExpired, uploadFiles, uploadText } from './files.js';
 import { HttpError, json } from './http.js';
@@ -79,6 +79,11 @@ const ADMIN_TOOLS = [
         fileWhitelist: { type: 'string', description: 'Comma-separated extensions, empty = allow all.' },
       },
     },
+  },
+  {
+    name: 'storage_usage',
+    description: 'Real storage left: bytes used by the bucket as reported by Supabase, the quota, what remains, and the object count.',
+    inputSchema: { type: 'object', properties: {} },
   },
   {
     name: 'purge_expired',
@@ -162,6 +167,8 @@ async function callTool(name, args, env, baseCtx, origin, authed) {
       return (await unwrap(await getConfigHandler(env, ctx))).json();
     case 'update_config':
       return (await unwrap(await updateConfig(post('/api/config', args), env, ctx))).json();
+    case 'storage_usage':
+      return (await unwrap(await storageStatus(env, ctx, { fresh: true }))).json();
     case 'purge_expired':
       return { purged: await purgeExpired(env) };
     case 'delete_file':

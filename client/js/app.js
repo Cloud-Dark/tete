@@ -30,7 +30,9 @@
   const formatSize = (bytes) => {
     if (!bytes) return '0 B';
     const units = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+    let i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+    // 1023.97 MB should read 1 GB, not 1024 MB
+    if (i < units.length - 1 && +(bytes / 1024 ** i).toFixed(i ? 1 : 0) >= 1024) i++;
     return `${+(bytes / 1024 ** i).toFixed(i ? 1 : 0)} ${units[i]}`;
   };
 
@@ -151,7 +153,11 @@
       $('#limitFile').textContent = formatSize(limits.maxFileSize);
       $('#limitCount').textContent = String(limits.maxFilesPerUpload);
       $('#limitExpiry').textContent = formatLife(limits.defaultExpiration);
-      $('#dzHint').textContent = storage.remainingBytes <= 0 ? 'Storage is full right now' : `Up to ${formatSize(limits.maxFileSize)} per file`;
+      state.maxFileSize = limits.maxFileSize;
+      $('#limitFileNote').textContent = state.isAdmin ? 'public limit; admins have none' : 'largest allowed file';
+      $('#dzHint').textContent = state.isAdmin
+        ? 'No size limit for admins (without a password)'
+        : storage.remainingBytes <= 0 ? 'Storage is full right now' : `Up to ${formatSize(limits.maxFileSize)} per file`;
     } catch { /* the panel keeps its last values */ }
   }
 
@@ -251,17 +257,32 @@
     btn.disabled = true;
     out.innerHTML = '';
 
-    const setBusy = (pct) => { btn.innerHTML = `<span class="spinner"></span> Uploading${pct != null ? ` ${pct}%` : '…'}`; };
+    const setBusy = (pct) => { btn.innerHTML = `<span class="spinner"></span> Uploading${pct != null ? ` ${pct}${typeof pct === 'number' ? '%' : ''}` : '…'}`; };
     setBusy(0);
 
     try {
       let data;
       if (state.mode === 'file') {
-        const form = new FormData();
-        state.picked.forEach((f) => form.append('files', f));
-        if (password) form.append('password', password);
-        if (state.expiry !== '') form.append('expiration', state.expiry);
-        data = await sendWithProgress('/api/upload', form, null, setBusy);
+        if (!state.isAdmin && state.maxFileSize) {
+          const tooBig = state.picked.find((f) => f.size > state.maxFileSize);
+          if (tooBig) throw new Error(`"${tooBig.name}" is ${formatSize(tooBig.size)}. The limit is ${formatSize(state.maxFileSize)} per file.`);
+        }
+        if (state.isAdmin && !password) {
+          // Admin without a password: each file is streamed as the raw request body, so TETE sets no size limit.
+          data = [];
+          for (const [i, f] of state.picked.entries()) {
+            const headers = { 'Content-Type': f.type || 'application/octet-stream', 'X-File-Name': encodeURIComponent(f.name) };
+            if (state.expiry !== '') headers['X-Expiration'] = state.expiry;
+            const part = state.picked.length > 1 ? ` (${i + 1}/${state.picked.length})` : '';
+            data.push(await sendWithProgress('/api/admin/upload', f, headers, (pct) => setBusy(`${pct}%${part}`)));
+          }
+        } else {
+          const form = new FormData();
+          state.picked.forEach((f) => form.append('files', f));
+          if (password) form.append('password', password);
+          if (state.expiry !== '') form.append('expiration', state.expiry);
+          data = await sendWithProgress('/api/upload', form, null, setBusy);
+        }
       } else {
         const body = { text: $('#textContent').value, filename: $('#textName').value.trim() || undefined, password: password || undefined };
         if (state.expiry !== '') body.expiration = Number(state.expiry);
@@ -426,111 +447,24 @@
     $('#pwModalForm').addEventListener('submit', submitPassword);
   }
 
-  // ---------- admin ----------
+  // ---------- admin awareness ----------
+  // The dashboard lives at /admin. Here an admin session only changes what the upload form offers:
+  // the "Never" lifetime, uploads without a size limit, and the full file list.
   function applyAdmin(isAdmin) {
     state.isAdmin = isAdmin;
-    $('#admin').hidden = !isAdmin;
-    $('#navAdmin').hidden = !isAdmin;
+    $('#chipNever').hidden = !isAdmin;
+    if (!isAdmin && state.expiry === '0') {
+      state.expiry = '';
+      $$('#expiryChips .chip').forEach((c) => c.setAttribute('aria-checked', String(c.dataset.ms === '')));
+    }
     $('#filesTitle').textContent = isAdmin ? 'All files (admin)' : 'My files';
-    $('#adminBtn').textContent = isAdmin ? 'Admin ✓' : 'Admin';
-    $('#navLogin').hidden = isAdmin;
-    if (isAdmin) loadConfig();
+    $('#adminBtn').textContent = isAdmin ? 'Dashboard' : 'Admin';
     loadFiles();
+    loadUsage();
   }
 
   async function checkAdmin() {
     try { applyAdmin((await api('/api/admin/status')).isAdmin); } catch { applyAdmin(false); }
-  }
-
-  let configLoaded = false;
-
-  async function loadConfig() {
-    configLoaded = false;
-    try {
-      const cfg = await api('/api/config');
-      const select = $('#cfgExpiration');
-      if (![...select.options].some((o) => o.value === String(cfg.defaultExpiration))) {
-        select.add(new Option(`${Math.round(cfg.defaultExpiration / 60000)} minutes`, cfg.defaultExpiration));
-      }
-      select.value = String(cfg.defaultExpiration);
-      $('#cfgMaxSize').value = cfg.maxFileSizeMB;
-      $('#cfgMaxFiles').value = cfg.maxFilesPerUpload;
-      $('#cfgWhitelist').value = cfg.fileWhitelist.join(', ');
-      configLoaded = true;
-    } catch (err) { toast(err.message, 'error'); }
-  }
-
-  function initAdmin() {
-    const openAdmin = (e) => {
-      e?.preventDefault();
-      if (state.isAdmin) { $('#admin').scrollIntoView({ behavior: 'smooth' }); return; }
-      openModal('#adminModal');
-      $('#adminModalError').hidden = true;
-      $('#adminPasswordInput').value = '';
-      setTimeout(() => $('#adminPasswordInput').focus(), 30);
-    };
-    $('#adminBtn').addEventListener('click', openAdmin);
-    $('#navLogin').addEventListener('click', openAdmin);
-
-    $('#adminModalForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      try {
-        await api('/api/admin/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: $('#adminPasswordInput').value }) });
-        closeModals();
-        applyAdmin(true);
-        toast('Logged in');
-      } catch (err) {
-        $('#adminModalError').textContent = err.message;
-        $('#adminModalError').hidden = false;
-      }
-    });
-
-    $('#logoutBtn').addEventListener('click', async () => {
-      await api('/api/admin/logout', { method: 'POST' }).catch(() => {});
-      applyAdmin(false);
-      scrollTo({ top: 0 });
-      toast('Logged out');
-    });
-
-    $('#configForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      // Never submit before the current values are loaded: empty fields would be sent as 0 / the first option.
-      if (!configLoaded) { toast('Settings are still loading, try again in a moment', 'error'); return; }
-      const num = (sel) => ($(sel).value === '' ? undefined : Number($(sel).value));
-      try {
-        const cfg = await api('/api/config', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            defaultExpiration: num('#cfgExpiration'),
-            maxFileSize: num('#cfgMaxSize'),
-            maxFilesPerUpload: num('#cfgMaxFiles'),
-            fileWhitelist: $('#cfgWhitelist').value
-          })
-        });
-        loadUsage();
-        toast('Limits saved');
-      } catch (err) { toast(err.message, 'error'); }
-    });
-
-    $('#revokeBtn').addEventListener('click', async () => {
-      if (!confirm('Sign out every connected application? They will have to be approved again.')) return;
-      try {
-        await api('/api/admin/revoke-oauth', { method: 'POST' });
-        toast('All connected applications signed out');
-      } catch (err) { toast(err.message, 'error'); }
-    });
-
-    $('#passwordForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const json = (body) => ({ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-      try {
-        await api('/api/admin/verify-password', json({ password: $('#pwCurrent').value }));
-        await api('/api/admin/change-password', json({ newPassword: $('#pwNew').value }));
-        $('#passwordForm').reset();
-        toast('Password changed');
-      } catch (err) { toast(err.message, 'error'); }
-    });
   }
 
   // ---------- connect section ----------
@@ -571,7 +505,6 @@ curl -X DELETE "${API}/file/<id>?token=<token>"`;
     initUploadForm();
     initFileList();
     initModals();
-    initAdmin();
     initConnect();
     refreshUploadButton();
     loadFiles();

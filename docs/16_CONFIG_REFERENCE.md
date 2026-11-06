@@ -17,7 +17,7 @@ Only the first four settings can be changed at runtime; the rest require a redep
 | Name | Default | Runtime override | Description |
 |------|---------|------------------|-------------|
 | `DEFAULT_EXPIRATION_MS` | `3600000` | `defaultExpiration` | Expiry when an upload gives none. `0` = never |
-| `MAX_FILE_SIZE_BYTES` | `5242880` | `maxFileSize` | Per-file limit; capped at 5 MB (5242880) |
+| `MAX_FILE_SIZE_BYTES` | `26214400` | `maxFileSize` | Largest public file; capped at 25 MB (26214400). Admin uploads without a password ignore it |
 | `STORAGE_QUOTA_BYTES` | `1073741824` | – | Soft cap on total stored bytes (1 GiB). Set it to the real allowance of the storage plan |
 | `MAX_FILES_PER_UPLOAD` | `10` | `maxFilesPerUpload` | Files per request (request total capped at 60 MB) |
 | `FILE_WHITELIST` | empty | `fileWhitelist` | Comma-separated extensions without dots; empty allows all |
@@ -62,7 +62,8 @@ Only the first four settings can be changed at runtime; the rest require a redep
 
 | Limit | Value | Where |
 |-------|-------|-------|
-| Max file size | 5 MB | `HARD_MAX_FILE_BYTES` in `worker/config.js` |
+| Max public file / any file with a password | 25 MB | `HARD_MAX_FILE_BYTES` in `worker/config.js` |
+| Longest public lifetime | 7 days | `PUBLIC_MAX_EXPIRATION_MS` in `worker/config.js` |
 | Max request size | 60 MB | `TOTAL_REQUEST_CAP` in `worker/config.js` |
 | Admin session | 24 h | `ADMIN_SESSION_MS` in `worker/config.js` |
 | Min admin password | 8 chars | `worker/admin.js` |

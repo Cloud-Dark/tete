@@ -16,12 +16,16 @@ Format: [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- **Admin dashboard** at `/admin` (own sign-in card, sidebar: Overview, Files, Limits, Security): KPIs, **real Supabase Storage usage and what is left**, every file with search, filters, sorting and bulk delete, limits form, password, sign out of connected applications. The admin section was removed from the main page.
+- `POST /api/admin/upload`: admin-only streaming upload with no size limit from TETE (files without a password), any lifetime, not counted against the quota. The main page uses it automatically when an admin uploads without a password.
+- `GET /api/admin/stats`, `GET /api/admin/storage` (real bucket usage read from Supabase), and the MCP tool `storage_usage` (10 tools in total on `/mcp`).
 - Storage quota (`STORAGE_QUOTA_BYTES`, default 1 GiB) enforced at upload (`507 Storage is full`), `GET /api/usage`, and a *Resources* panel on the website (storage used and left with a progress bar that turns amber at 80% and red at 95%, files stored, per-file and per-upload limits, default lifetime).
 - OAuth 2.1 for MCP: protected resource and authorization server metadata, dynamic client registration, consent screen with admin password, authorization code + PKCE S256, refresh tokens, single-use codes (`oauth_codes`), revocation of all clients (`oauthEpoch`, Admin button, `POST /api/admin/revoke-oauth`).
 - `POST /mcp/public`: anonymous endpoint with the five public tools.
 
 ### Changed
 
+- **Limits by role:** public files are limited to **25 MB** (was 5 MB just before, 25 MB originally) and may live at most **7 days**; `expiration=0` ("never") is `403` for the public and the Never button is hidden unless an admin is signed in. Admins have no limits of their own (see Added).
 - **Breaking:** the per-file limit is now **5 MB** (was 25 MB, hard cap 50 MB). The hard cap is 5 MB, so the admin setting accepts 1 to 5 MB; the Supabase bucket enforces 5 MB as well.
 - **Breaking:** `POST /mcp` now requires OAuth (or the optional static `MCP_TOKEN`); the anonymous tools moved to `/mcp/public`. All nine tools are available on `/mcp` after sign-in. CORS allows the `Authorization` header and exposes `WWW-Authenticate`.
 - MCP admin tools behind `MCP_TOKEN`: `list_files`, `get_config`, `update_config`, `purge_expired`, token-less `delete_file`.

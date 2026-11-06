@@ -112,9 +112,16 @@ Architecture decision records. Newest decisions are appended; numbers are perman
 - **Context:** Before OAuth, any validly signed unexpired token was accepted as an admin session. With OAuth, anyone can obtain signed values (a registered client id), so this would have been privilege escalation. Covered by smoke checks that present an access token and a client id as an admin cookie.
 - **Consequence:** Existing admin sessions were invalidated once at deployment (admins log in again).
 
-## D-019 — 5 MB per file and a visible storage quota (2026-11-06)
+## D-019 — 5 MB per file and a visible storage quota (2026-11-06; the 5 MB part superseded by D-020)
 
 - **Decision:** `HARD_MAX_FILE_BYTES` is 5 MB and the default per-file limit is 5 MB; the Supabase bucket limit is 5 MB too. A soft storage quota (`STORAGE_QUOTA_BYTES`, default 1 GiB) is enforced at upload with `507`, and `GET /api/usage` plus a *Resources* panel on the website show used, left, files stored and the active limits.
 - **Context:** The owner asked for a 5 MB maximum and to show the remaining resources in the UI. "Resources" is taken as storage and the limits that apply to an upload; request counts of the hosting platforms are not exposed because the Worker cannot read them.
 - **Alternatives rejected:** Reading real usage from the Supabase Management API (needs another credential); a per-request 5 MB total (the request said "max 5 MB", read as per file; a multi-file upload can still add up to 50 MB).
 - **Consequence:** Anything larger than 5 MB is rejected with `413`. Files uploaded earlier are unaffected. The quota is TETE's own count, see R-18.
+
+## D-020 — Roles: public 25 MB and 7 days, admin unlimited; admin dashboard (2026-11-06)
+
+- **Decision:** Public uploads: at most 25 MB per file, at most 7 days, no "Never", counted against the quota. Admins: no size limit from TETE for files without a password (raw body streamed to storage by `POST /api/admin/upload`), any lifetime including Never, not counted against the quota. Files with a password stay at 25 MB for everyone because they are encrypted in memory. A dedicated `/admin` dashboard replaces the admin section of the main page and shows real Supabase bucket usage.
+- **Context:** The owner replaced the earlier 5 MB limit (D-019) with 25 MB for the public and "unlimited" for the admin, and asked for a proper dashboard that also shows what is left in Supabase Storage.
+- **Alternatives rejected:** Raising the buffered limit for admins (Worker memory is 128 MB, so 60 MB or more would crash); client-side chunking or presigned direct-to-Supabase uploads (more moving parts and would expose the Supabase hostname); reading project-wide usage from the Supabase Management API (needs another credential).
+- **Consequence:** "Unlimited" means TETE adds no limit. The practical ceiling is the storage provider's per-object limit on the plan and Cloudflare's request size limit (R-19). The bucket limit was raised to 50 MB, the Supabase Free ceiling (to verify).

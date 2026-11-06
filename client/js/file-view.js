@@ -28,7 +28,9 @@
   const formatSize = (bytes) => {
     if (!bytes) return '0 B';
     const units = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+    let i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+    // 1023.97 MB should read 1 GB, not 1024 MB
+    if (i < units.length - 1 && +(bytes / 1024 ** i).toFixed(i ? 1 : 0) >= 1024) i++;
     return `${+(bytes / 1024 ** i).toFixed(i ? 1 : 0)} ${units[i]}`;
   };
 

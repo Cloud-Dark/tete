@@ -118,6 +118,9 @@ async function route(request, env, ctx) {
   if (pathname === '/api/admin/status' && method === 'GET') return admin.status(ctx);
   if (pathname === '/api/admin/verify-password' && method === 'POST') return admin.verifyPassword(request, env, ctx);
   if (pathname === '/api/admin/change-password' && method === 'POST') return admin.changePassword(request, env, ctx);
+  if (pathname === '/api/admin/upload' && method === 'POST') return files.uploadStream(request, env, ctx);
+  if (pathname === '/api/admin/stats' && method === 'GET') return admin.stats(env, ctx);
+  if (pathname === '/api/admin/storage' && method === 'GET') return admin.storageStatus(env, ctx, { fresh: new URL(request.url).searchParams.has('fresh') });
   if (pathname === '/api/admin/revoke-oauth' && method === 'POST') return admin.revokeOauth(env, ctx);
   if (pathname === '/api/config' && method === 'GET') return admin.getConfigHandler(env, ctx);
   if (pathname === '/api/config' && method === 'POST') return admin.updateConfig(request, env, ctx);

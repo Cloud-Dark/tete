@@ -29,7 +29,7 @@
 - [x] D1 database `tete` created (id in `wrangler.toml`) and migrated remotely
 - [ ] Put the real `database_id` in `wrangler.toml`
 - [x] `SESSION_SECRET` and `ADMIN_PASSWORD` secrets set
-- [x] `SUPABASE_SERVICE_KEY` secret set; `SUPABASE_URL` confirmed (project `kheniasmdqflwawtopip`, bucket `tete` private, now 5 MB per object)
+- [x] `SUPABASE_SERVICE_KEY` secret set; `SUPABASE_URL` confirmed (project `kheniasmdqflwawtopip`, bucket `tete` private, now 50 MB per object)
 - [ ] Re-run the smoke test after every deploy (`BASE_URL=https://tetein.apipedia.id FRONTEND_URL=https://tete.apipedia.id npm run test:smoke`)
 - [x] MCP admin tools and `MCP_TOKEN` secret set
 - [x] OAuth 2.1 with consent screen for `/mcp` (D-017), `/mcp/public`, D1 migration `0002_oauth_codes`
@@ -46,7 +46,7 @@
 
 - [ ] WAF rate-limit rules for `/api/admin/login`, `/file/*/download`, `/file/*/verify` (R-04)
 - [ ] Evaluate longer file ids (R-03)
-- [x] 5 MB per-file cap, storage quota and Resources panel (D-019)
+- [x] Storage quota and Resources panel (D-019); roles, streaming admin upload and the admin dashboard (D-020)
 - [ ] Align `STORAGE_QUOTA_BYTES` with the real Supabase plan allowance (R-18)
 - [ ] Fix mojibake emoji in `client/js/app.js` (file was saved with a wrong encoding)
 - [ ] Automated tests in CI (`wrangler dev` + `npm run test:smoke`)

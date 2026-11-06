@@ -26,6 +26,14 @@ createServer(async (req, res) => {
     return send(401, { statusCode: '401', error: 'Unauthorized', message: 'invalid JWT' });
   }
 
+  // POST /storage/v1/object/list/tete  { prefix, limit, offset, sortBy }  ->  [{ name, id, metadata: { size } }]
+  if (req.method === 'POST' && url.pathname === '/storage/v1/object/list/tete') {
+    const { limit = 100, offset = 0 } = JSON.parse((await readBody(req)).toString() || '{}');
+    const rows = [...objects.entries()].sort(([a], [b]) => a.localeCompare(b)).slice(offset, offset + limit)
+      .map(([name, o]) => ({ name, id: `id-${name}`, metadata: { size: o.body.length, mimetype: o.type } }));
+    return send(200, rows);
+  }
+
   const m = url.pathname.match(/^\/storage\/v1\/object\/tete(?:\/([a-f0-9]+))?$/);
   if (!m) return send(404, { error: 'not_found' });
   const id = m[1];

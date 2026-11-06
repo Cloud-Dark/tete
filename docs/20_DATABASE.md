@@ -75,5 +75,5 @@ Key/value overrides written by the admin panel.
 
 ## Supabase Storage
 
-Private bucket `tete` (created by `supabase-storage.sql`, 5 MB per object). Object name = file id; body = file bytes
+Private bucket `tete` (created by `supabase-storage.sql`, 50 MB per object, the Supabase Free ceiling; TETE enforces 25 MB for public uploads itself). Object name = file id; body = file bytes
 (unlocked) or ciphertext (locked). The bucket has no policies: only the Worker, with the service-role key, can access it.

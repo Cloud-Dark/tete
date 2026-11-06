@@ -33,7 +33,10 @@
 | TR-009 | Delete requires the owner cookie, an admin session, or the delete token (stored as SHA-256). |
 | TR-010 | Admin sessions are HMAC-signed, expiring cookies (24 h, `HttpOnly`, `SameSite=Lax`, `Secure` on HTTPS). |
 | TR-011 | The admin password comes from the `ADMIN_PASSWORD` secret until changed in the UI, then lives in D1 as a salted PBKDF2 hash. There is no default password. |
-| TR-012 | Every file is at most 5 MB (hard cap `HARD_MAX_FILE_BYTES`; the admin setting can lower it, never raise it); a request is capped at 60 MB. The Supabase bucket enforces the same 5 MB as a second line of defence. |
+| TR-012 | Public uploads and every upload with a password are at most 25 MB (`HARD_MAX_FILE_BYTES`; the admin setting can lower it, never raise it) because they are processed in memory; a request is capped at 60 MB. |
+| TR-028 | Public lifetime is at most 7 days (`PUBLIC_MAX_EXPIRATION_MS`); `expiration=0` from a non-admin is `403`, and a default of 0 or more than 7 days is capped for non-admins. |
+| TR-029 | `POST /api/admin/upload` (admin only) streams the raw request body to storage with its `Content-Length`, never buffering the file, so TETE sets no size limit; unlocked files only; not counted against the quota. A provider refusal (object too large for the plan) becomes `413`. |
+| TR-030 | The admin dashboard reads real bucket usage from the storage provider (`/api/admin/storage`, pages through the object list, cached 20 s) and aggregates from D1 (`/api/admin/stats`, one query). |
 | TR-026 | `GET /api/usage` returns storage used, quota, remaining and file count (live, non-expired rows) plus the active limits, aggregates only. Counted with one query, cached 15 s per instance, invalidated by uploads, deletes and purges. |
 | TR-027 | An upload that would exceed `STORAGE_QUOTA_BYTES` is rejected with `507` before any data is stored. The quota is soft: concurrent uploads in different instances can overshoot slightly. |
 | TR-013 | Downloads send `Content-Disposition: attachment` (header-injection safe, UTF-8 names) and `X-Content-Type-Options: nosniff`. |

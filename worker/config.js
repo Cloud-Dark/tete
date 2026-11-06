@@ -1,6 +1,9 @@
 // Runtime configuration: wrangler [vars] provide defaults, the admin UI overrides them in D1.
 
-export const HARD_MAX_FILE_BYTES = 5 * 1024 * 1024; // product limit: no file above 5 MB, whatever an admin configures
+// Largest file that is processed in memory (public uploads, and any upload with a password). Admin uploads without a
+// password are streamed and have no limit of their own (see uploadStream).
+export const HARD_MAX_FILE_BYTES = 25 * 1024 * 1024;
+export const PUBLIC_MAX_EXPIRATION_MS = 7 * 24 * 60 * 60 * 1000; // public files live at most 7 days; only admins may keep files forever
 export const TOTAL_REQUEST_CAP = 60 * 1024 * 1024;
 export const ADMIN_SESSION_MS = 24 * 60 * 60 * 1000;
 
@@ -38,7 +41,7 @@ export async function getConfig(env) {
 async function loadConfig(env) {
   const cfg = {
     defaultExpiration: int(env.DEFAULT_EXPIRATION_MS, 3600000),
-    maxFileSize: int(env.MAX_FILE_SIZE_BYTES, 5 * 1024 * 1024),
+    maxFileSize: int(env.MAX_FILE_SIZE_BYTES, HARD_MAX_FILE_BYTES),
     maxFilesPerUpload: int(env.MAX_FILES_PER_UPLOAD, 10) || 10,
     fileWhitelist: parseWhitelist(env.FILE_WHITELIST),
   };
@@ -68,6 +71,7 @@ export function publicConfig(cfg) {
     defaultExpiration: cfg.defaultExpiration,
     maxFileSize: cfg.maxFileSize,
     maxFileSizeMB: Math.round(cfg.maxFileSize / 1024 / 1024),
+    publicMaxExpiration: PUBLIC_MAX_EXPIRATION_MS,
     maxFilesPerUpload: cfg.maxFilesPerUpload,
     fileWhitelist: cfg.fileWhitelist,
   };

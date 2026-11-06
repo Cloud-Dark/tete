@@ -36,7 +36,7 @@ Always keep `deleteToken` / `deleteUrl` from the upload response: it is shown on
   `/.well-known/oauth-authorization-server`, register at `/oauth/register`, send the user to `/oauth/authorize` (PKCE S256,
   consent screen with the admin password) and exchange the code at `/oauth/token`. Tools after sign-in: `upload_text`,
   `upload_base64`, `file_info`, `read_text`, `delete_file` (no per-file token needed), `list_files`, `get_config`,
-  `update_config`, `purge_expired`.
+  `update_config`, `storage_usage` (real Supabase usage), `purge_expired`.
 - `{{BASE_URL}}/mcp/public` needs nothing and offers the first five tools (delete needs the per-file `deleteToken`).
 - Scripts can send `Authorization: Bearer <MCP_TOKEN>` to `/mcp` instead of doing OAuth (only if the secret is set).
 
@@ -47,7 +47,7 @@ Always keep `deleteToken` / `deleteUrl` from the upload response: it is shown on
 3. Locked files: content **and** the real filename/MIME type are encrypted. The server never stores the password.
    A lost password means the file cannot be recovered.
 4. Deleting needs the owner cookie, an admin session, or the delete token. Plain `DELETE /file/:id` from a stranger is `403`.
-5. Limits: **5 MB per file** (hard cap), 10 files and 60 MB per request, 1 GiB storage in total. `GET {{BASE_URL}}/api/usage` shows what is left; `507` means storage is full.
+5. Public limits: **25 MB per file**, lifetime at most **7 days** (`expiration=0` is `403`), 10 files and 60 MB per request, 1 GiB storage in total. `GET {{BASE_URL}}/api/usage` shows what is left; `507` means storage is full. Signed-in admins (OAuth on `/mcp`) have no size, lifetime or quota limits for files without a password.
 6. Errors are `{ "error": "..." }`. Do not retry `4xx`; `503` is retryable.
 
 ## Architecture in one screen

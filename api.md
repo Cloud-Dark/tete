@@ -15,7 +15,9 @@ a private Supabase Storage bucket (never exposed to clients), metadata in D1, an
 | Links | `url` (share page) points at the frontend host `tete.apipedia.id`; `downloadUrl` and `deleteUrl` point at the API host `tetein.apipedia.id`. On other hosts (e.g. workers.dev) all links use that host |
 | Identity | An anonymous `tete_uid` cookie marks you as the owner of your uploads. curl users can ignore it and use the delete token |
 | Expiration | `expiration` is milliseconds. Omitted or empty = server default, `0` = never expires |
-| Limits | **5 MB per file** (hard cap; an admin can lower it, never raise it), 10 files per request, 60 MB per request, 1 GiB of storage in total (`507` when full) |
+| Limits (public) | **25 MB per file** (admins can lower it, never raise it), 10 files per request, 60 MB per request, 1 GiB of storage in total (`507` when full). Files with a password are limited to 25 MB for everyone |
+| Lifetime (public) | `expiration` of at most **7 days**. `0` (never) is refused with `403`; only an admin may keep a file forever. The default lifetime is capped at 7 days for public uploads |
+| Admin | No size limit for files without a password (`POST /api/admin/upload`), any lifetime, no quota |
 
 ## Upload
 
@@ -154,6 +156,31 @@ Anything else returns `403`.
 
 ## Admin
 
+### Dashboard
+
+`https://tete.apipedia.id/admin` is the admin dashboard (sign in with the admin password): overview, real Supabase Storage left,
+every file with search, filters, sorting and bulk delete, limits, password and connected applications.
+
+### Upload without a size limit
+
+`POST /api/admin/upload` (admin session): the raw request body is **streamed** to storage, so any size the storage provider and
+Cloudflare accept. No password support (use `POST /api` for files with a password, 25 MB). Headers: `Content-Length` (required),
+`Content-Type`, `X-File-Name` (URL-encoded), optional `X-Expiration` (ms, `0` = never). Returns the same object as `POST /api`.
+
+```bash
+curl -b cookies.txt -X POST --data-binary @big.iso \
+  -H "Content-Type: application/octet-stream" -H "X-File-Name: big.iso" -H "X-Expiration: 0" \
+  {{BASE_URL}}/api/admin/upload
+```
+
+### Statistics and real storage left
+
+| Method | Path | Result |
+|--------|------|--------|
+| GET | `/api/admin/stats` | `files`, `bytes`, `public`, `locked`, `neverExpire`, `expiringWithinHour`, `uploadedLast24h`, `largestBytes` (live files, one query) |
+| GET | `/api/admin/storage` | What **Supabase itself** reports for the bucket: `usedBytes`, `objects`, `quotaBytes`, `remainingBytes`, `checkedAt`. Cached 20 s, add `?fresh=1` to force a re-check. Counts the TETE bucket only, not other buckets of the project |
+
+
 Admin endpoints use a signed `tete_admin` cookie (24 h). Use `-c cookies.txt` / `-b cookies.txt` with curl.
 
 | Method | Path | Body | Notes |
@@ -167,7 +194,7 @@ Admin endpoints use a signed `tete_admin` cookie (24 h). Use `-c cookies.txt` / 
 | GET | `/api/config` | – | Admin only |
 | POST | `/api/config` | any of the fields below | Admin only. All fields are validated first; a rejected request changes nothing |
 
-Config fields: `defaultExpiration` (ms), `maxFileSize` (MB, or bytes when the value is above 1000; 1 to 5 MB),
+Config fields: `defaultExpiration` (ms), `maxFileSize` (public limit, MB, or bytes when the value is above 1000; 1 to 25 MB),
 `maxFilesPerUpload`, `fileWhitelist` (`"png,pdf"` or array; empty allows every extension).
 
 ```bash
@@ -181,7 +208,7 @@ Model Context Protocol, Streamable HTTP transport, stateless, JSON responses.
 
 | Endpoint | Access | Tools |
 |----------|--------|-------|
-| `POST /mcp` | OAuth 2.1 access token (or the static `MCP_TOKEN`) | all 9 |
+| `POST /mcp` | OAuth 2.1 access token (or the static `MCP_TOKEN`) | all 10 |
 | `POST /mcp/public` | none | the 5 public tools |
 
 ```bash
@@ -200,6 +227,7 @@ claude mcp add --transport http tete-public {{BASE_URL}}/mcp/public
 | `get_config` | – | Runtime limits. Sign-in only |
 | `update_config` | `defaultExpiration?`, `maxFileSize?` (MB), `maxFilesPerUpload?`, `fileWhitelist?` | New limits; a rejected request changes nothing. Sign-in only |
 | `purge_expired` | – | `{ "purged": <count> }`. Sign-in only |
+| `storage_usage` | – | Real bucket usage from Supabase: used, quota, remaining, objects. Sign-in only |
 
 Tool failures are `isError: true` results with the same messages as the REST errors. A tool that needs sign-in, called on
 `/mcp/public`, returns a tool error.
@@ -231,8 +259,8 @@ Tool failures are `isError: true` results with the same messages as the REST err
 | 200 | OK |
 | 400 | Bad input (missing file/text, bad JSON, extension not allowed, bad `expiration`) |
 | 401 | Missing/invalid file password or admin password |
-| 403 | Not owner / not admin / missing delete token |
+| 403 | Not owner / not admin / missing delete token / public `expiration=0` |
 | 404 | Unknown ID, expired file, unknown route |
-| 413 | File over 5 MB, text over 5 MB, or request over the size limit |
+| 413 | Public file or text over 25 MB, a file with a password over 25 MB, a request over the size limit, or a file the storage provider refuses |
 | 507 | Storage quota is full |
 | 503 | Admin not configured, or no free file ID (retry) |

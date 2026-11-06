@@ -35,6 +35,7 @@ Browser / curl ──► Cloudflare Worker (worker/index.js)
 
 ## Features
 
+- **Admin dashboard** at `/admin`: overview (files, uploads in the last 24 h, expiring soon, kept forever), **real Supabase Storage left**, every file with search, filters, sorting and bulk delete, limits, password and connected applications
 - **Resources panel:** storage used and left (with a warning colour above 80%), files stored, per-file and per-upload limits, default lifetime
 - One-page web UI (warm paper, serif headlines, light and dark): drag-and-drop or text upload, expiry chips, password toggle, upload progress, share link with copy button, your files with one-click actions, copy-paste snippets for cURL and MCP
 - Optional password: AES-256-GCM content + filename encryption, key wrapped with PBKDF2-SHA256
@@ -134,7 +135,7 @@ Defaults live in `wrangler.toml` `[vars]`; the admin **Config** tab overrides th
 | Variable | Default | Meaning |
 |----------|---------|---------|
 | `DEFAULT_EXPIRATION_MS` | `3600000` (1 h) | Expiration when none is given (`0` = never) |
-| `MAX_FILE_SIZE_BYTES` | `5242880` (5 MB) | Per-file limit. 5 MB is also the hard cap; an admin can lower it but never raise it |
+| `MAX_FILE_SIZE_BYTES` | `26214400` (25 MB) | Largest **public** file (also the cap for any upload with a password). Admins can lower it, never raise it above 25 MB. Admin uploads without a password have no limit |
 | `STORAGE_QUOTA_BYTES` | `1073741824` (1 GiB) | Soft cap on everything stored. Uploads fail with `507 Storage is full` beyond it |
 | `MAX_FILES_PER_UPLOAD` | `10` | Files per request |
 | `FILE_WHITELIST` | empty | Comma-separated extensions; empty allows all |
@@ -150,9 +151,14 @@ See [docs/16_CONFIG_REFERENCE.md](docs/16_CONFIG_REFERENCE.md).
 
 ## Limits and security notes
 
-- **Size:** every file is limited to **5 MB** (hard cap, not configurable above 5). The website's *Resources* panel and
-  `GET /api/usage` show how much storage is left and the active limits. The quota is counted by TETE from its own file list;
-  set `STORAGE_QUOTA_BYTES` to match the real allowance of your storage plan.
+- **Who can do what.** Public: up to **25 MB** per file, files live at most **7 days** (no "Never"), counted against the storage
+  quota. Admin: **no size limit from TETE** for files without a password (streamed, never held in memory), any lifetime
+  including **Never**, not counted against the quota. Files **with a password** are encrypted in memory and stay at 25 MB for
+  everyone. The real ceiling for admin uploads is the storage provider's per-object limit on your plan (50 MB on Supabase Free,
+  to verify) and Cloudflare's request size limit (100 MB on Free and Pro).
+- **Resources.** The website's *Resources* panel and `GET /api/usage` show storage used and left and the active limits. The
+  admin dashboard shows the **real bucket usage read from Supabase**. The quota is TETE's own setting
+  (`STORAGE_QUOTA_BYTES`); set it to the real allowance of your plan.
 - **Unlocked files are public to anyone who knows the 6-hex ID.** Use a password for anything sensitive.
 - **No rate limiting yet** on password attempts; PBKDF2 slows guessing but add a Cloudflare WAF rate-limit rule for
   public deployments.

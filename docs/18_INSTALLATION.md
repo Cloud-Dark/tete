@@ -18,7 +18,7 @@ npx wrangler login
 ```
 
 1. **Create the Supabase bucket.** In the Supabase SQL editor run [`supabase-storage.sql`](../supabase-storage.sql). It
-   creates the private bucket `tete` (5 MB per object). Then read the project URL and the `service_role` key from
+   creates the private bucket `tete` (50 MB per object, the Supabase Free ceiling). Then read the project URL and the `service_role` key from
    *Settings → API*.
 
 2. **Create the database and set secrets**
