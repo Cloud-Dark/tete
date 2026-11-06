@@ -32,6 +32,7 @@ PASS  admin login ok -> 200 + cookie
 PASS  admin status true
 PASS  admin can read config
 PASS  admin can update whitelist
+PASS  rejected config update changes nothing (atomic)
 PASS  whitelist rejects .exe -> 400
 PASS  admin list sees all users files
 PASS  admin logout clears session
@@ -47,6 +48,16 @@ PASS  MCP delete_file bad token -> tool error
 PASS  MCP delete_file with token
 PASS  GET /mcp -> 405
 PASS  MCP unknown method -> JSON-RPC error
+PASS  MCP token: admin tools are listed (9 tools)
+PASS  MCP without token: only the 5 public tools
+PASS  MCP wrong token -> 401
+PASS  MCP admin tool without token -> tool error
+PASS  MCP list_files sees files of every owner
+PASS  MCP get_config
+PASS  MCP update_config applies
+PASS  MCP purge_expired returns a count
+PASS  MCP delete_file without per-file token (admin)
+PASS  deleted file is gone
 PASS  /README.md served
 PASS  /api.md has BASE_URL substituted
 PASS  frontend / serves web UI

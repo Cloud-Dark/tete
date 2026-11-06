@@ -1,1056 +1,557 @@
-// TETE Client Application
-// UI and API are served by the same Worker, so every request is same-origin.
-const API_BASE = window.location.origin;
-let selectedFiles = [];
-let openDropdown = null;
-let pendingDownloadUrl = null;
-let pendingDownloadIsEncrypted = false;
-let isAdmin = false;
+// TETE web UI. UI and API are the same Worker, so every request is same-origin.
+(() => {
+  'use strict';
 
-// Theme toggle
-function initTheme() {
-  const saved = localStorage.getItem('tete-theme');
-  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  const theme = saved || (prefersDark ? 'dark' : 'light');
-  document.documentElement.setAttribute('data-theme', theme);
-}
+  const $ = (sel, root = document) => root.querySelector(sel);
+  const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 
-function toggleTheme() {
-  const current = document.documentElement.getAttribute('data-theme');
-  const next = current === 'dark' ? 'light' : 'dark';
-  document.documentElement.setAttribute('data-theme', next);
-  localStorage.setItem('tete-theme', next);
-}
+  // Integrators use the API host; on any other host (workers.dev, local) the page's own origin is the API.
+  const API_ORIGIN = location.hostname === 'tete.apipedia.id' ? 'https://tetein.apipedia.id' : location.origin;
 
-initTheme();
+  const state = { mode: 'file', picked: [], expiry: '', isAdmin: false, tokens: new Map(), files: new Map(), pendingDownload: null };
 
-// Custom Dropdown with Search
-function initCustomDropdowns() {
-  // First, clean up any existing dropdowns that might be duplicated
-  document.querySelectorAll('.custom-select-wrapper').forEach(wrapper => {
-    const select = wrapper.previousElementSibling;
-    if (select && select.tagName === 'SELECT') {
-      // Keep only the first wrapper for each select
-      const wrappers = select.parentElement.querySelectorAll('.custom-select-wrapper');
-      if (wrappers.length > 1) {
-        for (let i = 1; i < wrappers.length; i++) {
-          wrappers[i].remove();
-        }
-      }
+  // ---------- helpers ----------
+  const ICONS = {
+    copy: '<rect width="14" height="14" x="8" y="8" rx="0"/><path d="M4 16V4h12"/>',
+    open: '<path d="M14 4h6v6"/><path d="M20 4 10 14"/><path d="M18 14v5H5V6h5"/>',
+    download: '<path d="M12 4v12M12 16l-4-4M12 16l4-4"/><path d="M4 20h16"/>',
+    trash: '<path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/>',
+    lock: '<rect width="16" height="10" x="4" y="11"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+    check: '<path d="M4 12l5 5L20 6"/>',
+    x: '<path d="M5 5l14 14M19 5L5 19"/>',
+    file: '<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/>',
+    close: '<path d="M5 5l14 14M19 5L5 19"/>'
+  };
+  const icon = (name) => `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name]}</svg>`;
+
+  // File names are user-controlled: never put them into HTML unescaped.
+  const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  const formatSize = (bytes) => {
+    if (!bytes) return '0 B';
+    const units = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+    return `${(bytes / 1024 ** i).toFixed(i ? 1 : 0)} ${units[i]}`;
+  };
+
+  const formatExpiry = (expiresAt) => {
+    if (!expiresAt) return 'never expires';
+    const diff = expiresAt - Date.now();
+    if (diff <= 0) return 'expired';
+    const m = Math.round(diff / 60000);
+    if (m < 60) return `expires in ${Math.max(m, 1)} min`;
+    const h = Math.round(m / 60);
+    if (h < 48) return `expires in ${h} h`;
+    return `expires in ${Math.round(h / 24)} days`;
+  };
+
+  let toastTimer;
+  function toast(message, type = '') {
+    const el = $('#toast');
+    el.textContent = message;
+    el.className = `toast show ${type}`;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { el.className = 'toast'; }, 2800);
+  }
+
+  async function copyText(text, label = 'Copied') {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const ta = Object.assign(document.createElement('textarea'), { value: text });
+      ta.style.cssText = 'position:fixed;opacity:0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      ta.remove();
     }
-  });
+    toast(label);
+  }
 
-  document.querySelectorAll('select[data-dropdown="true"]').forEach(select => {
-    // Skip if already converted
-    if (select.parentElement.classList.contains('custom-select-wrapper')) return;
-    
-    // Also check if there's already a wrapper after this select
-    const existingWrapper = select.parentElement.querySelector('.custom-select-wrapper');
-    if (existingWrapper) return;
+  async function api(path, options = {}) {
+    const res = await fetch(path, { credentials: 'same-origin', ...options });
+    let data = null;
+    try { data = await res.json(); } catch { /* not JSON */ }
+    if (!res.ok) throw new Error((data && data.error) || `Request failed (${res.status})`);
+    return data;
+  }
 
-    // Create wrapper
-    const wrapper = document.createElement('div');
-    wrapper.className = 'custom-select-wrapper';
+  // ---------- theme, header, scroll ----------
+  function initChrome() {
+    $('#themeToggle').addEventListener('click', () => {
+      const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      try { localStorage.setItem('tete-theme', next); } catch { /* storage unavailable */ }
+    });
 
-    // Create selected display
-    const selected = document.createElement('div');
-    selected.className = 'custom-select-selected';
-    selected.innerHTML = `<span class="custom-select-text">${select.options[select.selectedIndex]?.text || 'Select...'}</span><span class="custom-select-arrow">▾</span>`;
+    const nav = $('#siteNav');
+    const menuBtn = $('#menuBtn');
+    menuBtn.addEventListener('click', () => {
+      const open = nav.classList.toggle('is-open');
+      menuBtn.setAttribute('aria-expanded', String(open));
+    });
+    nav.addEventListener('click', (e) => {
+      if (e.target.closest('a')) { nav.classList.remove('is-open'); menuBtn.setAttribute('aria-expanded', 'false'); }
+    });
 
-    // Create options list
-    const options = document.createElement('div');
-    options.className = 'custom-select-options';
+    const progress = $('#scrollProgress');
+    const toTop = $('#toTop');
+    const onScroll = () => {
+      const max = document.documentElement.scrollHeight - innerHeight;
+      progress.style.width = max > 0 ? `${(scrollY / max) * 100}%` : '0';
+      toTop.classList.toggle('is-visible', scrollY > 300);
+    };
+    addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+    toTop.addEventListener('click', () => scrollTo({ top: 0, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }));
 
-    // Create search input
-    const search = document.createElement('input');
-    search.className = 'custom-select-search';
-    search.type = 'text';
-    search.placeholder = 'Search...';
+    $('#year').textContent = new Date().getFullYear();
 
-    // Create options container
-    const optionsList = document.createElement('div');
-    optionsList.className = 'custom-select-options-list';
-
-    // Populate options
-    Array.from(select.options).forEach((opt, idx) => {
-      const item = document.createElement('div');
-      item.className = 'custom-select-option';
-      item.textContent = opt.text;
-      item.dataset.value = opt.value;
-      item.dataset.index = idx;
-      if (opt.selected) item.classList.add('selected');
-
-      item.addEventListener('click', () => {
-        select.selectedIndex = idx;
-        selected.querySelector('.custom-select-text').textContent = opt.text;
-        wrapper.classList.remove('show');
-        select.dispatchEvent(new Event('change'));
-
-        // Update all options selection state
-        Array.from(optionsList.children).forEach(child => {
-          child.classList.toggle('selected', child === item);
+    if ('IntersectionObserver' in window) {
+      const links = new Map($$('.site-nav a').map((a) => [a.getAttribute('href'), a]));
+      const spy = new IntersectionObserver((entries) => {
+        entries.forEach((en) => {
+          if (en.isIntersecting) {
+            links.forEach((a) => a.classList.remove('is-active'));
+            links.get(`#${en.target.id}`)?.classList.add('is-active');
+          }
         });
-      });
+      }, { rootMargin: '-45% 0px -50% 0px' });
+      $$('main section[id]').forEach((s) => spy.observe(s));
 
-      optionsList.appendChild(item);
-    });
-
-    // Toggle dropdown
-    selected.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const isShowing = wrapper.classList.contains('show');
-      closeAllCustomDropdowns();
-      if (!isShowing) wrapper.classList.add('show');
-    });
-
-    // Search functionality
-    search.addEventListener('input', (e) => {
-      e.stopPropagation();
-      const term = e.target.value.toLowerCase();
-      Array.from(optionsList.children).forEach(item => {
-        const text = item.textContent.toLowerCase();
-        item.style.display = text.includes(term) ? 'block' : 'none';
-      });
-    });
-
-    // Prevent search input from closing dropdown
-    search.addEventListener('click', (e) => {
-      e.stopPropagation();
-    });
-
-    // Focus search when dropdown opens
-    wrapper.addEventListener('click', (e) => {
-      if (wrapper.classList.contains('show')) {
-        search.focus();
-      }
-    });
-
-    // Assemble
-    options.appendChild(search);
-    options.appendChild(optionsList);
-    wrapper.appendChild(selected);
-    wrapper.appendChild(options);
-
-    // Replace select with custom dropdown
-    select.style.display = 'none';
-    select.parentElement.insertBefore(wrapper, select.nextSibling);
-  });
-}
-
-function closeAllCustomDropdowns() {
-  document.querySelectorAll('.custom-select-wrapper.show').forEach(wrapper => {
-    wrapper.classList.remove('show');
-  });
-}
-
-// Close dropdowns when clicking outside
-document.addEventListener('click', () => {
-  closeAllCustomDropdowns();
-});
-
-// Toast notification
-function showToast(message) {
-  const toast = document.getElementById('toast');
-  toast.textContent = message;
-  toast.classList.add('show');
-  setTimeout(() => toast.classList.remove('show'), 2000);
-}
-
-// Password modal functions
-function openPasswordModal(url, isEncrypted = false) {
-  pendingDownloadUrl = url;
-  pendingDownloadIsEncrypted = isEncrypted;
-  document.getElementById('modalPassword').value = '';
-  document.getElementById('passwordModal').classList.add('show');
-  document.getElementById('modalPassword').focus();
-}
-
-function closePasswordModal() {
-  pendingDownloadUrl = null;
-  pendingDownloadIsEncrypted = false;
-  document.getElementById('passwordModal').classList.remove('show');
-}
-
-function submitPassword() {
-  const password = document.getElementById('modalPassword').value;
-  if (!password) {
-    showToast('Please enter password');
-    return;
-  }
-  if (pendingDownloadUrl) {
-    const lockedUrl = `${pendingDownloadUrl}?password=${encodeURIComponent(password)}`;
-    if (pendingDownloadIsEncrypted) {
-      // For encrypted files, download via fetch to handle decryption
-      downloadEncryptedFile(lockedUrl);
-    } else {
-      window.open(lockedUrl, '_blank');
+      const reveal = new IntersectionObserver((entries) => {
+        entries.forEach((en) => { if (en.isIntersecting) { en.target.classList.add('is-in'); reveal.unobserve(en.target); } });
+      }, { threshold: 0.08 });
+      $$('.section .wrap > *').forEach((el) => { el.classList.add('reveal'); reveal.observe(el); });
     }
   }
-  closePasswordModal();
-}
 
-// Download encrypted file
-async function downloadEncryptedFile(url) {
-  try {
-    const response = await fetch(url);
-    if (!response.ok) {
-      const error = await response.json();
-      showToast(error.error || 'Download failed');
-      return;
-    }
-    
-    // Get filename from Content-Disposition header
-    const contentDisposition = response.headers.get('Content-Disposition');
-    let filename = 'downloaded_file';
-    if (contentDisposition) {
-      const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
-      const plainMatch = contentDisposition.match(/filename="([^"]+)"/);
-      if (utf8Match) {
-        filename = decodeURIComponent(utf8Match[1]);
-      } else if (plainMatch) {
-        filename = plainMatch[1];
+  // ---------- upload form ----------
+  function setMode(mode) {
+    state.mode = mode;
+    $('#tabFile').setAttribute('aria-selected', String(mode === 'file'));
+    $('#tabText').setAttribute('aria-selected', String(mode === 'text'));
+    $('#tabFile').classList.toggle('is-active', mode === 'file');
+    $('#tabText').classList.toggle('is-active', mode === 'text');
+    $('#paneFile').hidden = mode !== 'file';
+    $('#paneText').hidden = mode !== 'text';
+    refreshUploadButton();
+  }
+
+  function refreshUploadButton() {
+    const ready = state.mode === 'file' ? state.picked.length > 0 : $('#textContent').value.trim().length > 0;
+    $('#uploadBtn').disabled = !ready;
+    $('#uploadBtn').textContent = state.mode === 'file' && state.picked.length > 1 ? `Upload ${state.picked.length} files` : 'Upload';
+    $('#pwNotice').hidden = !$('#uploadPassword').value;
+  }
+
+  function renderPicked() {
+    $('#pickedFiles').innerHTML = state.picked.map((f, i) => `
+      <li><span class="icon-wrap">${icon('file')}</span><span class="name">${esc(f.name)}</span><span class="size">${formatSize(f.size)}</span>
+      <button type="button" class="icon-btn" data-remove="${i}" aria-label="Remove ${esc(f.name)}">${icon('close')}</button></li>`).join('');
+    refreshUploadButton();
+  }
+
+  function addFiles(list) {
+    state.picked.push(...list);
+    renderPicked();
+  }
+
+  function initUploadForm() {
+    const dz = $('#dropZone');
+    const input = $('#fileInput');
+    dz.addEventListener('click', () => input.click());
+    dz.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); } });
+    input.addEventListener('change', () => { addFiles([...input.files]); input.value = ''; });
+    ['dragenter', 'dragover'].forEach((ev) => dz.addEventListener(ev, (e) => { e.preventDefault(); dz.classList.add('is-over'); }));
+    ['dragleave', 'drop'].forEach((ev) => dz.addEventListener(ev, (e) => { e.preventDefault(); dz.classList.remove('is-over'); }));
+    dz.addEventListener('drop', (e) => addFiles([...e.dataTransfer.files]));
+    $('#pickedFiles').addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-remove]');
+      if (btn) { state.picked.splice(Number(btn.dataset.remove), 1); renderPicked(); }
+    });
+
+    $('#tabFile').addEventListener('click', () => setMode('file'));
+    $('#tabText').addEventListener('click', () => setMode('text'));
+    $('#textContent').addEventListener('input', refreshUploadButton);
+    $('#uploadPassword').addEventListener('input', refreshUploadButton);
+
+    $('#expiryChips').addEventListener('click', (e) => {
+      const chip = e.target.closest('.chip');
+      if (!chip) return;
+      $$('#expiryChips .chip').forEach((c) => c.setAttribute('aria-checked', String(c === chip)));
+      state.expiry = chip.dataset.ms;
+    });
+
+    $('#togglePw').addEventListener('click', () => {
+      const field = $('#uploadPassword');
+      const show = field.type === 'password';
+      field.type = show ? 'text' : 'password';
+      $('#togglePw').setAttribute('aria-pressed', String(show));
+      $('#togglePw').setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+    });
+
+    $('#uploadBtn').addEventListener('click', doUpload);
+
+    $('#uploadResult').addEventListener('click', onResultClick);
+  }
+
+  // XHR (not fetch) so the button can show real upload progress.
+  function sendWithProgress(path, body, headers, onProgress) {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', path);
+      Object.entries(headers || {}).forEach(([k, v]) => xhr.setRequestHeader(k, v));
+      xhr.upload.onprogress = (e) => { if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100)); };
+      xhr.onerror = () => reject(new Error('Network error'));
+      xhr.onload = () => {
+        let data = null;
+        try { data = JSON.parse(xhr.responseText); } catch { /* not JSON */ }
+        if (xhr.status >= 200 && xhr.status < 300) resolve(data);
+        else reject(new Error((data && data.error) || `Upload failed (${xhr.status})`));
+      };
+      xhr.send(body);
+    });
+  }
+
+  async function doUpload() {
+    const btn = $('#uploadBtn');
+    const out = $('#uploadResult');
+    const password = $('#uploadPassword').value;
+    const label = btn.textContent;
+    btn.disabled = true;
+    out.innerHTML = '';
+
+    const setBusy = (pct) => { btn.innerHTML = `<span class="spinner"></span> Uploading${pct != null ? ` ${pct}%` : '…'}`; };
+    setBusy(0);
+
+    try {
+      let data;
+      if (state.mode === 'file') {
+        const form = new FormData();
+        state.picked.forEach((f) => form.append('files', f));
+        if (password) form.append('password', password);
+        if (state.expiry !== '') form.append('expiration', state.expiry);
+        data = await sendWithProgress('/api/upload', form, null, setBusy);
+      } else {
+        const body = { text: $('#textContent').value, filename: $('#textName').value.trim() || undefined, password: password || undefined };
+        if (state.expiry !== '') body.expiration = Number(state.expiry);
+        data = await sendWithProgress('/api/text', JSON.stringify(body), { 'Content-Type': 'application/json' }, setBusy);
       }
+      const items = Array.isArray(data) ? data : [data];
+      items.forEach((f) => { state.tokens.set(f.id, f.deleteToken); state.files.set(f.id, f); });
+      out.innerHTML = items.map(resultCard).join('');
+      out.firstElementChild?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+
+      if (state.mode === 'file') { state.picked = []; renderPicked(); } else { $('#textContent').value = ''; $('#textName').value = ''; }
+      $('#uploadPassword').value = '';
+      loadFiles();
+    } catch (err) {
+      out.innerHTML = `<div class="result is-error" role="alert"><p class="result-title">${icon('x')} Upload failed</p><p style="margin:0">${esc(err.message)}</p></div>`;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = label;
+      refreshUploadButton();
     }
-    
-    // Download the blob
-    const blob = await response.blob();
-    const downloadUrl = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = downloadUrl;
-    a.download = filename;
+  }
+
+  function resultCard(f) {
+    return `
+      <article class="result" data-id="${esc(f.id)}">
+        <h3 class="result-title"><span class="ok">${icon('check')}</span>${esc(f.originalName)} ${f.locked ? `<span class="badge">${icon('lock')} Locked</span>` : ''}</h3>
+        <div class="copy-row">
+          <input class="input" readonly value="${esc(f.url)}" aria-label="Share link" onfocus="this.select()">
+          <button class="btn btn-primary" type="button" data-act="copy-link">${icon('copy')} Copy</button>
+        </div>
+        <p class="meta"><span>${formatSize(f.size)}</span><span>${esc(formatExpiry(f.expiresAt))}</span><span>${f.locked ? 'AES-256 encrypted' : 'public link'}</span></p>
+        ${f.deleteToken ? `<div class="token-box"><span>Delete token, shown once:</span><code>${esc(f.deleteToken)}</code><button class="btn btn-sm" type="button" data-act="copy-token">Copy</button></div>` : ''}
+        <div class="actions">
+          <a class="btn btn-sm" href="${esc(f.url)}" target="_blank" rel="noopener">${icon('open')} Open page</a>
+          <button class="btn btn-sm" type="button" data-act="download">${icon('download')} Download</button>
+          <button class="btn btn-sm btn-danger" type="button" data-act="delete">${icon('trash')} Delete now</button>
+        </div>
+      </article>`;
+  }
+
+  function onResultClick(e) {
+    const btn = e.target.closest('[data-act]');
+    const card = e.target.closest('[data-id]');
+    if (!btn || !card) return;
+    const id = card.dataset.id;
+    if (btn.dataset.act === 'copy-link') copyText(state.files.get(id).url, 'Link copied');
+    if (btn.dataset.act === 'copy-token') copyText(state.tokens.get(id), 'Token copied');
+    if (btn.dataset.act === 'download') downloadFile(id);
+    if (btn.dataset.act === 'delete') deleteFile(id, card);
+  }
+
+  // ---------- my files ----------
+  function fileRow(f) {
+    return `
+      <li class="file-row" data-id="${esc(f.id)}">
+        <div>
+          <div class="file-name">${esc(f.originalName)} ${f.locked ? `<span class="badge">${icon('lock')} Locked</span>` : '<span class="badge badge-open">Public</span>'}</div>
+          <div class="file-meta">${formatSize(f.size)} · ${new Date(f.uploadedAt).toLocaleString()} · ${esc(formatExpiry(f.expiresAt))}</div>
+        </div>
+        <div class="row-actions">
+          <button class="icon-btn" type="button" data-act="copy-link" aria-label="Copy link" title="Copy link">${icon('copy')}</button>
+          <a class="icon-btn" href="${esc(f.url)}" target="_blank" rel="noopener" aria-label="Open page" title="Open page">${icon('open')}</a>
+          <button class="icon-btn" type="button" data-act="download" aria-label="Download" title="Download">${icon('download')}</button>
+          <button class="icon-btn danger" type="button" data-act="delete" aria-label="Delete" title="Delete">${icon('trash')}</button>
+        </div>
+      </li>`;
+  }
+
+  async function loadFiles() {
+    const list = $('#fileList');
+    try {
+      const files = await api('/api/files');
+      files.forEach((f) => state.files.set(f.id, { ...state.files.get(f.id), ...f }));
+      list.innerHTML = files.length
+        ? files.map(fileRow).join('')
+        : '<li class="empty"><strong>Nothing here yet</strong>Files you upload from this browser show up here until they expire.</li>';
+    } catch (err) {
+      list.innerHTML = `<li class="empty"><strong>Could not load files</strong>${esc(err.message)}</li>`;
+    }
+  }
+
+  function initFileList() {
+    $('#fileList').addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-act]');
+      const row = e.target.closest('[data-id]');
+      if (!btn || !row) return;
+      const id = row.dataset.id;
+      if (btn.dataset.act === 'copy-link') copyText(state.files.get(id).url, 'Link copied');
+      if (btn.dataset.act === 'download') downloadFile(id);
+      if (btn.dataset.act === 'delete') deleteFile(id, row);
+    });
+    $('#refreshBtn').addEventListener('click', async () => { await loadFiles(); toast('Updated'); });
+    setInterval(() => { if (!document.hidden) loadFiles(); }, 30000);
+  }
+
+  async function deleteFile(id, el) {
+    if (!confirm('Delete this file now? This cannot be undone.')) return;
+    try {
+      const headers = state.tokens.has(id) ? { 'X-Delete-Token': state.tokens.get(id) } : {};
+      await api(`/file/${id}`, { method: 'DELETE', headers });
+      el.remove();
+      state.files.delete(id);
+      toast('File deleted');
+      loadFiles();
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  }
+
+  // ---------- download (with password modal for locked files) ----------
+  function triggerSave(url, name) {
+    const a = Object.assign(document.createElement('a'), { href: url, download: name || '' });
     document.body.appendChild(a);
     a.click();
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(downloadUrl);
-    showToast('File downloaded successfully');
-  } catch (error) {
-    showToast('Download error: ' + error.message);
-  }
-}
-
-// Admin authentication functions
-function toggleAdminAuth() {
-  if (isAdmin) {
-    logoutAdmin();
-  } else {
-    document.getElementById('adminPassword').value = '';
-    document.getElementById('adminModal').classList.add('show');
-    document.getElementById('adminPassword').focus();
-  }
-}
-
-function closeAdminModal() {
-  document.getElementById('adminModal').classList.remove('show');
-}
-
-async function submitAdminLogin() {
-  const password = document.getElementById('adminPassword').value;
-  if (!password) {
-    showToast('Please enter password');
-    return;
+    a.remove();
   }
 
-  try {
-    const response = await fetch(`${API_BASE}/api/admin/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ password })
-    });
-
-    if (response.ok) {
-      isAdmin = true;
-      showToast('Login successful');
-      closeAdminModal();
-      updateAdminStatus();
-      loadFiles();
-    } else {
-      const result = await response.json();
-      showToast(result.error || 'Login failed');
-    }
-  } catch (error) {
-    showToast('Login error: ' + error.message);
-  }
-}
-
-async function logoutAdmin() {
-  try {
-    await fetch(`${API_BASE}/api/admin/logout`, {
-      method: 'POST',
-      credentials: 'include'
-    });
-    isAdmin = false;
-    showToast('Logged out');
-    updateAdminStatus();
-    loadFiles();
-  } catch (error) {
-    showToast('Logout error: ' + error.message);
-  }
-}
-
-async function saveUploadConfig() {
-  if (!isAdmin) {
-    showToast('Admin access required');
-    return;
+  function downloadFile(id) {
+    const f = state.files.get(id);
+    if (!f) return;
+    if (f.locked) { openModal('#pwModal'); state.pendingDownload = id; $('#pwModalInput').value = ''; $('#pwModalError').hidden = true; setTimeout(() => $('#pwModalInput').focus(), 30); return; }
+    triggerSave(`/file/${id}/download`, f.originalName);
   }
 
-  const btn = document.getElementById('saveUploadConfigBtn');
-  const maxFileSize = document.getElementById('maxFileSize').value;
-  const maxFilesPerUpload = document.getElementById('maxFilesPerUpload').value;
-  const fileWhitelist = document.getElementById('fileWhitelist').value;
-
-  btn.disabled = true;
-  btn.innerHTML = '<span class="loading"></span> Saving...';
-
-  try {
-    const response = await fetch(`${API_BASE}/api/config`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      credentials: 'include',
-      body: JSON.stringify({
-        maxFileSize: maxFileSize ? parseInt(maxFileSize) : 100,
-        maxFilesPerUpload: maxFilesPerUpload ? parseInt(maxFilesPerUpload) : 100,
-        fileWhitelist: fileWhitelist.trim()
-      })
-    });
-
-    const result = await response.json();
-
-    if (response.ok) {
-      showToast('Upload limits saved');
-    } else {
-      showToast(result.error || 'Failed to save upload limits');
-    }
-  } catch (error) {
-    showToast('Save error: ' + error.message);
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = 'Save Upload Limits';
-  }
-}
-
-function updateAdminStatus() {
-  const adminStatus = document.getElementById('adminStatus');
-  const adminBtn = document.getElementById('adminBtn');
-  const configTabBtn = document.getElementById('configTabBtn');
-
-  if (isAdmin) {
-    adminStatus.innerHTML = '<span class="admin-badge">Admin</span>';
-    adminBtn.textContent = 'Logout';
-    configTabBtn.style.display = 'block';
-  } else {
-    adminStatus.textContent = '';
-    adminBtn.textContent = 'Admin Login';
-    configTabBtn.style.display = 'none';
-  }
-}
-
-async function checkAdminStatus() {
-  try {
-    const response = await fetch(`${API_BASE}/api/admin/status`, {
-      credentials: 'include'
-    });
-    const result = await response.json();
-    isAdmin = result.isAdmin;
-    updateAdminStatus();
-  } catch (error) {
-    console.error('Error checking admin status:', error);
-  }
-}
-
-// Tab switching
-function switchTab(tab) {
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.tab-panel').forEach(c => c.classList.remove('active'));
-
-  if (tab === 'upload') {
-    document.querySelectorAll('.tab')[0].classList.add('active');
-    document.getElementById('upload-tab').classList.add('active');
-  } else if (tab === 'files') {
-    document.querySelectorAll('.tab')[1].classList.add('active');
-    document.getElementById('files-tab').classList.add('active');
-    loadFiles();
-  } else if (tab === 'config') {
-    document.querySelectorAll('.tab')[2].classList.add('active');
-    document.getElementById('config-tab').classList.add('active');
-    loadConfig();
-  } else if (tab === 'docs') {
-    document.querySelectorAll('.tab')[3].classList.add('active');
-    document.getElementById('docs-tab').classList.add('active');
-    // Load first sub-tab by default
-    switchSubTab('readme');
-  }
-
-  // Re-initialize custom dropdowns after switching tabs
-  setTimeout(initCustomDropdowns, 50);
-}
-
-// Sub-tab switching for Docs
-function switchSubTab(subTab) {
-  // Update sub-tab buttons
-  document.querySelectorAll('.sub-tab').forEach(btn => btn.classList.remove('active'));
-  document.querySelectorAll('.sub-tab-panel').forEach(content => content.classList.remove('active'));
-  
-  if (subTab === 'readme') {
-    document.querySelectorAll('.sub-tab')[0].classList.add('active');
-    document.getElementById('readme-subtab').classList.add('active');
-    loadReadmeDoc();
-  } else if (subTab === 'agent') {
-    document.querySelectorAll('.sub-tab')[1].classList.add('active');
-    document.getElementById('agent-subtab').classList.add('active');
-    loadAgentDoc();
-  } else if (subTab === 'api') {
-    document.querySelectorAll('.sub-tab')[2].classList.add('active');
-    document.getElementById('api-subtab').classList.add('active');
-    loadApiDoc();
-  }
-}
-
-// File refresh interval
-let fileRefreshInterval = null;
-
-function startFileRefresh() {
-  if (fileRefreshInterval) clearInterval(fileRefreshInterval);
-  fileRefreshInterval = setInterval(() => {
-    const filesTab = document.getElementById('files-tab');
-    if (filesTab.classList.contains('active')) {
-      loadFiles();
-    }
-  }, 60000);
-}
-
-// Load README documentation
-async function loadReadmeDoc() {
-  const textarea = document.getElementById('readmeContent');
-  if (textarea.value) return; // Already loaded
-
-  try {
-    const response = await fetch(`${API_BASE}/README.md`);
-    let text = await response.text();
-    
-    // Replace localhost:3232 with actual base URL
-    text = text.replace(/http:\/\/localhost:3232/g, API_BASE);
-    text = text.replace(/localhost:3232/g, window.location.host);
-    
-    textarea.value = text;
-  } catch (error) {
-    textarea.value = '# Failed to load README.md\n\nError: ' + error.message;
-  }
-}
-
-// Load AGENT documentation
-async function loadAgentDoc() {
-  const textarea = document.getElementById('agentContent');
-  if (textarea.value) return;
-
-  try {
-    const response = await fetch(`${API_BASE}/AGENT.md`);
-    let text = await response.text();
-    
-    // Replace localhost:3232 with actual base URL
-    text = text.replace(/http:\/\/localhost:3232/g, API_BASE);
-    text = text.replace(/localhost:3232/g, window.location.host);
-    
-    textarea.value = text;
-  } catch (error) {
-    textarea.value = '# Failed to load AGENT.md\n\nError: ' + error.message;
-  }
-}
-
-// Load API DOCS documentation
-async function loadApiDoc() {
-  const textarea = document.getElementById('apiContent');
-  if (textarea.value) return;
-
-  try {
-    const response = await fetch(`${API_BASE}/api.md`);
-    let text = await response.text();
-    
-    // Replace localhost:3232 with actual base URL
-    text = text.replace(/http:\/\/localhost:3232/g, API_BASE);
-    text = text.replace(/localhost:3232/g, window.location.host);
-    
-    textarea.value = text;
-  } catch (error) {
-    textarea.value = '# Failed to load API.md\n\nError: ' + error.message;
-  }
-}
-
-// Copy document content
-function copyDocContent(elementId) {
-  const textarea = document.getElementById(elementId);
-  textarea.select();
-  document.execCommand('copy');
-  showToast('Copied to clipboard');
-}
-
-// Config functions
-async function loadConfig() {
-  if (!isAdmin) {
-    showToast('Admin access required');
-    return;
-  }
-  try {
-    const response = await fetch(`${API_BASE}/api/config`, {
-      credentials: 'include'
-    });
-    const config = await response.json();
-    document.getElementById('defaultExpiration').value = config.defaultExpiration.toString();
-    
-    // Load upload limits config
-    if (config.maxFileSizeMB) {
-      document.getElementById('maxFileSize').value = config.maxFileSizeMB;
-    }
-    if (config.maxFilesPerUpload) {
-      document.getElementById('maxFilesPerUpload').value = config.maxFilesPerUpload;
-    }
-    if (config.fileWhitelist) {
-      document.getElementById('fileWhitelist').value = config.fileWhitelist.join(',');
-    }
-  } catch (error) {
-    console.error('Error loading config:', error);
-    showToast('Failed to load config');
-  }
-}
-
-async function saveConfig() {
-  if (!isAdmin) {
-    showToast('Admin access required');
-    return;
-  }
-
-  const btn = document.getElementById('saveConfigBtn');
-  const expiration = document.getElementById('defaultExpiration').value;
-
-  btn.disabled = true;
-  btn.innerHTML = '<span class="loading"></span> Saving...';
-
-  try {
-    console.log('Saving config:', expiration);
-
-    // Use XMLHttpRequest for better cookie handling
-    const response = await fetch(`${API_BASE}/api/config`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      credentials: 'include', // Send cookies to same origin
-      body: JSON.stringify({ defaultExpiration: parseInt(expiration) })
-    });
-
-    console.log('Response status:', response.status);
-    const result = await response.json();
-    console.log('Response:', result);
-
-    if (response.ok) {
-      showToast('Configuration saved');
-    } else {
-      showToast(result.error || 'Failed to save config');
-      // If admin access required, check admin status
-      if (result.error === 'Admin access required') {
-        console.log('Checking admin status...');
-        const statusResponse = await fetch(`${API_BASE}/api/admin/status`, {
-          credentials: 'include'
-        });
-        const status = await statusResponse.json();
-        console.log('Admin status:', status);
-        if (!status.isAdmin) {
-          showToast('Session expired, please login again');
-          isAdmin = false;
-          updateAdminStatus();
-        }
-      }
-    }
-  } catch (error) {
-    console.error('Error saving config:', error);
-    showToast('Failed to save config');
-  } finally {
-    btn.disabled = false;
-    btn.textContent = 'Save Configuration';
-  }
-}
-
-// Change password function
-async function changePassword() {
-  const currentPassword = document.getElementById('currentPassword').value;
-  const newPassword = document.getElementById('newPassword').value;
-  const confirmPassword = document.getElementById('confirmPassword').value;
-
-  if (!currentPassword || !newPassword || !confirmPassword) {
-    showToast('All fields are required');
-    return;
-  }
-
-  if (newPassword !== confirmPassword) {
-    showToast('New passwords do not match');
-    return;
-  }
-
-  if (newPassword.length < 4) {
-    showToast('Password must be at least 4 characters');
-    return;
-  }
-
-  const btn = document.getElementById('changePasswordBtn');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="loading"></span> Changing...';
-
-  try {
-    const verifyResponse = await fetch(`${API_BASE}/api/admin/verify-password`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ password: currentPassword })
-    });
-
-    if (!verifyResponse.ok) {
-      showToast('Current password is incorrect');
-      btn.disabled = false;
-      btn.textContent = 'Change Password';
-      return;
-    }
-
-    const response = await fetch(`${API_BASE}/api/admin/change-password`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ newPassword })
-    });
-
-    if (response.ok) {
-      showToast('Password changed successfully');
-      document.getElementById('currentPassword').value = '';
-      document.getElementById('newPassword').value = '';
-      document.getElementById('confirmPassword').value = '';
-    } else {
-      const result = await response.json();
-      showToast(result.error || 'Failed to change password');
-    }
-  } catch (error) {
-    console.error('Error changing password:', error);
-    showToast('Failed to change password');
-  } finally {
-    btn.disabled = false;
-    btn.textContent = 'Change Password';
-  }
-}
-
-// Copy agent docs
-function copyAgentDocs() {
-  const textarea = document.getElementById('agentContent');
-  if (!textarea.value) {
-    showToast('Loading documentation...');
-    loadAgentDocs();
-    setTimeout(() => {
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(textarea.value).then(() => {
-          showToast('Agent documentation copied');
-        });
-      }
-    }, 500);
-  } else {
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(textarea.value).then(() => {
-        showToast('Agent documentation copied');
-      });
-    } else {
-      fallbackCopy(textarea.value);
-    }
-  }
-}
-
-function fallbackCopy(text) {
-  const textarea = document.createElement('textarea');
-  textarea.value = text;
-  document.body.appendChild(textarea);
-  textarea.select();
-  document.execCommand('copy');
-  document.body.removeChild(textarea);
-  showToast('Copied to clipboard');
-}
-
-// Dropdown functions
-document.addEventListener('click', (e) => {
-  if (!e.target.closest('.dropdown')) {
-    closeAllDropdowns();
-  }
-});
-
-function closeAllDropdowns() {
-  document.querySelectorAll('.dropdown-menu').forEach(menu => {
-    menu.classList.remove('show');
-  });
-  openDropdown = null;
-}
-
-function toggleDropdown(id) {
-  const menu = document.getElementById(id);
-  if (openDropdown && openDropdown !== menu) {
-    closeAllDropdowns();
-  }
-  menu.classList.toggle('show');
-  openDropdown = menu.classList.contains('show') ? menu : null;
-}
-
-// Drag and drop
-const dropZone = document.getElementById('dropZone');
-
-if (dropZone) {
-  dropZone.addEventListener('dragover', (e) => {
+  async function submitPassword(e) {
     e.preventDefault();
-    dropZone.classList.add('dragover');
-  });
-
-  dropZone.addEventListener('dragleave', () => {
-    dropZone.classList.remove('dragover');
-  });
-
-  dropZone.addEventListener('drop', (e) => {
-    e.preventDefault();
-    dropZone.classList.remove('dragover');
-    handleFilesSelected(e.dataTransfer.files);
-  });
-}
-
-// File handling
-function handleFilesSelected(files) {
-  selectedFiles = Array.from(files);
-  const container = document.getElementById('selectedFiles');
-
-  if (selectedFiles.length > 0) {
-    container.innerHTML = selectedFiles.map(f =>
-      `<div class="selected-file">
-        <span class="selected-file-name">${f.name}</span>
-        <span class="selected-file-size">${formatSize(f.size)}</span>
-      </div>`
-    ).join('');
-    document.getElementById('uploadBtn').disabled = false;
-  } else {
-    container.innerHTML = '';
-    document.getElementById('uploadBtn').disabled = true;
-  }
-}
-
-function formatSize(bytes) {
-  if (bytes === 0) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
-}
-
-function formatExpiration(expiresAt) {
-  if (!expiresAt) return 'No expiration';
-  const expires = new Date(expiresAt);
-  const now = new Date();
-  const diff = expires - now;
-
-  if (diff <= 0) return 'Expired';
-
-  const minutes = Math.floor(diff / 60000);
-  const hours = Math.floor(minutes / 60);
-
-  if (hours > 24) {
-    const days = Math.floor(hours / 24);
-    return `Expires in ${days} day${days > 1 ? 's' : ''}`;
-  } else if (hours > 0) {
-    const remainingMinutes = minutes % 60;
-    return `Expires in ${hours}h ${remainingMinutes}m`;
-  } else {
-    return `Expires in ${minutes}m`;
-  }
-}
-
-// ---------- Rendering helpers ----------
-const ICON_PATHS = {
-  link: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
-  copy: '<rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
-  download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>',
-  eye: '<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>',
-  trash: '<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>',
-  check: '<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',
-  x: '<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>',
-  more: '<circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/>',
-  lock: '<rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>'
-};
-
-function icon(name) {
-  return `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true">${ICON_PATHS[name]}</svg>`;
-}
-
-// File names are user-controlled: never put them into HTML unescaped.
-function escapeHtml(value) {
-  return String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
-}
-
-// Files currently rendered, so menu actions look data up by id instead of embedding it in onclick strings.
-const fileIndex = new Map();
-
-function lockBadge(f) {
-  return f.locked ? `<span class="badge badge-lock">${icon('lock')} Locked</span>` : '';
-}
-
-function fileMenu(f, prefix) {
-  const id = escapeHtml(f.id);
-  return `
-    <div class="dropdown">
-      <button class="btn btn-ghost btn-sm btn-icon" aria-label="File actions" onclick="toggleDropdown('${prefix}-menu-${id}')">${icon('more')}</button>
-      <div id="${prefix}-menu-${id}" class="dropdown-menu">
-        <button class="dropdown-item" onclick="copyLinkById('${id}')"><span class="dropdown-icon">${icon('link')}</span>Copy Download Link</button>
-        <button class="dropdown-item" onclick="copyDetailsById('${id}')"><span class="dropdown-icon">${icon('copy')}</span>Copy Details</button>
-        ${f.locked
-          ? `<button class="dropdown-item" onclick="downloadById('${id}')"><span class="dropdown-icon">${icon('download')}</span>Download</button>`
-          : `<a href="${escapeHtml(f.downloadUrl)}" target="_blank" rel="noopener" class="dropdown-item"><span class="dropdown-icon">${icon('download')}</span>Download</a>`}
-        <a href="${escapeHtml(f.url)}" target="_blank" rel="noopener" class="dropdown-item"><span class="dropdown-icon">${icon('eye')}</span>View Info</a>
-        <button class="dropdown-item danger" onclick="deleteFile('${id}')"><span class="dropdown-icon">${icon('trash')}</span>Delete</button>
-      </div>
-    </div>`;
-}
-
-function resultCard(f) {
-  fileIndex.set(f.id, f);
-  return `
-    <div class="result-link-card">
-      <div class="result-link-head">
-        <strong class="result-name">${escapeHtml(f.originalName)} ${lockBadge(f)}</strong>
-        ${fileMenu(f, 'result')}
-      </div>
-      <code class="result-link-url">${escapeHtml(f.url)}</code>
-      ${f.deleteToken ? `<p class="result-hint">${icon('trash')} Delete token (shown once): <code class="result-token">${escapeHtml(f.deleteToken)}</code></p>` : ''}
-    </div>`;
-}
-
-function renderSuccess(items) {
-  return `<div class="result-block"><h3 class="result-title">${icon('check')} Upload Successful</h3>${items.map(resultCard).join('')}</div>`;
-}
-
-function renderFailure(message) {
-  return `<div class="result-block result-block-error" role="alert"><h3 class="result-title">${icon('x')} Upload Failed</h3><p>${escapeHtml(message || 'Unknown error')}</p></div>`;
-}
-
-function copyLinkById(id) {
-  const f = fileIndex.get(id);
-  if (f) copyDownloadLink(f.downloadUrl, f.locked);
-}
-
-function copyDetailsById(id) {
-  const f = fileIndex.get(id);
-  if (f) copyDetails(f.id, f.originalName, f.mimeType, f.size, f.uploadedAt);
-}
-
-function downloadById(id) {
-  const f = fileIndex.get(id);
-  if (f) openPasswordModal(f.downloadUrl, f.encrypted);
-}
-
-// Upload files
-async function uploadFiles() {
-  if (selectedFiles.length === 0) return;
-
-  const btn = document.getElementById('uploadBtn');
-  const resultDiv = document.getElementById('uploadResult');
-  const password = document.getElementById('uploadPassword').value;
-  const expiration = document.getElementById('uploadExpiration').value;
-
-  btn.disabled = true;
-  btn.innerHTML = '<span class="loading"></span> Uploading...';
-  resultDiv.innerHTML = '';
-
-  const formData = new FormData();
-  selectedFiles.forEach(file => {
-    formData.append('files', file);
-  });
-  if (password) {
-    formData.append('password', password);
-  }
-  if (expiration) {
-    formData.append('expiration', expiration);
-  }
-
-  try {
-    const response = await fetch(`${API_BASE}/api/upload`, {
-      method: 'POST',
-      body: formData,
-      credentials: 'include'
-    });
-
-    const result = await response.json();
-
-    if (response.ok) {
-      const results = Array.isArray(result) ? result : [result];
-      resultDiv.innerHTML = renderSuccess(results);
-      selectedFiles = [];
-      document.getElementById('selectedFiles').innerHTML = '';
-      document.getElementById('uploadBtn').disabled = true;
-      showToast('Files uploaded successfully');
-    } else {
-      resultDiv.innerHTML = renderFailure(result.error || result.message);
+    const id = state.pendingDownload;
+    const pw = $('#pwModalInput').value;
+    const errEl = $('#pwModalError');
+    try {
+      const res = await fetch(`/file/${id}/download`, { headers: { 'X-Password': pw } });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(res.status === 401 ? 'Wrong password' : data.error || 'Download failed');
+      }
+      const disposition = res.headers.get('Content-Disposition') || '';
+      const utf8 = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+      const name = utf8 ? decodeURIComponent(utf8[1]) : state.files.get(id)?.originalName;
+      const url = URL.createObjectURL(await res.blob());
+      triggerSave(url, name);
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+      closeModals();
+      toast('Download started');
+    } catch (err) {
+      errEl.textContent = err.message;
+      errEl.hidden = false;
     }
-  } catch (error) {
-    resultDiv.innerHTML = renderFailure(error.message);
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = 'Upload Files';
-  }
-}
-
-// Upload text
-async function uploadText() {
-  const text = document.getElementById('textContent').value;
-  const filename = document.getElementById('filename').value;
-  const password = document.getElementById('textPassword').value;
-  const expiration = document.getElementById('textExpiration').value;
-  const btn = document.getElementById('uploadTextBtn');
-  const resultDiv = document.getElementById('uploadResult');
-
-  if (!text.trim()) {
-    showToast('Please enter some text');
-    return;
   }
 
-  btn.disabled = true;
-  btn.innerHTML = '<span class="loading"></span> Uploading...';
-  resultDiv.innerHTML = '';
+  // ---------- modals ----------
+  let lastFocus = null;
+  function openModal(sel) { lastFocus = document.activeElement; $(sel).hidden = false; }
+  function closeModals() { $$('.modal').forEach((m) => { m.hidden = true; }); lastFocus?.focus?.(); }
 
-  try {
-    const response = await fetch(`${API_BASE}/api/text`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, filename, password, expiration })
+  function initModals() {
+    $$('.modal').forEach((m) => {
+      m.addEventListener('click', (e) => { if (e.target === m || e.target.closest('[data-close]')) closeModals(); });
+    });
+    addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModals(); });
+    $('#pwModalForm').addEventListener('submit', submitPassword);
+  }
+
+  // ---------- admin ----------
+  function applyAdmin(isAdmin) {
+    state.isAdmin = isAdmin;
+    $('#admin').hidden = !isAdmin;
+    $('#navAdmin').hidden = !isAdmin;
+    $('#filesTitle').textContent = isAdmin ? 'All files (admin)' : 'My files';
+    $('#adminBtn').textContent = isAdmin ? 'Admin ✓' : 'Admin';
+    $('#navLogin').hidden = isAdmin;
+    if (isAdmin) loadConfig();
+    loadFiles();
+  }
+
+  async function checkAdmin() {
+    try { applyAdmin((await api('/api/admin/status')).isAdmin); } catch { applyAdmin(false); }
+  }
+
+  let configLoaded = false;
+
+  async function loadConfig() {
+    configLoaded = false;
+    try {
+      const cfg = await api('/api/config');
+      const select = $('#cfgExpiration');
+      if (![...select.options].some((o) => o.value === String(cfg.defaultExpiration))) {
+        select.add(new Option(`${Math.round(cfg.defaultExpiration / 60000)} minutes`, cfg.defaultExpiration));
+      }
+      select.value = String(cfg.defaultExpiration);
+      $('#cfgMaxSize').value = cfg.maxFileSizeMB;
+      $('#cfgMaxFiles').value = cfg.maxFilesPerUpload;
+      $('#cfgWhitelist').value = cfg.fileWhitelist.join(', ');
+      $('#dzHint').textContent = `Up to ${cfg.maxFileSizeMB} MB per file`;
+      configLoaded = true;
+    } catch (err) { toast(err.message, 'error'); }
+  }
+
+  function initAdmin() {
+    const openAdmin = (e) => {
+      e?.preventDefault();
+      if (state.isAdmin) { $('#admin').scrollIntoView({ behavior: 'smooth' }); return; }
+      openModal('#adminModal');
+      $('#adminModalError').hidden = true;
+      $('#adminPasswordInput').value = '';
+      setTimeout(() => $('#adminPasswordInput').focus(), 30);
+    };
+    $('#adminBtn').addEventListener('click', openAdmin);
+    $('#navLogin').addEventListener('click', openAdmin);
+
+    $('#adminModalForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      try {
+        await api('/api/admin/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: $('#adminPasswordInput').value }) });
+        closeModals();
+        applyAdmin(true);
+        toast('Logged in');
+      } catch (err) {
+        $('#adminModalError').textContent = err.message;
+        $('#adminModalError').hidden = false;
+      }
     });
 
-    const result = await response.json();
+    $('#logoutBtn').addEventListener('click', async () => {
+      await api('/api/admin/logout', { method: 'POST' }).catch(() => {});
+      applyAdmin(false);
+      scrollTo({ top: 0 });
+      toast('Logged out');
+    });
 
-    if (response.ok) {
-      resultDiv.innerHTML = renderSuccess([result]);
-      document.getElementById('textContent').value = '';
-      document.getElementById('filename').value = '';
-      document.getElementById('textPassword').value = '';
-      document.getElementById('textExpiration').value = '';
-      showToast('Text uploaded successfully');
-    } else {
-      resultDiv.innerHTML = renderFailure(result.error || result.message);
+    $('#configForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      // Never submit before the current values are loaded: empty fields would be sent as 0 / the first option.
+      if (!configLoaded) { toast('Settings are still loading, try again in a moment', 'error'); return; }
+      const num = (sel) => ($(sel).value === '' ? undefined : Number($(sel).value));
+      try {
+        const cfg = await api('/api/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            defaultExpiration: num('#cfgExpiration'),
+            maxFileSize: num('#cfgMaxSize'),
+            maxFilesPerUpload: num('#cfgMaxFiles'),
+            fileWhitelist: $('#cfgWhitelist').value
+          })
+        });
+        $('#dzHint').textContent = `Up to ${cfg.maxFileSizeMB} MB per file`;
+        toast('Limits saved');
+      } catch (err) { toast(err.message, 'error'); }
+    });
+
+    $('#passwordForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const json = (body) => ({ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      try {
+        await api('/api/admin/verify-password', json({ password: $('#pwCurrent').value }));
+        await api('/api/admin/change-password', json({ newPassword: $('#pwNew').value }));
+        $('#passwordForm').reset();
+        toast('Password changed');
+      } catch (err) { toast(err.message, 'error'); }
+    });
+  }
+
+  // ---------- connect section ----------
+  function initConnect() {
+    const API = API_ORIGIN;
+    $('#curlSnippet').textContent =
+`# upload
+curl -F "file=@report.pdf" ${API}/api
+
+# password + expires in 1 day
+curl -F "file=@secret.txt" -F "password=s3cret" \\
+     -F "expiration=86400000" ${API}/api
+
+# download (add -H "X-Password: s3cret" if locked)
+curl -OJ ${API}/file/<id>/download
+
+# delete (token comes from the upload response)
+curl -X DELETE "${API}/file/<id>?token=<token>"`;
+
+    $('#mcpSnippet').textContent =
+`# public tools
+claude mcp add --transport http tete ${API}/mcp
+
+# + admin tools (list all files, limits, purge)
+claude mcp add --transport http tete ${API}/mcp \\
+  --header "Authorization: Bearer <MCP_TOKEN>"`;
+
+    $('#desktopSnippet').textContent =
+`{
+  "mcpServers": {
+    "tete": {
+      "command": "npx",
+      "args": [
+        "-y", "mcp-remote",
+        "${API}/mcp",
+        "--header",
+        "Authorization:\${AUTH_HEADER}"
+      ],
+      "env": { "AUTH_HEADER": "Bearer <MCP_TOKEN>" }
     }
-  } catch (error) {
-    resultDiv.innerHTML = renderFailure(error.message);
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = 'Upload Text';
   }
-}
+}`;
 
-// Copy download link
-function copyDownloadLink(url, isLocked) {
-  if (isLocked) {
-    showToast('Locked file - share with password query param');
-  }
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(url).then(() => {
-      showToast('Download link copied');
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-copy-target]');
+      if (btn) copyText($(`#${btn.dataset.copyTarget}`).textContent, 'Copied');
     });
-  } else {
-    fallbackCopy(url);
   }
-}
 
-// Copy file details
-function copyDetails(id, originalName, mimeType, size, uploadedAt) {
-  const details = JSON.stringify({
-    id,
-    originalName,
-    mimeType,
-    size,
-    uploadedAt
-  }, null, 2);
-
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(details).then(() => {
-      showToast('File details copied');
-    });
-  } else {
-    fallbackCopy(details);
-  }
-}
-
-// Load files
-async function loadFiles() {
-  const fileList = document.getElementById('fileList');
-  fileList.innerHTML = '<li class="empty"><p>Loading files…</p></li>';
-
-  try {
-    const response = await fetch(`${API_BASE}/api/files`, { credentials: 'include' });
-    const files = await response.json();
-
-    if (files.length === 0) {
-      fileList.innerHTML = '<li class="empty"><p>No files uploaded yet</p></li>';
-      return;
-    }
-
-    files.forEach(f => fileIndex.set(f.id, f));
-    fileList.innerHTML = files.map(f => `
-      <li class="file-item">
-        <div class="file-info">
-          <div class="file-name">${escapeHtml(f.originalName)} ${lockBadge(f)}</div>
-          <div class="file-meta">${formatSize(f.size)} · Uploaded: ${new Date(f.uploadedAt).toLocaleString()} · ${formatExpiration(f.expiresAt)}</div>
-        </div>
-        ${fileMenu(f, 'file')}
-      </li>
-    `).join('');
-  } catch (error) {
-    fileList.innerHTML = '<li class="empty"><p>Failed to load files</p></li>';
-    console.error('Error loading files:', error);
-  }
-}
-
-// Delete file
-async function deleteFile(id) {
-  if (!confirm('Are you sure you want to delete this file?')) return;
-
-  try {
-    const response = await fetch(`${API_BASE}/file/${id}`, {
-      method: 'DELETE',
-      credentials: 'include'
-    });
-
-    if (response.ok) {
-      showToast('File deleted successfully');
-      loadFiles();
-    } else {
-      const result = await response.json();
-      showToast(result.error || 'Failed to delete file');
-    }
-  } catch (error) {
-    showToast('Delete error: ' + error.message);
-  }
-}
-
-// Keyboard shortcuts
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && document.getElementById('passwordModal').classList.contains('show')) {
-    submitPassword();
-  }
-  if (e.key === 'Enter' && document.getElementById('adminModal').classList.contains('show')) {
-    submitAdminLogin();
-  }
-  if (e.key === 'Escape') {
-    closePasswordModal();
-    closeAdminModal();
-    closeAllDropdowns();
-  }
-});
-
-// Theme toggle
-document.getElementById('themeToggle')?.addEventListener('click', toggleTheme);
-
-// Initialize on page load
-document.addEventListener('DOMContentLoaded', () => {
-  checkAdminStatus();
-  startFileRefresh();
-  
-  // Initialize custom dropdowns
-  setTimeout(initCustomDropdowns, 100);
-});
+  // ---------- boot ----------
+  document.addEventListener('DOMContentLoaded', () => {
+    initChrome();
+    initUploadForm();
+    initFileList();
+    initModals();
+    initAdmin();
+    initConnect();
+    refreshUploadButton();
+    loadFiles();
+    checkAdmin();
+  });
+})();

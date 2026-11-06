@@ -39,6 +39,9 @@
 | TR-016 | D1 usage is minimised: two indexes only, narrow column lists, config cached per isolate (60 s), list capped at 200 rows ([20_DATABASE.md](20_DATABASE.md)). |
 | TR-017 | CPU usage is minimised: unlocked files are streamed from Storage without buffering or hashing; PBKDF2 runs only for locked files, the admin password hash and password changes; the owner cookie is issued only on uploads; rendered docs are cached per isolate; the background purge is throttled to once per 10 minutes per isolate (the optional cron runs every 30 minutes). |
 | TR-018 | Supabase credentials are server-side only: `SUPABASE_URL` is a variable, `SUPABASE_SERVICE_KEY` a Worker secret; the bucket is private and no storage policies exist. |
+| TR-020 | With a valid `MCP_TOKEN` Bearer header, `/mcp` also exposes `list_files`, `get_config`, `update_config`, `purge_expired` and token-less `delete_file`; a wrong token returns `401`, the token is compared via SHA-256 digests in constant time. |
+| TR-021 | `POST /api/config` validates every field before writing any, so a rejected request changes nothing. |
+| TR-022 | The web UI is static HTML, CSS and vanilla JS without a build step: tokens in CSS variables, light and dark themes set before first paint, WCAG-minded focus rings, `prefers-reduced-motion` respected, no horizontal scroll at 390 px. |
 | TR-019 | `/mcp` exposes `upload_text`, `upload_base64`, `file_info`, `read_text`, `delete_file` by calling the same handlers as the REST API, so limits, encryption and expiry are identical. |
 | TR-015 | `test/smoke.mjs` exercises the full API and runs against local dev or a deployed URL. |
 

@@ -81,3 +81,20 @@ Architecture decision records. Newest decisions are appended; numbers are perman
 - **Context:** Requested by the owner. The UI keeps using same-origin calls on its own host, so cookies need no cross-origin setup.
 - **Alternatives rejected:** Two Workers (duplicated deploys and state); a single host for everything (does not give integrators a stable API hostname).
 - **Consequence:** Owner cookies are per host: files uploaded through the API host are not "owned" by the browser on the frontend host, so deleting them from the UI needs the delete token or an admin session.
+
+## D-014 — Web UI restyled after apipedia.id (2026-11-06)
+
+- **Decision:** Warm paper background, Fraunces headlines, Geist body, deep-green pill buttons, rounded cards with soft shadows, mint and amber accents, hero with copy on the left and the upload card on the right. Palette and fonts were taken from the apipedia.id stylesheet.
+- **Context:** A first redesign used hard offset shadows, square corners and a mono-heavy look; the owner rejected it in favour of the apipedia.id look.
+- **Alternatives rejected:** Hard-shadow editorial style (rejected by the owner); a UI framework (not needed for a one-page tool, and there is no build step).
+
+## D-015 — Admin MCP tools behind a static Bearer token (2026-11-06)
+
+- **Decision:** `MCP_TOKEN` (Worker secret) unlocks `list_files`, `get_config`, `update_config`, `purge_expired` and token-less `delete_file` over `/mcp`. Public tools stay open.
+- **Context:** The owner wants to control the service from Claude. A static header works in Claude Code and `mcp-remote`.
+- **Alternatives rejected:** OAuth for MCP (needed by claude.ai connectors, but a large amount of machinery for one operator); reusing the admin password as the token (would tie the web login to a long-lived machine credential).
+- **Consequence:** Anyone with the token has admin-level control of files and limits (R-16). It is separate from the admin password and can be rotated on its own.
+
+## D-016 — Config updates are all-or-nothing (2026-11-06)
+
+- **Decision:** `updateConfig` validates every field, then writes. Found in a live test: a rejected request had already written `defaultExpiration`, silently changing the production default from 1 hour to 30 minutes.

@@ -35,11 +35,11 @@ Browser / curl ──► Cloudflare Worker (worker/index.js)
 
 ## Features
 
-- Drag-and-drop UI, multi-file upload, text snippets
+- One-page web UI (warm paper, serif headlines, light and dark): drag-and-drop or text upload, expiry chips, password toggle, upload progress, share link with copy button, your files with one-click actions, copy-paste snippets for cURL and MCP
 - Optional password: AES-256-GCM content + filename encryption, key wrapped with PBKDF2-SHA256
 - Per-upload expiration, short URLs, REST API with CORS
 - Admin panel: view all files, upload limits, extension whitelist, password change
-- MCP server at `/mcp` for AI agents (upload, read, inspect, delete)
+- MCP server at `/mcp` for AI agents: public tools (upload, read, inspect, delete) plus admin tools (list every file, change limits, purge) with an MCP token
 - No servers to run: Workers + D1 + Supabase Storage, free-tier friendly for small usage
 
 ## Deploy to Cloudflare
@@ -60,6 +60,7 @@ npx wrangler d1 create tete            # copy the printed database_id into wrang
 npx wrangler secret put SESSION_SECRET          # 32+ random characters
 npx wrangler secret put ADMIN_PASSWORD          # initial admin password
 npx wrangler secret put SUPABASE_SERVICE_KEY    # Supabase Settings -> API -> service_role key
+npx wrangler secret put MCP_TOKEN               # optional: enables the admin MCP tools (e.g. openssl rand -hex 24)
 # set SUPABASE_URL in wrangler.toml [vars]
 
 # 4. Schema + deploy
@@ -108,7 +109,16 @@ Complete reference: [api.md](api.md) (also served at `/api.md`). AI agents: [AGE
 
 ### MCP
 
-`POST https://tetein.apipedia.id/mcp` speaks MCP (Streamable HTTP, stateless). Tools: `upload_text`, `upload_base64`, `file_info`, `read_text`, `delete_file`. Add it to a client as a remote HTTP server, e.g. `claude mcp add --transport http tete https://tetein.apipedia.id/mcp`.
+`POST https://tetein.apipedia.id/mcp` speaks MCP (Streamable HTTP, stateless). Tools: `upload_text`, `upload_base64`, `file_info`, `read_text`, `delete_file`. Add it to Claude Code as a remote HTTP server:
+
+```bash
+claude mcp add --transport http tete https://tetein.apipedia.id/mcp
+# with admin tools (list all files, limits, purge, delete any file):
+claude mcp add --transport http tete https://tetein.apipedia.id/mcp --header "Authorization: Bearer <MCP_TOKEN>"
+```
+
+Claude Desktop (via `mcp-remote`) and the exact tool list are on the site under *API & MCP* and in [api.md](api.md). Static
+Bearer headers work in Claude Code and `mcp-remote`; the claude.ai connector UI expects OAuth and is not supported.
 
 ## Configuration
 
@@ -126,6 +136,7 @@ Defaults live in `wrangler.toml` `[vars]`; the admin **Config** tab overrides th
 | `FRONTEND_HOST` / `API_HOST` | `tete.apipedia.id` / `tetein.apipedia.id` | Hostnames used when building links (other hosts such as workers.dev use their own origin) |
 | `SUPABASE_URL` | – | Supabase project URL (not shown to users) |
 | `SUPABASE_SERVICE_KEY` (secret) | – | `service_role` key; only the Worker holds it |
+| `MCP_TOKEN` (secret) | – | Optional. A Bearer token that unlocks the admin MCP tools. Treat it like the admin password |
 
 See [docs/16_CONFIG_REFERENCE.md](docs/16_CONFIG_REFERENCE.md).
 

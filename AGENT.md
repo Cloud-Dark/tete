@@ -34,6 +34,10 @@ Always keep `deleteToken` / `deleteUrl` from the upload response: it is shown on
 `POST {{BASE_URL}}/mcp` (Streamable HTTP, JSON responses). Tools: `upload_text`, `upload_base64`, `file_info`, `read_text`, `delete_file`.
 They behave exactly like the REST endpoints; keep the `deleteToken` from the upload result.
 
+With `Authorization: Bearer <MCP_TOKEN>` four more tools appear: `list_files` (every owner), `get_config`, `update_config`,
+`purge_expired`, and `delete_file` no longer needs the per-file token. A wrong token is rejected with `401`; without a
+token only the public tools exist.
+
 ## Rules an agent must know
 
 1. IDs are 6 hex characters. Unlocked files are readable by **anyone who knows the ID**.

@@ -3,3 +3,5 @@ ADMIN_PASSWORD=change-me
 # Real project, or the local stand-in: node test/fake-supabase.mjs
 SUPABASE_URL=http://localhost:8790
 SUPABASE_SERVICE_KEY=test-key
+# Enables the admin MCP tools (Authorization: Bearer <MCP_TOKEN>)
+MCP_TOKEN=local-mcp-token

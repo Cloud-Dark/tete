@@ -31,6 +31,7 @@ Only the first four settings can be changed at runtime; the rest require a redep
 | Name | Required | Description |
 |------|----------|-------------|
 | `SESSION_SECRET` | Yes (for admin) | At least 16 characters, 32+ recommended. Signs the admin cookie. Rotating it logs every admin out |
+| `MCP_TOKEN` | No | Bearer token that unlocks the admin MCP tools. Without it only the public tools exist. Rotate with `wrangler secret put MCP_TOKEN` |
 | `SUPABASE_SERVICE_KEY` | Yes | `service_role` key of the Supabase project. Never exposed to browsers |
 | `ADMIN_PASSWORD` | Yes (first login) | Initial admin password. After "Change Password" in the UI, the hash in D1 takes over and this secret is ignored |
 

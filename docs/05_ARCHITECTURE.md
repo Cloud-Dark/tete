@@ -71,6 +71,25 @@ Storage until the next upload; they are never readable ([10_RISK_REGISTER.md](10
 - Every visitor receives a random `tete_uid` cookie (30 days); uploads record it as owner.
 - Admin login verifies the password and sets a signed `tete_admin` cookie. No server-side session storage exists.
 
+## Web UI
+
+One page (`client/index.html`) with four sections: upload (hero), my files, API & MCP, and an admin section that appears after
+login. The share page `/file/:id` is `client/file-view.html`. Visual language follows apipedia.id: warm paper background,
+Fraunces serif headlines with an italic green keyword and an amber underline, Geist body text, deep-green pill buttons,
+rounded cards with soft shadows, mint accents. Tokens are HSL CSS variables in `client/css/style.css`; the theme is set
+before first paint from `localStorage` or `prefers-color-scheme`.
+
+Behaviour worth knowing: uploads use `XMLHttpRequest` so the button shows real progress; every file name is HTML-escaped;
+the admin limits form refuses to submit until the current values are loaded; locked files are downloaded with `fetch` and an
+`X-Password` header so a wrong password produces a message instead of a saved error file.
+
+## MCP access levels
+
+| Caller | Tools |
+|--------|-------|
+| Anyone | `upload_text`, `upload_base64`, `file_info`, `read_text`, `delete_file` (needs the per-file token) |
+| `Authorization: Bearer <MCP_TOKEN>` | the above, plus `list_files`, `get_config`, `update_config`, `purge_expired`; `delete_file` without a per-file token |
+
 ## Two hostnames
 
 | Host | Role |

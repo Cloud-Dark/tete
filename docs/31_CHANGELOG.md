@@ -16,6 +16,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- MCP admin tools behind `MCP_TOKEN`: `list_files`, `get_config`, `update_config`, `purge_expired`, token-less `delete_file`.
+- New web UI: single page, apipedia.id palette and typography, light and dark, hero with upload card, expiry chips, password toggle, real upload progress, one-click file actions, cURL/MCP/Claude Desktop snippets with copy buttons, mobile menu, sticky header with scroll progress, footer and back-to-top. Share page restyled to match.
 - Production domains attached to the Worker: `tete.apipedia.id` (frontend) and `tetein.apipedia.id` (API/MCP). Smoke test accepts `FRONTEND_URL`.
 - Two-hostname layout: frontend `tete.apipedia.id`, API/MCP `tetein.apipedia.id` on one Worker (`worker/links.js`, `FRONTEND_HOST`, `API_HOST`). API-host `/` returns the API index; browsers on the API host are redirected to the share page.
 - Background purge after uploads (`maybePurge`, `PURGE_INTERVAL_MS`), so no cron slot is needed.
@@ -54,6 +56,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/).
 
 ### Fixed
 
+- Admin limits: `POST /api/config` and the MCP `update_config` tool now validate every field before writing; previously a rejected request could still change earlier fields (it changed the live default expiration).
+- Admin limits form no longer submits before the current values are loaded (it sent empty values).
 - Web UI: garbled characters (`âœ…`, `â‹®`, `ðŸ”’`) in `client/js/app.js`, caused by a double-encoded UTF-8 file with a BOM; the file is now plain UTF-8.
 - Web UI: upload result and file list use one shared renderer with SVG icons (no emoji, no bare words like `link`/`del` as icons), a "Locked" badge, and the one-time delete token; the result card now uses the CSS classes that already existed (`.result-block`, `.result-link-card`).
 - Web UI: failed uploads always showed "Unknown error" because the client read `message` while the API returns `error`.

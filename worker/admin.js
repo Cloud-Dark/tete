@@ -64,8 +64,10 @@ export async function updateConfig(request, env, ctx) {
   requireAdmin(ctx);
   const body = await readJson(request);
 
+  // Validate everything first, then write: a rejected request must not change anything.
+  const next = {};
   if (body.defaultExpiration !== undefined) {
-    await setConfigValue(env, 'defaultExpiration', toNonNegativeInt(body.defaultExpiration, 'defaultExpiration'));
+    next.defaultExpiration = toNonNegativeInt(body.defaultExpiration, 'defaultExpiration');
   }
   if (body.maxFileSize !== undefined) {
     const n = toNonNegativeInt(body.maxFileSize, 'maxFileSize');
@@ -73,15 +75,17 @@ export async function updateConfig(request, env, ctx) {
     if (bytes === 0 || bytes > HARD_MAX_FILE_BYTES) {
       throw new HttpError(400, `maxFileSize must be between 1 and ${HARD_MAX_FILE_BYTES / 1024 / 1024} MB`);
     }
-    await setConfigValue(env, 'maxFileSize', bytes);
+    next.maxFileSize = bytes;
   }
   if (body.maxFilesPerUpload !== undefined) {
     const n = toNonNegativeInt(body.maxFilesPerUpload, 'maxFilesPerUpload');
     if (n < 1) throw new HttpError(400, 'maxFilesPerUpload must be at least 1');
-    await setConfigValue(env, 'maxFilesPerUpload', n);
+    next.maxFilesPerUpload = n;
   }
   if (body.fileWhitelist !== undefined) {
-    await setConfigValue(env, 'fileWhitelist', parseWhitelist(body.fileWhitelist).join(','));
+    next.fileWhitelist = parseWhitelist(body.fileWhitelist).join(',');
   }
+
+  for (const [key, value] of Object.entries(next)) await setConfigValue(env, key, value);
   return json(publicConfig(await getConfig(env)));
 }

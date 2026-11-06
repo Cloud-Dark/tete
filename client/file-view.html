@@ -3,91 +3,81 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>File - TETE</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📄</text></svg>">
-  <link rel="stylesheet" href="/css/style.css">
-  <link rel="stylesheet" href="/css/file-view.css">
+  <title>File — TETE</title>
+  <meta name="robots" content="noindex">
+  <meta name="color-scheme" content="light dark">
+  <script>
+    (function () {
+      try {
+        var saved = localStorage.getItem('tete-theme');
+        var dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        document.documentElement.setAttribute('data-theme', saved || (dark ? 'dark' : 'light'));
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+    })();
+  </script>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%2314463a'/%3E%3Ccircle cx='16' cy='16' r='11' fill='%2342a583'/%3E%3Cpath d='M10.5 11h11M16 11v11' stroke='%23f6f3ec' stroke-width='3' stroke-linecap='round' fill='none'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&family=Geist:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css?v=4">
 </head>
-<body>
-  <div class="file-view-container">
-    <header class="file-header">
-      <a href="/" class="back-link">← Back</a>
-      <h1>File Details</h1>
-    </header>
-
-    <div class="file-card">
-      <!-- Loading State -->
-      <div id="loadingState" class="loading-state">
-        <div class="spinner"></div>
-        <p>Loading file information...</p>
+<body class="file-page">
+  <header class="site-header">
+    <div class="wrap header-inner">
+      <a class="wordmark" href="https://tete.apipedia.id/" id="homeLink" aria-label="TETE home"><span class="wordmark-mark" aria-hidden="true">t</span><span>TETE</span></a>
+      <div class="header-actions">
+        <button class="icon-btn" id="themeToggle" type="button" aria-label="Toggle light and dark theme">
+          <svg class="icon icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
+          <svg class="icon icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+        </button>
+        <a class="btn btn-sm btn-primary" href="/" id="uploadLink">Upload a file</a>
       </div>
+    </div>
+  </header>
 
-      <!-- File Info Content -->
-      <div id="fileInfo" class="file-info" style="display: none;">
-        <div class="file-info-header">
-          <div class="file-icon" id="fileIcon">📄</div>
-          
-          <div class="file-details">
-            <h2 class="file-name" id="fileName">-</h2>
-            <p class="file-id" id="fileId">-</p>
-            
-            <div class="file-meta">
-              <div class="meta-item">
-                <span class="meta-label">Size</span>
-                <span class="meta-value" id="fileSize">-</span>
-              </div>
-              <div class="meta-item">
-                <span class="meta-label">Uploaded</span>
-                <span class="meta-value" id="uploadDate">-</span>
-              </div>
-              <div class="meta-item">
-                <span class="meta-label">Expires</span>
-                <span class="meta-value" id="expiryDate">-</span>
-              </div>
-              <div class="meta-item">
-                <span class="meta-label">Status</span>
-                <span class="meta-value" id="fileStatus">-</span>
-              </div>
+  <main>
+    <div class="wrap">
+      <div class="panel file-card">
+        <div id="loadingState" aria-live="polite"><div class="skeleton"></div></div>
+
+        <div id="fileInfo" hidden>
+          <div class="file-hero">
+            <div class="file-glyph" id="fileGlyph"></div>
+            <div>
+              <h1 id="fileName">—</h1>
+              <span class="badge" id="fileBadge"></span>
             </div>
           </div>
+          <dl class="facts">
+            <div><dt>Size</dt><dd id="fileSize">—</dd></div>
+            <div><dt>Uploaded</dt><dd id="uploadDate">—</dd></div>
+            <div><dt>Expires</dt><dd id="expiryDate">—</dd></div>
+            <div><dt>File ID</dt><dd class="mono" id="fileId">—</dd></div>
+          </dl>
+
+          <form id="downloadForm">
+            <label class="field" id="pwField" hidden>
+              <span class="label">Password</span>
+              <input class="input" id="filePassword" type="password" autocomplete="off" placeholder="Enter the password to decrypt">
+            </label>
+            <p class="form-error" id="downloadError" role="alert" hidden></p>
+            <div class="actions">
+              <button class="btn btn-primary" id="downloadBtn" type="submit">Download</button>
+              <button class="btn" id="copyBtn" type="button">Copy link</button>
+            </div>
+          </form>
         </div>
 
-        <div class="file-actions">
-          <button class="btn" onclick="handleDownload()" id="downloadBtn">
-            ⬇️ Download
-          </button>
-          <button class="btn btn-ghost" onclick="copyShareLink()">
-            📋 Copy Link
-          </button>
+        <div id="errorState" class="center" hidden>
+          <h1 class="h2">File not found</h1>
+          <p class="muted">It may have expired, been deleted, or never existed.</p>
+          <a class="btn btn-primary" href="/" id="homeBtn">Upload a new file</a>
         </div>
       </div>
-
-      <!-- Error State -->
-      <div id="errorState" class="error-state" style="display: none;">
-        <div class="error-icon">📄</div>
-        <h2>File Not Found</h2>
-        <p>This file may have been deleted or never existed.</p>
-        <a href="/" class="btn">Go to Home</a>
-      </div>
     </div>
-  </div>
+  </main>
 
-  <!-- Password Modal for Encrypted Files -->
-  <div id="passwordModal" class="modal-overlay">
-    <div class="modal">
-      <h3>🔐 This file is encrypted</h3>
-      <p>Enter encryption key to download</p>
-      <input type="password" id="modalPassword" placeholder="Encryption key" onkeypress="handlePasswordKeypress(event)">
-      <div class="modal-actions">
-        <button class="btn btn-ghost" onclick="closePasswordModal()">Cancel</button>
-        <button class="btn" onclick="submitPassword()">Download</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Toast Notification -->
-  <div id="toast" class="toast"></div>
-
-  <script src="/js/file-view.js"></script>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="/js/file-view.js?v=4"></script>
 </body>
 </html>

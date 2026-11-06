@@ -59,3 +59,15 @@
 - **Browser check (Chromium via Playwright):** `tete.apipedia.id` loads the Worker UI, a text upload returns `https://tete.apipedia.id/file/<id>`, the share page shows the file, the download saves the right content, and the Files tab lists it. Hosts contacted: `tete.apipedia.id`, Cloudflare Insights, Google Fonts. No requests to any Supabase host, no failed requests, no page errors.
 - **Finding:** the first run against the API host failed 3 checks that assumed one host (`/` returning the UI, the share page rendering on the API host, links on the request origin). On the API host the root returns the API index, browsers are redirected (302) to the frontend, and `url` points at the frontend. The smoke test now takes `FRONTEND_URL`.
 - **Earlier symptom explained:** before the move, `tete.apipedia.id` served the old Pages app, which called a deleted Supabase project (`ERR_NAME_NOT_RESOLVED`).
+
+## Redesign, MCP admin tools and config fixes (final run)
+
+- **Local:** 72 smoke checks (including 10 admin MCP checks and the atomic-config check) and a 29-step Chromium run of the new UI: upload (progress, expiry chips, password), result card, share page, public and locked download (wrong and right password), file list, hostile file name escaped, modal download, delete, theme toggle, back-to-top, snippets, admin login and limits, logout, mobile menu and no horizontal scroll at 390 px.
+- **Live:** smoke test on `https://tetein.apipedia.id` and `https://tete.apipedia.id` with `MCP_TOKEN`: 64 PASS, 0 FAIL on each (outputs above); Chromium run on the live UI before the restyle: all steps passed.
+- **Finding 1:** the live UI run failed once because the limits form was submitted before its values loaded, which also exposed that `POST /api/config` wrote fields one by one and stopped at the first invalid one. That had set the production default expiration to 30 minutes; it was restored to 1 hour through the admin API. Both causes are fixed and covered by a smoke check.
+- **Finding 2:** the owner rejected the first redesign; the UI now follows the apipedia.id palette and type (see D-014).
+
+## Real MCP client check (Claude Code 2.1.318, live)
+
+- `claude mcp add --transport http ... https://tetein.apipedia.id/mcp` without a token: connected. With `--header "Authorization: Bearer <MCP_TOKEN>"`: connected, and a headless `claude -p` session called the admin tool `get_config` end to end and returned the live limits.
+- **Observation:** `claude mcp list` reported "tools fetch failed, request timed out" in 2 of 4 attempts with the token. Server-side timing from curl: median 0.2 s, but about 1 request in 20 to 40 stalled for about 15 s, with and without the token. A control request to `https://www.cloudflare.com/cdn-cgi/trace` showed the same 15 s outliers, so the stalls come from the network path of the test sandbox rather than from the Worker. Not proven for other networks: if an MCP client shows intermittent timeouts, check `wrangler tail` for slow requests.

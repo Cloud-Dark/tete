@@ -149,7 +149,7 @@ Admin endpoints use a signed `tete_admin` cookie (24 h). Use `-c cookies.txt` / 
 | POST | `/api/admin/verify-password` | `{ "password" }` | Admin only |
 | POST | `/api/admin/change-password` | `{ "newPassword" }` | Admin only, min. 8 characters. Overrides the `ADMIN_PASSWORD` secret from then on |
 | GET | `/api/config` | – | Admin only |
-| POST | `/api/config` | any of the fields below | Admin only |
+| POST | `/api/config` | any of the fields below | Admin only. All fields are validated first; a rejected request changes nothing |
 
 Config fields: `defaultExpiration` (ms), `maxFileSize` (MB, or bytes when the value is above 1000; max 50 MB),
 `maxFilesPerUpload`, `fileWhitelist` (`"png,pdf"` or array; empty allows every extension).
@@ -174,6 +174,24 @@ claude mcp add --transport http tete {{BASE_URL}}/mcp
 | `file_info` | `id` | Same object as `GET /api/file/:id` |
 | `read_text` | `id`, `password?` | `{ "text": "..." }` for text files up to 1 MB |
 | `delete_file` | `id`, `token` | `{ "success": true }` |
+
+### Admin tools (MCP token)
+
+Send `Authorization: Bearer <MCP_TOKEN>` (the `MCP_TOKEN` Worker secret). The server then lists these extra tools and
+`delete_file` no longer needs a per-file token. A wrong token returns `401` (JSON-RPC error `-32001`); calling an admin
+tool without a token returns a tool error.
+
+| Tool | Arguments | Result |
+|------|-----------|--------|
+| `list_files` | – | Every stored file (up to 200, newest first), all owners |
+| `get_config` | – | Runtime limits |
+| `update_config` | `defaultExpiration?`, `maxFileSize?` (MB), `maxFilesPerUpload?`, `fileWhitelist?` | New limits. A rejected request changes nothing |
+| `purge_expired` | – | `{ "purged": <count> }` |
+| `delete_file` | `id`, `token?` | `{ "success": true }` |
+
+```bash
+claude mcp add --transport http tete {{BASE_URL}}/mcp --header "Authorization: Bearer <MCP_TOKEN>"
+```
 
 Tool failures are returned as `isError: true` results with the same messages as the REST errors. `GET /mcp` returns `405`.
 

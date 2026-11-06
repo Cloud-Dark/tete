@@ -1,10 +1,11 @@
 // End-to-end smoke test. Usage: BASE_URL=http://localhost:8787 ADMIN_PASSWORD=... node test/smoke.mjs
 // When the API and the frontend are different hosts, also set FRONTEND_URL (e.g. BASE_URL=https://tetein.apipedia.id
-// FRONTEND_URL=https://tete.apipedia.id); it defaults to BASE_URL.
+// FRONTEND_URL=https://tete.apipedia.id); it defaults to BASE_URL. Set MCP_TOKEN to also test the admin MCP tools.
 // Works against `wrangler dev` or a deployed Worker.
 
 const BASE = (process.env.BASE_URL || 'http://localhost:8787').replace(/\/$/, '');
 const FRONT = (process.env.FRONTEND_URL || BASE).replace(/\/$/, '');
+const MCP_TOKEN = process.env.MCP_TOKEN || ''; // optional: enables the admin MCP tool checks
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'local-admin-pass';
 
 let failed = 0;
@@ -56,7 +57,7 @@ check('GET /file/:id with Accept */* returns JSON (curl)', (res.headers.get('Con
 
 res = await fetch(`${FRONT}/file/${text.id}`, { headers: { Accept: 'text/html', 'Sec-Fetch-Dest': 'document' } });
 const html = await res.text();
-check('GET /file/:id from browser serves file-view page', res.status === 200 && html.includes('File Details'), `${res.status} ${html.slice(0, 80)}`);
+check('GET /file/:id from browser serves file-view page', res.status === 200 && html.includes('id="fileInfo"'), `${res.status} ${html.slice(0, 80)}`);
 
 // --- multipart upload (binary-safe)
 const bytes = new Uint8Array(70000).map((_, i) => i % 251);
@@ -146,6 +147,10 @@ const cfg = await res.json();
 check('admin can read config', res.status === 200 && cfg.maxFilesPerUpload >= 1, JSON.stringify(cfg));
 res = await postJson(alice, '/api/config', { fileWhitelist: 'txt,png' });
 check('admin can update whitelist', (await res.json()).fileWhitelist.join() === 'txt,png');
+const cfgBefore = await (await alice('/api/config')).json();
+res = await postJson(alice, '/api/config', { defaultExpiration: 5000, maxFileSize: 0 });
+const cfgAfter = await (await alice('/api/config')).json();
+check('rejected config update changes nothing (atomic)', res.status === 400 && cfgAfter.defaultExpiration === cfgBefore.defaultExpiration, `${res.status} ${cfgBefore.defaultExpiration} -> ${cfgAfter.defaultExpiration}`);
 form = new FormData();
 form.append('file', new Blob(['x']), 'bad.exe');
 res = await alice('/api', { method: 'POST', body: form });
@@ -201,6 +206,42 @@ check('GET /mcp -> 405', res.status === 405);
 m = await rpc('nope/method');
 check('MCP unknown method -> JSON-RPC error', m.body.error?.code === -32601);
 
+// --- MCP admin tools (only when MCP_TOKEN is provided)
+if (MCP_TOKEN) {
+  const rpcAs = async (token, method, params) => {
+    const r = await fetch(`${BASE}/mcp`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }) });
+    return { status: r.status, body: await r.json() };
+  };
+  const callAs = async (token, name, args = {}) => {
+    const { body } = await rpcAs(token, 'tools/call', { name, arguments: args });
+    const text = body.result.content[0].text;
+    return { isError: body.result.isError, text, data: body.result.isError ? null : JSON.parse(text) };
+  };
+  let r2 = await rpcAs(MCP_TOKEN, 'tools/list');
+  check('MCP token: admin tools are listed (9 tools)', r2.body.result.tools.length === 9 && r2.body.result.tools.some((t) => t.name === 'purge_expired'), String(r2.body.result?.tools?.length));
+  r2 = await rpcAs('', 'tools/list');
+  check('MCP without token: only the 5 public tools', r2.body.result.tools.length === 5);
+  r2 = await rpcAs('definitely-wrong', 'tools/list');
+  check('MCP wrong token -> 401', r2.status === 401 && r2.body.error?.code === -32001);
+  const denied = await callAs('', 'list_files');
+  check('MCP admin tool without token -> tool error', denied.isError === true && /MCP token/.test(denied.text), denied.text);
+
+  const seed = await callAs('', 'upload_text', { text: 'seed for admin tools', filename: 'seed.txt' });
+  const listed = await callAs(MCP_TOKEN, 'list_files');
+  check('MCP list_files sees files of every owner', Array.isArray(listed.data) && listed.data.some((f) => f.id === seed.data.id), listed.text.slice(0, 120));
+  const cfg0 = await callAs(MCP_TOKEN, 'get_config');
+  check('MCP get_config', cfg0.data.maxFilesPerUpload >= 1, cfg0.text);
+  const changed = await callAs(MCP_TOKEN, 'update_config', { maxFilesPerUpload: 7 });
+  check('MCP update_config applies', changed.data.maxFilesPerUpload === 7, changed.text);
+  await callAs(MCP_TOKEN, 'update_config', { maxFilesPerUpload: cfg0.data.maxFilesPerUpload });
+  const purged = await callAs(MCP_TOKEN, 'purge_expired');
+  check('MCP purge_expired returns a count', typeof purged.data.purged === 'number', purged.text);
+  const del = await callAs(MCP_TOKEN, 'delete_file', { id: seed.data.id });
+  check('MCP delete_file without per-file token (admin)', del.data?.success === true, del.text);
+  const gone = await callAs('', 'file_info', { id: seed.data.id });
+  check('deleted file is gone', gone.isError === true);
+}
+
 // --- two hostnames, one Worker (only checkable with a custom Host header, i.e. against local dev)
 if (/^(localhost|127\.0\.0\.1)$/.test(new URL(BASE).hostname)) {
   const { request } = await import('node:http');
@@ -230,7 +271,7 @@ if (/^(localhost|127\.0\.0\.1)$/.test(new URL(BASE).hostname)) {
   r = await viaHost(APIH, `/file/${c.id}`, { headers: { Accept: 'text/html', 'Sec-Fetch-Dest': 'document' } });
   check('API host redirects browsers to the frontend share page', r.status === 302 && r.headers.location === `https://${FRONT}/file/${c.id}`, `${r.status} ${r.headers.location}`);
   r = await viaHost(FRONT, `/file/${c.id}`, { headers: { Accept: 'text/html', 'Sec-Fetch-Dest': 'document' } });
-  check('frontend host serves the share page', r.status === 200 && r.body.includes('File Details'));
+  check('frontend host serves the share page', r.status === 200 && r.body.includes('id="fileInfo"'));
   r = await viaHost(APIH, `/file/${c.id}`, { headers: { Accept: 'application/json' } });
   check('API host still returns JSON for API clients', r.status === 200 && JSON.parse(r.body).id === c.id);
   await viaHost(APIH, `/file/${c.id}?token=${c.deleteUrl.split('token=')[1]}`, { method: 'DELETE' });
