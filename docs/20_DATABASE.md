@@ -31,6 +31,11 @@ Indexes (deliberately only two: each index adds one written row to every upload)
 Reads by id use the primary key. The admin "all files" list is a bounded scan (200 rows) of a table that only holds
 temporary files, so it has no dedicated index.
 
+### Config cache and admin changes
+
+Runtime config is cached per isolate for 60 seconds. A change saved in the admin panel applies immediately in the isolate
+that handled it and in all others within 60 seconds. The value in D1 is always current.
+
 ### Query rules
 
 - Never `SELECT *`: the `enc` blob and `delete_token` are fetched only by the endpoints that need them.

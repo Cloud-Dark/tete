@@ -25,7 +25,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/).
 - One-time delete token returned on upload (`deleteToken`, `deleteUrl?token=`); `X-Delete-Token` header.
 - `GET /api/file/:id` JSON endpoint; `X-Password` header for locked downloads.
 - Per-owner anonymous cookie (`tete_uid`) and signed admin cookie (`tete_admin`).
-- `test/smoke.mjs` (53 checks), usable against local dev and deployed Workers.
+- `test/smoke.mjs` (53 checks; passes against `wrangler dev` and the live deployment; waits for the 60 s config cache to settle), usable against local dev and deployed Workers.
 - Numbered documentation under `docs/` and a UAT record.
 
 ### Changed

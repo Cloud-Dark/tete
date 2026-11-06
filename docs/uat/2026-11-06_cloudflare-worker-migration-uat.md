@@ -41,3 +41,12 @@
 - Real Cloudflare deployment, custom domains, and Workers Free-plan CPU behaviour for PBKDF2 (R-02).
 - Uploads near the 50 MB cap under real Worker memory limits (R-01) and Supabase's per-object limit.
 - Admin password change through the browser UI (the API flow is covered by scenario 16).
+
+## Live run against the deployed Worker and real Supabase Storage
+
+- **Target:** `https://tete.apipedia.workers.dev` (Cloudflare Workers Free plan) with Supabase project `kheniasmdqflwawtopip`, private bucket `tete`.
+- **Raw output:** [2026-11-06_live-api-test-output.txt](2026-11-06_live-api-test-output.txt) (53 PASS, 0 FAIL)
+- **Result:** every scenario above that is part of the smoke test passes against the real services, including locked-file encryption and decryption, MCP, delete authorisation, expiry, admin and size limits.
+- **Real Supabase behaviour confirmed:** a missing object answers `400` (handled as "not found" by `worker/storage.js`); the `sb_secret_` key works in both the `apikey` and `Authorization: Bearer` headers; upload, streamed download and bulk delete work.
+- **Finding:** the first live run failed one check. The admin whitelist reset was cached for up to 60 s in other isolates (per-isolate config cache, D-009), so an upload was still rejected for a moment. D1 held the correct value. The smoke test now waits until the change is visible; behaviour is documented in [20_DATABASE.md](../20_DATABASE.md).
+- **Still not covered:** custom domains, uploads near 50 MB, and the cron trigger (not registered, R-15).

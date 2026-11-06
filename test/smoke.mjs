@@ -148,6 +148,14 @@ form.append('file', new Blob(['x']), 'bad.exe');
 res = await alice('/api', { method: 'POST', body: form });
 check('whitelist rejects .exe -> 400', res.status === 400);
 await postJson(alice, '/api/config', { fileWhitelist: '' });
+// Config is cached per isolate for up to 60 s, so on a deployed Worker the reset reaches other isolates a little
+// later. Wait until uploads are accepted again (instant locally) before continuing.
+for (let i = 0, ok = 0; i < 40 && ok < 3; i++) {
+  const probe = new FormData();
+  probe.append('file', new Blob(['x']), 'probe.bin');
+  const r = await alice('/api', { method: 'POST', body: probe });
+  if (r.status === 200) { ok++; await alice(`/file/${(await r.json()).id}`, { method: 'DELETE' }); } else { ok = 0; await new Promise((x) => setTimeout(x, 2000)); }
+}
 const all = await (await alice('/api/files')).json();
 check('admin list sees all users files', all.some((f) => f.id === locked.id));
 res = await postJson(alice, '/api/admin/logout', {});
