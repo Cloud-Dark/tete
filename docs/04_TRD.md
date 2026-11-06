@@ -33,7 +33,9 @@
 | TR-009 | Delete requires the owner cookie, an admin session, or the delete token (stored as SHA-256). |
 | TR-010 | Admin sessions are HMAC-signed, expiring cookies (24 h, `HttpOnly`, `SameSite=Lax`, `Secure` on HTTPS). |
 | TR-011 | The admin password comes from the `ADMIN_PASSWORD` secret until changed in the UI, then lives in D1 as a salted PBKDF2 hash. There is no default password. |
-| TR-012 | Per-file limit defaults to 25 MB with a hard cap of 50 MB; a request is capped at 60 MB (Worker memory is 128 MB). |
+| TR-012 | Every file is at most 5 MB (hard cap `HARD_MAX_FILE_BYTES`; the admin setting can lower it, never raise it); a request is capped at 60 MB. The Supabase bucket enforces the same 5 MB as a second line of defence. |
+| TR-026 | `GET /api/usage` returns storage used, quota, remaining and file count (live, non-expired rows) plus the active limits, aggregates only. Counted with one query, cached 15 s per instance, invalidated by uploads, deletes and purges. |
+| TR-027 | An upload that would exceed `STORAGE_QUOTA_BYTES` is rejected with `507` before any data is stored. The quota is soft: concurrent uploads in different instances can overshoot slightly. |
 | TR-013 | Downloads send `Content-Disposition: attachment` (header-injection safe, UTF-8 names) and `X-Content-Type-Options: nosniff`. |
 | TR-014 | API errors are JSON `{ "error": "..." }` with accurate status codes; unexpected errors are logged and return `500`. |
 | TR-016 | D1 usage is minimised: two indexes only, narrow column lists, config cached per isolate (60 s), list capped at 200 rows ([20_DATABASE.md](20_DATABASE.md)). |

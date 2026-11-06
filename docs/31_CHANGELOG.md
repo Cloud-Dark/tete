@@ -16,11 +16,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- Storage quota (`STORAGE_QUOTA_BYTES`, default 1 GiB) enforced at upload (`507 Storage is full`), `GET /api/usage`, and a *Resources* panel on the website (storage used and left with a progress bar that turns amber at 80% and red at 95%, files stored, per-file and per-upload limits, default lifetime).
 - OAuth 2.1 for MCP: protected resource and authorization server metadata, dynamic client registration, consent screen with admin password, authorization code + PKCE S256, refresh tokens, single-use codes (`oauth_codes`), revocation of all clients (`oauthEpoch`, Admin button, `POST /api/admin/revoke-oauth`).
 - `POST /mcp/public`: anonymous endpoint with the five public tools.
 
 ### Changed
 
+- **Breaking:** the per-file limit is now **5 MB** (was 25 MB, hard cap 50 MB). The hard cap is 5 MB, so the admin setting accepts 1 to 5 MB; the Supabase bucket enforces 5 MB as well.
 - **Breaking:** `POST /mcp` now requires OAuth (or the optional static `MCP_TOKEN`); the anonymous tools moved to `/mcp/public`. All nine tools are available on `/mcp` after sign-in. CORS allows the `Authorization` header and exposes `WWW-Authenticate`.
 - MCP admin tools behind `MCP_TOKEN`: `list_files`, `get_config`, `update_config`, `purge_expired`, token-less `delete_file`.
 - New web UI: single page, apipedia.id palette and typography, light and dark, hero with upload card, expiry chips, password toggle, real upload progress, one-click file actions, cURL/MCP/Claude Desktop snippets with copy buttons, mobile menu, sticky header with scroll progress, footer and back-to-top. Share page restyled to match.

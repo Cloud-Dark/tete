@@ -22,7 +22,7 @@ Architecture decision records. Newest decisions are appended; numbers are perman
 - **Decision:** HMAC-signed cookie with expiry instead of a session store.
 - **Alternatives rejected:** Sessions in D1/KV (extra writes and cleanup for a single-admin app). Trade-off: no per-session revocation (R-05).
 
-## D-004 — Buffered uploads with a 50 MB cap (2026-11-06)
+## D-004 — Buffered uploads with a size cap (2026-11-06; cap lowered to 5 MB by D-019)
 
 - **Decision:** Parse `multipart/form-data` in the Worker; default 25 MB, hard cap 50 MB per file, 60 MB per request.
 - **Alternatives rejected:** Streaming/multipart upload straight to object storage or presigned URLs (more moving parts; revisit if larger files are needed).
@@ -111,3 +111,10 @@ Architecture decision records. Newest decisions are appended; numbers are perman
 - **Decision:** `signToken` / `verifyToken` derive the HMAC key from `SESSION_SECRET` plus a purpose label (`admin-session`, `oauth-client`, `oauth-txn`, `oauth-code`, `oauth-access`, `oauth-refresh`), and the admin cookie additionally requires `role: admin`.
 - **Context:** Before OAuth, any validly signed unexpired token was accepted as an admin session. With OAuth, anyone can obtain signed values (a registered client id), so this would have been privilege escalation. Covered by smoke checks that present an access token and a client id as an admin cookie.
 - **Consequence:** Existing admin sessions were invalidated once at deployment (admins log in again).
+
+## D-019 — 5 MB per file and a visible storage quota (2026-11-06)
+
+- **Decision:** `HARD_MAX_FILE_BYTES` is 5 MB and the default per-file limit is 5 MB; the Supabase bucket limit is 5 MB too. A soft storage quota (`STORAGE_QUOTA_BYTES`, default 1 GiB) is enforced at upload with `507`, and `GET /api/usage` plus a *Resources* panel on the website show used, left, files stored and the active limits.
+- **Context:** The owner asked for a 5 MB maximum and to show the remaining resources in the UI. "Resources" is taken as storage and the limits that apply to an upload; request counts of the hosting platforms are not exposed because the Worker cannot read them.
+- **Alternatives rejected:** Reading real usage from the Supabase Management API (needs another credential); a per-request 5 MB total (the request said "max 5 MB", read as per file; a multi-file upload can still add up to 50 MB).
+- **Consequence:** Anything larger than 5 MB is rejected with `413`. Files uploaded earlier are unaffected. The quota is TETE's own count, see R-18.

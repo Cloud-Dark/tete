@@ -1,6 +1,6 @@
 // Runtime configuration: wrangler [vars] provide defaults, the admin UI overrides them in D1.
 
-export const HARD_MAX_FILE_BYTES = 50 * 1024 * 1024; // Worker memory (128 MB) is the real ceiling
+export const HARD_MAX_FILE_BYTES = 5 * 1024 * 1024; // product limit: no file above 5 MB, whatever an admin configures
 export const TOTAL_REQUEST_CAP = 60 * 1024 * 1024;
 export const ADMIN_SESSION_MS = 24 * 60 * 60 * 1000;
 
@@ -12,6 +12,11 @@ const int = (v, fallback) => {
 export function parseWhitelist(value) {
   const list = Array.isArray(value) ? value : String(value ?? '').split(',');
   return list.map((e) => String(e).trim().toLowerCase().replace(/^\./, '')).filter(Boolean);
+}
+
+// Total storage the service may hold (soft quota, counted from the files table). Default 1 GiB.
+export function storageQuota(env) {
+  return int(env.STORAGE_QUOTA_BYTES, 1024 * 1024 * 1024) || 1024 * 1024 * 1024;
 }
 
 export function pbkdf2Iterations(env) {
@@ -33,7 +38,7 @@ export async function getConfig(env) {
 async function loadConfig(env) {
   const cfg = {
     defaultExpiration: int(env.DEFAULT_EXPIRATION_MS, 3600000),
-    maxFileSize: int(env.MAX_FILE_SIZE_BYTES, 25 * 1024 * 1024),
+    maxFileSize: int(env.MAX_FILE_SIZE_BYTES, 5 * 1024 * 1024),
     maxFilesPerUpload: int(env.MAX_FILES_PER_UPLOAD, 10) || 10,
     fileWhitelist: parseWhitelist(env.FILE_WHITELIST),
   };

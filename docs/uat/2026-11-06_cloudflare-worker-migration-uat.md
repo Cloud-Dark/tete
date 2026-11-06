@@ -40,7 +40,7 @@
 
 - **Real Supabase Storage.** The stand-in follows the documented REST behaviour (auth headers, POST/GET object, bulk delete by `prefixes`, 400/404 for a missing object) but the real service is untested, including the exact status it returns for a missing object and the `x-upsert` header semantics.
 - Real Cloudflare deployment, custom domains, and Workers Free-plan CPU behaviour for PBKDF2 (R-02).
-- Uploads near the 50 MB cap under real Worker memory limits (R-01) and Supabase's per-object limit.
+- Uploads above 5 MB are rejected by design, so the former 50 MB memory question no longer applies (R-01).
 - Admin password change through the browser UI (the API flow is covered by scenario 16).
 
 ## Live run against the deployed Worker and real Supabase Storage
@@ -50,7 +50,7 @@
 - **Result:** every scenario above that is part of the smoke test passes against the real services, including locked-file encryption and decryption, MCP, delete authorisation, expiry, admin and size limits.
 - **Real Supabase behaviour confirmed:** a missing object answers `400` (handled as "not found" by `worker/storage.js`); the `sb_secret_` key works in both the `apikey` and `Authorization: Bearer` headers; upload, streamed download and bulk delete work.
 - **Finding:** the first live run failed one check. The admin whitelist reset was cached for up to 60 s in other isolates (per-isolate config cache, D-009), so an upload was still rejected for a moment. D1 held the correct value. The smoke test now waits until the change is visible; behaviour is documented in [20_DATABASE.md](../20_DATABASE.md).
-- **Still not covered:** custom domains, uploads near 50 MB, and the cron trigger (not registered, R-15).
+- **Still not covered:** the cron trigger (not registered, R-15).
 
 ## Live run on the production domains
 
@@ -79,3 +79,10 @@
 - **Live (production domains):** smoke test on `https://tetein.apipedia.id` and `https://tete.apipedia.id`: 91 PASS, 0 FAIL on each, 27 of them OAuth (the 4 sign-out checks are skipped live because they would disconnect real clients; they run locally and with `OAUTH_REVOKE_TEST=1`). The browser consent flow passed against `https://tetein.apipedia.id`, and the website UI run passed again.
 - **Real client:** Claude Code 2.1.318 reports `/mcp` as "Needs authentication" (it recognised the 401 and the OAuth discovery) and `/mcp/public` as connected. The interactive sign-in itself needs a person in a browser and was not completed in the sandbox; the same flow was exercised end to end with a scripted client and with Chromium.
 - **Cleanup:** all tokens created by these tests were signed out afterwards (Admin → sign out all connected applications).
+
+## 5 MB limit and Resources panel
+
+- **Local:** 111 smoke checks (a file of exactly 5 MB is accepted and downloads intact, 5 MB + 1 byte, 26 MB and a text above 5 MB are rejected with `413`, the admin cannot raise the limit above 5 MB, `GET /api/usage` shape, aggregates only, remaining = quota - used), a dedicated quota test (`test/quota.mjs`, dev server with a 2 MB quota: second 1.2 MB upload gets `507 Storage is full`, the same upload fits again after a delete), the UI run (Resources panel shows 5 MB, storage left and files stored) and the consent flow.
+- **Live:** the Supabase bucket limit was lowered from 50 MB to 5 MB through the Storage API (bucket stays private); smoke test on both production domains: 99 PASS, 0 FAIL each, including the real 5 MB upload to Supabase Storage; the UI run (with the Resources checks) and the consent flow passed on production.
+- **Finding:** the first live run failed `whitelist rejects .exe` on both domains. After an admin saves a whitelist, other Worker instances keep the old value for up to 60 seconds (D-009), so the probe upload landed on an instance that had not caught up. The test now retries until the probe is rejected and deletes accidental successes.
+- **Cleanup:** the stored `maxFileSize` override (25 MB, written by an earlier UI test run) was set to 5 MB. About 21 small files created by the test runs remain on production and expire on their own within the hour (default lifetime); a bulk delete was not performed.

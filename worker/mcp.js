@@ -69,12 +69,12 @@ const ADMIN_TOOLS = [
   },
   {
     name: 'update_config',
-    description: 'Change runtime limits. Omit a field to keep it. maxFileSize is in MB (max 50). Other instances pick the change up within a minute.',
+    description: 'Change runtime limits. Omit a field to keep it. maxFileSize is in MB (1 to 5). Other instances pick the change up within a minute.',
     inputSchema: {
       type: 'object',
       properties: {
         defaultExpiration: { type: 'integer', minimum: 0, description: 'Milliseconds, 0 = never.' },
-        maxFileSize: { type: 'integer', minimum: 1, maximum: 50 },
+        maxFileSize: { type: 'integer', minimum: 1, maximum: 5 },
         maxFilesPerUpload: { type: 'integer', minimum: 1 },
         fileWhitelist: { type: 'string', description: 'Comma-separated extensions, empty = allow all.' },
       },

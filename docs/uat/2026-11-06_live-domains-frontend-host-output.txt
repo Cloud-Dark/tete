@@ -25,12 +25,20 @@ PASS  expired file -> 404
 PASS  text without content -> 400
 PASS  upload without file -> 400
 PASS  bad id -> 404
-PASS  file over limit -> 413
+PASS  a file of exactly 5 MB is accepted
+PASS  the 5 MB file downloads with the same size
+PASS  5 MB + 1 byte -> 413 mentioning the 5 MB limit
+PASS  26 MB file -> 413
+PASS  text above 5 MB -> 413
+PASS  GET /api/usage: shape, 5 MB per-file limit, remaining = quota - used
+PASS  usage exposes aggregates only (no file names)
+PASS  usage grows after an upload (same instance sees it at once)
 PASS  config without admin -> 403
 PASS  admin login wrong -> 401
 PASS  admin login ok -> 200 + cookie
 PASS  admin status true
 PASS  admin can read config
+PASS  admin cannot raise the per-file limit above 5 MB
 PASS  admin can update whitelist
 PASS  rejected config update changes nothing (atomic)
 PASS  whitelist rejects .exe -> 400

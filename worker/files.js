@@ -1,6 +1,6 @@
 // File endpoints: upload (multipart / text), info, verify, download, delete, list.
 
-import { TOTAL_REQUEST_CAP, getConfig, pbkdf2Iterations } from './config.js';
+import { TOTAL_REQUEST_CAP, getConfig, pbkdf2Iterations, storageQuota } from './config.js';
 import {
   decryptContent, decryptMeta, encryptWithPassword, randomHex, safeEqual, sha256Hex, unwrapDataKey,
 } from './crypto.js';
@@ -11,6 +11,40 @@ import { deleteObjects, getObject, putObject } from './storage.js';
 
 // Columns needed to describe a file publicly; excludes the enc blob and delete token.
 const PUBLIC_COLS = 'id, original_name, mime_type, size, uploaded_at, expires_at, locked';
+
+// Storage usage, counted from live (non-expired) rows. Cached per isolate for a few seconds so the status panel and the
+// quota check do not rescan the table on every request; uploads, deletes and purges drop the cache in their own isolate.
+const USAGE_TTL_MS = 15_000;
+let usageCache = null;
+
+async function countUsage(env) {
+  if (usageCache && usageCache.expires > Date.now()) return usageCache.value;
+  const row = await env.DB.prepare('SELECT COUNT(*) AS files, COALESCE(SUM(size), 0) AS bytes FROM files WHERE expires_at IS NULL OR expires_at > ?')
+    .bind(Date.now()).first();
+  const value = { files: Number(row.files), usedBytes: Number(row.bytes) };
+  usageCache = { value, expires: Date.now() + USAGE_TTL_MS };
+  return value;
+}
+
+const dropUsageCache = () => { usageCache = null; };
+
+async function assertQuota(env, incomingBytes) {
+  const quota = storageQuota(env);
+  const { usedBytes } = await countUsage(env);
+  if (usedBytes + incomingBytes > quota) {
+    throw new HttpError(507, 'Storage is full. Delete some files or wait for them to expire, then try again');
+  }
+}
+
+// GET /api/usage - what is left. Aggregates only, no file names.
+export async function usage(env) {
+  const [cfg, { files, usedBytes }] = [await getConfig(env), await countUsage(env)];
+  const quotaBytes = storageQuota(env);
+  return json({
+    storage: { usedBytes, quotaBytes, remainingBytes: Math.max(quotaBytes - usedBytes, 0), files },
+    limits: { maxFileSize: cfg.maxFileSize, maxFilesPerUpload: cfg.maxFilesPerUpload, defaultExpiration: cfg.defaultExpiration },
+  });
+}
 
 const ID_PATTERN = /^[a-f0-9]{6}$/;
 
@@ -106,6 +140,7 @@ async function storeFile(env, cfg, { name, mime, data, size, password, expiresAt
   const row = {
     id, original_name: publicName, mime_type: publicMime, size, uploaded_at: uploadedAt, expires_at: expiresAt, locked: password ? 1 : 0,
   };
+  dropUsageCache();
   return {
     ...publicView(row, links, { reveal: { name, mime } }),
     deleteUrl: `${links.api}/file/${id}?token=${deleteToken}`,
@@ -142,6 +177,8 @@ export async function uploadFiles(request, env, ctx) {
     checkExtension(f.name, cfg);
   }
 
+  await assertQuota(env, files.reduce((sum, f) => sum + f.size, 0));
+
   const password = form.get('password') || null;
   const expiresAt = resolveExpiresAt(form.get('expiration'), cfg);
   const links = linksFor(request, env);
@@ -174,6 +211,7 @@ export async function uploadText(request, env, ctx) {
   }
   const name = typeof filename === 'string' && filename.trim() ? filename.trim() : null;
   if (name) checkExtension(name, cfg);
+  await assertQuota(env, data.size);
 
   const links = linksFor(request, env);
   const result = await storeFile(env, cfg, {
@@ -269,6 +307,7 @@ export async function deleteFile(request, env, id, ctx) {
 
   await deleteObjects(env, [id]);
   await env.DB.prepare('DELETE FROM files WHERE id = ?').bind(id).run();
+  dropUsageCache();
   return json({ success: true, message: 'File deleted successfully' });
 }
 
@@ -298,5 +337,6 @@ export async function purgeExpired(env) {
     purged += ids.length;
   }
   await purgeOauthCodes(env);
+  if (purged) dropUsageCache();
   return purged;
 }

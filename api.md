@@ -15,7 +15,7 @@ a private Supabase Storage bucket (never exposed to clients), metadata in D1, an
 | Links | `url` (share page) points at the frontend host `tete.apipedia.id`; `downloadUrl` and `deleteUrl` point at the API host `tetein.apipedia.id`. On other hosts (e.g. workers.dev) all links use that host |
 | Identity | An anonymous `tete_uid` cookie marks you as the owner of your uploads. curl users can ignore it and use the delete token |
 | Expiration | `expiration` is milliseconds. Omitted or empty = server default, `0` = never expires |
-| Limits | Default 25 MB per file, 10 files per request, 60 MB per request (hard cap). Admins can lower the per-file limit; the hard cap per file is 50 MB |
+| Limits | **5 MB per file** (hard cap; an admin can lower it, never raise it), 10 files per request, 60 MB per request, 1 GiB of storage in total (`507` when full) |
 
 ## Upload
 
@@ -116,6 +116,21 @@ curl -H "Content-Type: application/json" -d '{"password": "s3cret"}' {{BASE_URL}
 
 `200 { "success": true }` when the file is unlocked or the password is right, `401` otherwise.
 
+### `GET /api/usage` — what is left
+
+Public, aggregates only (no file names). Counts live, non-expired files; cached for up to 15 seconds per instance.
+
+```bash
+curl {{BASE_URL}}/api/usage
+```
+
+```json
+{
+  "storage": { "usedBytes": 26214400, "quotaBytes": 1073741824, "remainingBytes": 1047527424, "files": 5 },
+  "limits":  { "maxFileSize": 5242880, "maxFilesPerUpload": 10, "defaultExpiration": 3600000 }
+}
+```
+
 ### `GET /api/files` — list your files
 
 Returns an array of file-info objects: the files owned by the caller's cookie. An admin session sees every file
@@ -152,7 +167,7 @@ Admin endpoints use a signed `tete_admin` cookie (24 h). Use `-c cookies.txt` / 
 | GET | `/api/config` | – | Admin only |
 | POST | `/api/config` | any of the fields below | Admin only. All fields are validated first; a rejected request changes nothing |
 
-Config fields: `defaultExpiration` (ms), `maxFileSize` (MB, or bytes when the value is above 1000; max 50 MB),
+Config fields: `defaultExpiration` (ms), `maxFileSize` (MB, or bytes when the value is above 1000; 1 to 5 MB),
 `maxFilesPerUpload`, `fileWhitelist` (`"png,pdf"` or array; empty allows every extension).
 
 ```bash
@@ -218,5 +233,6 @@ Tool failures are `isError: true` results with the same messages as the REST err
 | 401 | Missing/invalid file password or admin password |
 | 403 | Not owner / not admin / missing delete token |
 | 404 | Unknown ID, expired file, unknown route |
-| 413 | File or request over the size limit |
+| 413 | File over 5 MB, text over 5 MB, or request over the size limit |
+| 507 | Storage quota is full |
 | 503 | Admin not configured, or no free file ID (retry) |

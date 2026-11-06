@@ -29,7 +29,7 @@
     if (!bytes) return '0 B';
     const units = ['B', 'KB', 'MB', 'GB'];
     const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
-    return `${(bytes / 1024 ** i).toFixed(i ? 1 : 0)} ${units[i]}`;
+    return `${+(bytes / 1024 ** i).toFixed(i ? 1 : 0)} ${units[i]}`;
   };
 
   const GLYPH = '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/></svg>';

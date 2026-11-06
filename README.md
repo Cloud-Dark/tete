@@ -35,6 +35,7 @@ Browser / curl ──► Cloudflare Worker (worker/index.js)
 
 ## Features
 
+- **Resources panel:** storage used and left (with a warning colour above 80%), files stored, per-file and per-upload limits, default lifetime
 - One-page web UI (warm paper, serif headlines, light and dark): drag-and-drop or text upload, expiry chips, password toggle, upload progress, share link with copy button, your files with one-click actions, copy-paste snippets for cURL and MCP
 - Optional password: AES-256-GCM content + filename encryption, key wrapped with PBKDF2-SHA256
 - Per-upload expiration, short URLs, REST API with CORS
@@ -133,7 +134,8 @@ Defaults live in `wrangler.toml` `[vars]`; the admin **Config** tab overrides th
 | Variable | Default | Meaning |
 |----------|---------|---------|
 | `DEFAULT_EXPIRATION_MS` | `3600000` (1 h) | Expiration when none is given (`0` = never) |
-| `MAX_FILE_SIZE_BYTES` | `26214400` (25 MB) | Per-file limit (hard cap 50 MB) |
+| `MAX_FILE_SIZE_BYTES` | `5242880` (5 MB) | Per-file limit. 5 MB is also the hard cap; an admin can lower it but never raise it |
+| `STORAGE_QUOTA_BYTES` | `1073741824` (1 GiB) | Soft cap on everything stored. Uploads fail with `507 Storage is full` beyond it |
 | `MAX_FILES_PER_UPLOAD` | `10` | Files per request |
 | `FILE_WHITELIST` | empty | Comma-separated extensions; empty allows all |
 | `PBKDF2_ITERATIONS` | `100000` | Key-derivation cost for locked files and the admin password |
@@ -148,8 +150,9 @@ See [docs/16_CONFIG_REFERENCE.md](docs/16_CONFIG_REFERENCE.md).
 
 ## Limits and security notes
 
-- **Size:** a Worker has 128 MB of memory and buffers uploads, so the practical ceiling is about 50 MB per file
-  (default 25 MB). Larger files need direct-to-storage uploads (not implemented).
+- **Size:** every file is limited to **5 MB** (hard cap, not configurable above 5). The website's *Resources* panel and
+  `GET /api/usage` show how much storage is left and the active limits. The quota is counted by TETE from its own file list;
+  set `STORAGE_QUOTA_BYTES` to match the real allowance of your storage plan.
 - **Unlocked files are public to anyone who knows the 6-hex ID.** Use a password for anything sensitive.
 - **No rate limiting yet** on password attempts; PBKDF2 slows guessing but add a Cloudflare WAF rate-limit rule for
   public deployments.

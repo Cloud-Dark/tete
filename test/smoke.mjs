@@ -128,10 +128,39 @@ res = await alice('/api', { method: 'POST', body: new FormData() });
 check('upload without file -> 400', res.status === 400);
 res = await alice('/file/zzzzzz/download');
 check('bad id -> 404', res.status === 404);
+const MB5 = 5 * 1024 * 1024;
+const exact = new FormData();
+exact.append('file', new Blob([new Uint8Array(MB5)]), 'exact-5mb.bin');
+res = await alice('/api', { method: 'POST', body: exact });
+const exactJson = res.status === 200 ? await res.json() : null;
+check('a file of exactly 5 MB is accepted', res.status === 200 && exactJson.size === MB5, String(res.status));
+if (exactJson) {
+  const back = await alice(`/file/${exactJson.id}/download`);
+  check('the 5 MB file downloads with the same size', back.status === 200 && (await back.arrayBuffer()).byteLength === MB5);
+  await alice(`/file/${exactJson.id}`, { method: 'DELETE' });
+}
+const over = new FormData();
+over.append('file', new Blob([new Uint8Array(MB5 + 1)]), 'over-5mb.bin');
+res = await alice('/api', { method: 'POST', body: over });
+check('5 MB + 1 byte -> 413 mentioning the 5 MB limit', res.status === 413 && /5 MB/.test((await res.json()).error), String(res.status));
 const big = new FormData();
 big.append('file', new Blob([new Uint8Array(26 * 1024 * 1024)]), 'big.bin');
 res = await alice('/api', { method: 'POST', body: big });
-check('file over limit -> 413', res.status === 413, String(res.status));
+check('26 MB file -> 413', res.status === 413, String(res.status));
+const bigText = await postJson(alice, '/api/text', { text: 'x'.repeat(MB5 + 1) });
+check('text above 5 MB -> 413', bigText.status === 413, String(bigText.status));
+
+// --- resources (usage endpoint)
+res = await alice('/api/usage');
+const u0 = await res.json();
+check('GET /api/usage: shape, 5 MB per-file limit, remaining = quota - used', res.status === 200 && u0.limits.maxFileSize === MB5 && u0.storage.remainingBytes === Math.max(u0.storage.quotaBytes - u0.storage.usedBytes, 0) && u0.storage.quotaBytes > 0, JSON.stringify(u0));
+check('usage exposes aggregates only (no file names)', !JSON.stringify(u0).includes('.txt') && Object.keys(u0.storage).sort().join() === 'files,quotaBytes,remainingBytes,usedBytes');
+const usedFile = await postJson(alice, '/api/text', { text: 'x'.repeat(1000), expiration: 0 });
+const uj = await usedFile.json();
+await new Promise((r) => setTimeout(r, 200));
+const u1 = await (await alice('/api/usage')).json();
+check('usage grows after an upload (same instance sees it at once)', u1.storage.usedBytes >= u0.storage.usedBytes || u1.storage.files >= u0.storage.files, JSON.stringify([u0.storage, u1.storage]));
+await alice(`/file/${uj.id}`, { method: 'DELETE' });
 
 // --- admin
 res = await alice('/api/config');
@@ -145,16 +174,25 @@ check('admin status true', (await res.json()).isAdmin === true);
 res = await alice('/api/config');
 const cfg = await res.json();
 check('admin can read config', res.status === 200 && cfg.maxFilesPerUpload >= 1, JSON.stringify(cfg));
+res = await postJson(alice, '/api/config', { maxFileSize: 6 });
+check('admin cannot raise the per-file limit above 5 MB', res.status === 400 && /between 1 and 5 MB/.test((await res.json()).error));
 res = await postJson(alice, '/api/config', { fileWhitelist: 'txt,png' });
 check('admin can update whitelist', (await res.json()).fileWhitelist.join() === 'txt,png');
 const cfgBefore = await (await alice('/api/config')).json();
 res = await postJson(alice, '/api/config', { defaultExpiration: 5000, maxFileSize: 0 });
 const cfgAfter = await (await alice('/api/config')).json();
 check('rejected config update changes nothing (atomic)', res.status === 400 && cfgAfter.defaultExpiration === cfgBefore.defaultExpiration, `${res.status} ${cfgBefore.defaultExpiration} -> ${cfgAfter.defaultExpiration}`);
-form = new FormData();
-form.append('file', new Blob(['x']), 'bad.exe');
-res = await alice('/api', { method: 'POST', body: form });
-check('whitelist rejects .exe -> 400', res.status === 400);
+// The whitelist reaches other instances within the 60 s config cache, so retry until a probe is rejected
+// (instant locally); an accidental success is deleted again so no test file is left behind.
+for (let i = 0; i < 40; i++) {
+  form = new FormData();
+  form.append('file', new Blob(['x']), 'bad.exe');
+  res = await alice('/api', { method: 'POST', body: form });
+  if (res.status === 400) break;
+  if (res.status === 200) { const leaked = await res.json(); await alice(`/file/${leaked.id}`, { method: 'DELETE' }); }
+  await new Promise((r) => setTimeout(r, 2000));
+}
+check('whitelist rejects .exe -> 400', res.status === 400, String(res.status));
 await postJson(alice, '/api/config', { fileWhitelist: '' });
 // Config is cached per isolate for up to 60 s, so on a deployed Worker the reset reaches other isolates a little
 // later. Wait until uploads are accepted again (instant locally) before continuing.

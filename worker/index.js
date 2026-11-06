@@ -37,6 +37,7 @@ function apiIndex() {
       download: 'GET /file/:id/download',
       delete: 'DELETE /file/:id',
       listFiles: 'GET /api/files',
+      usage: 'GET /api/usage (storage used and remaining, limits)',
       mcp: 'POST /mcp (Model Context Protocol, OAuth 2.1 sign-in, all tools)',
       mcpPublic: 'POST /mcp/public (no sign-in: upload_text, upload_base64, file_info, read_text, delete_file)',
       oauthDiscovery: 'GET /.well-known/oauth-authorization-server',
@@ -94,6 +95,7 @@ async function route(request, env, ctx) {
   if (pathname === '/api/upload' && method === 'POST') return files.uploadFiles(request, env, ctx);
   if (pathname === '/api/text' && method === 'POST') return files.uploadText(request, env, ctx);
   if (pathname === '/api/files' && method === 'GET') return files.listFiles(request, env, ctx);
+  if (pathname === '/api/usage' && method === 'GET') return files.usage(env);
 
   if ((m = pathname.match(/^\/api\/file\/([^/]+)$/)) && method === 'GET') return files.fileInfo(request, env, m[1]);
 

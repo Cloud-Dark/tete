@@ -31,7 +31,7 @@
     if (!bytes) return '0 B';
     const units = ['B', 'KB', 'MB', 'GB'];
     const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
-    return `${(bytes / 1024 ** i).toFixed(i ? 1 : 0)} ${units[i]}`;
+    return `${+(bytes / 1024 ** i).toFixed(i ? 1 : 0)} ${units[i]}`;
   };
 
   const formatExpiry = (expiresAt) => {
@@ -124,6 +124,35 @@
       }, { threshold: 0.08 });
       $$('.section .wrap > *').forEach((el) => { el.classList.add('reveal'); reveal.observe(el); });
     }
+  }
+
+  // ---------- resources (storage left + limits) ----------
+  const formatLife = (ms) => {
+    if (!ms) return 'Never';
+    const h = ms / 3600000;
+    if (h < 1) return `${Math.round(ms / 60000)} min`;
+    if (h < 48) return `${+h.toFixed(1)} h`;
+    return `${Math.round(h / 24)} days`;
+  };
+
+  async function loadUsage() {
+    try {
+      const { storage, limits } = await api('/api/usage');
+      const pct = storage.quotaBytes ? Math.min(100, (storage.usedBytes / storage.quotaBytes) * 100) : 0;
+      $('#usedText').textContent = formatSize(storage.usedBytes);
+      $('#quotaText').textContent = formatSize(storage.quotaBytes);
+      $('#remainText').textContent = formatSize(storage.remainingBytes);
+      $('#filesText').textContent = `${storage.files} ${storage.files === 1 ? 'file' : 'files'}`;
+      $('#meterFill').style.width = `${Math.max(pct, storage.usedBytes ? 1.5 : 0)}%`;
+      $('#meter').setAttribute('aria-valuenow', String(Math.round(pct)));
+      $('#meter').classList.toggle('is-warn', pct >= 80 && pct < 95);
+      $('#meter').classList.toggle('is-full', pct >= 95);
+      $('.stats').classList.toggle('is-full', pct >= 95);
+      $('#limitFile').textContent = formatSize(limits.maxFileSize);
+      $('#limitCount').textContent = String(limits.maxFilesPerUpload);
+      $('#limitExpiry').textContent = formatLife(limits.defaultExpiration);
+      $('#dzHint').textContent = storage.remainingBytes <= 0 ? 'Storage is full right now' : `Up to ${formatSize(limits.maxFileSize)} per file`;
+    } catch { /* the panel keeps its last values */ }
   }
 
   // ---------- upload form ----------
@@ -246,6 +275,7 @@
       if (state.mode === 'file') { state.picked = []; renderPicked(); } else { $('#textContent').value = ''; $('#textName').value = ''; }
       $('#uploadPassword').value = '';
       loadFiles();
+      loadUsage();
     } catch (err) {
       out.innerHTML = `<div class="result is-error" role="alert"><p class="result-title">${icon('x')} Upload failed</p><p style="margin:0">${esc(err.message)}</p></div>`;
     } finally {
@@ -325,7 +355,7 @@
       if (btn.dataset.act === 'delete') deleteFile(id, row);
     });
     $('#refreshBtn').addEventListener('click', async () => { await loadFiles(); toast('Updated'); });
-    setInterval(() => { if (!document.hidden) loadFiles(); }, 30000);
+    setInterval(() => { if (!document.hidden) { loadFiles(); loadUsage(); } }, 30000);
   }
 
   async function deleteFile(id, el) {
@@ -337,6 +367,7 @@
       state.files.delete(id);
       toast('File deleted');
       loadFiles();
+      loadUsage();
     } catch (err) {
       toast(err.message, 'error');
     }
@@ -425,7 +456,6 @@
       $('#cfgMaxSize').value = cfg.maxFileSizeMB;
       $('#cfgMaxFiles').value = cfg.maxFilesPerUpload;
       $('#cfgWhitelist').value = cfg.fileWhitelist.join(', ');
-      $('#dzHint').textContent = `Up to ${cfg.maxFileSizeMB} MB per file`;
       configLoaded = true;
     } catch (err) { toast(err.message, 'error'); }
   }
@@ -478,7 +508,7 @@
             fileWhitelist: $('#cfgWhitelist').value
           })
         });
-        $('#dzHint').textContent = `Up to ${cfg.maxFileSizeMB} MB per file`;
+        loadUsage();
         toast('Limits saved');
       } catch (err) { toast(err.message, 'error'); }
     });
@@ -545,6 +575,7 @@ curl -X DELETE "${API}/file/<id>?token=<token>"`;
     initConnect();
     refreshUploadButton();
     loadFiles();
+    loadUsage();
     checkAdmin();
   });
 })();

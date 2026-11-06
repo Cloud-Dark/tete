@@ -20,7 +20,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400;1,9..144,500&family=Geist:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/css/style.css?v=5">
+  <link rel="stylesheet" href="/css/style.css?v=6">
 </head>
 <body>
   <a class="skip-link" href="#upload">Skip to content</a>
@@ -79,7 +79,7 @@
             <div class="dropzone" id="dropZone" tabindex="0" role="button" aria-label="Choose files to upload">
               <svg class="icon icon-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M12 4l-4 4M12 4l4 4"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
               <p class="dz-title">Drop files here, or <span class="link">browse</span></p>
-              <p class="dz-hint" id="dzHint">Up to 25 MB per file</p>
+              <p class="dz-hint" id="dzHint">Up to 5 MB per file</p>
               <input type="file" id="fileInput" multiple hidden>
             </div>
             <ul class="picked" id="pickedFiles" aria-live="polite"></ul>
@@ -125,6 +125,26 @@
 
           <button class="btn btn-primary btn-block" id="uploadBtn" type="button" disabled>Upload</button>
           <div id="uploadResult" class="results" aria-live="polite"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== Resources ===== -->
+    <section class="section" id="resources">
+      <div class="wrap">
+        <div class="section-head">
+          <div><p class="eyebrow"><i class="dot"></i>Resources</p><h2 class="h2">What is left.</h2></div>
+        </div>
+        <div class="stats">
+          <article class="stat stat-wide">
+            <p class="stat-label">Storage</p>
+            <p class="stat-value"><span id="usedText">…</span> <small>of <span id="quotaText">…</span> used</small></p>
+            <div class="meter" id="meter" role="progressbar" aria-label="Storage used" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="meterFill"></i></div>
+            <p class="stat-note"><b id="remainText">…</b> left · <span id="filesText">…</span> stored</p>
+          </article>
+          <article class="stat"><p class="stat-label">Per file</p><p class="stat-value" id="limitFile">…</p><p class="stat-note">largest allowed file</p></article>
+          <article class="stat"><p class="stat-label">Per upload</p><p class="stat-value" id="limitCount">…</p><p class="stat-note">files at once</p></article>
+          <article class="stat"><p class="stat-label">Default life</p><p class="stat-value" id="limitExpiry">…</p><p class="stat-note">until it deletes itself</p></article>
         </div>
       </div>
     </section>
@@ -197,7 +217,7 @@
               </select>
             </label>
             <div class="row">
-              <label class="field"><span class="label">Max file size (MB)</span><input class="input" id="cfgMaxSize" type="number" min="1" max="50" step="1"></label>
+              <label class="field"><span class="label">Max file size (MB)</span><input class="input" id="cfgMaxSize" type="number" min="1" max="5" step="1"></label>
               <label class="field"><span class="label">Files per upload</span><input class="input" id="cfgMaxFiles" type="number" min="1" max="50" step="1"></label>
             </div>
             <label class="field"><span class="label">Allowed extensions <small>(empty = all)</small></span><input class="input" id="cfgWhitelist" type="text" placeholder="png, jpg, pdf, txt"></label>
@@ -269,6 +289,6 @@
   </div>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script src="/js/app.js?v=5"></script>
+  <script src="/js/app.js?v=6"></script>
 </body>
 </html>

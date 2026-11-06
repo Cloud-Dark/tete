@@ -47,7 +47,7 @@ Always keep `deleteToken` / `deleteUrl` from the upload response: it is shown on
 3. Locked files: content **and** the real filename/MIME type are encrypted. The server never stores the password.
    A lost password means the file cannot be recovered.
 4. Deleting needs the owner cookie, an admin session, or the delete token. Plain `DELETE /file/:id` from a stranger is `403`.
-5. Limits: 25 MB per file by default (hard cap 50 MB), 10 files and 60 MB per request.
+5. Limits: **5 MB per file** (hard cap), 10 files and 60 MB per request, 1 GiB storage in total. `GET {{BASE_URL}}/api/usage` shows what is left; `507` means storage is full.
 6. Errors are `{ "error": "..." }`. Do not retry `4xx`; `503` is retryable.
 
 ## Architecture in one screen

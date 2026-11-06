@@ -39,8 +39,10 @@ migrations_dir = "migrations"
 # Defaults. The admin Config tab overrides the first four at runtime (stored in D1).
 [vars]
 DEFAULT_EXPIRATION_MS = "3600000"
-MAX_FILE_SIZE_BYTES = "26214400"
+MAX_FILE_SIZE_BYTES = "5242880"
 MAX_FILES_PER_UPLOAD = "10"
+# Soft cap on everything stored (bytes). 1 GiB matches the Supabase Free plan storage allowance (verify on supabase.com).
+STORAGE_QUOTA_BYTES = "1073741824"
 FILE_WHITELIST = ""
 PBKDF2_ITERATIONS = "100000"
 # Two hostnames, one Worker: frontend (UI + share page) and API host (API, MCP, integrators).
