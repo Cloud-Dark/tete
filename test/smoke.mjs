@@ -198,6 +198,42 @@ check('GET /mcp -> 405', res.status === 405);
 m = await rpc('nope/method');
 check('MCP unknown method -> JSON-RPC error', m.body.error?.code === -32601);
 
+// --- two hostnames, one Worker (only checkable with a custom Host header, i.e. against local dev)
+if (/^(localhost|127\.0\.0\.1)$/.test(new URL(BASE).hostname)) {
+  const { request } = await import('node:http');
+  const viaHost = (host, path, { method = 'GET', headers = {}, body } = {}) => new Promise((resolve, reject) => {
+    const u = new URL(BASE);
+    const req = request({ hostname: u.hostname, port: u.port, path, method, headers: { Host: host, ...headers } }, (r) => {
+      let data = '';
+      r.on('data', (c) => (data += c));
+      r.on('end', () => resolve({ status: r.statusCode, headers: r.headers, body: data }));
+    });
+    req.on('error', reject);
+    if (body) req.write(body);
+    req.end();
+  });
+  const FRONT = 'tete.apipedia.id';
+  const APIH = 'tetein.apipedia.id';
+  const created = await viaHost(APIH, '/api/text', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: 'hosts' }) });
+  const c = JSON.parse(created.body);
+  check('API host: share url points at the frontend host', c.url === `https://${FRONT}/file/${c.id}`, c.url);
+  check('API host: download/delete urls stay on the API host', c.downloadUrl === `https://${APIH}/file/${c.id}/download` && c.deleteUrl.startsWith(`https://${APIH}/file/${c.id}?token=`), `${c.downloadUrl} ${c.deleteUrl}`);
+  const viaFront = JSON.parse((await viaHost(FRONT, '/api/text', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: 'hosts' }) })).body);
+  check('frontend host returns the same link layout', viaFront.url === `https://${FRONT}/file/${viaFront.id}` && viaFront.downloadUrl.startsWith(`https://${APIH}/`));
+  let r = await viaHost(APIH, '/');
+  check('API host root describes the API (no UI)', r.status === 200 && JSON.parse(r.body).endpoints?.mcp);
+  r = await viaHost(FRONT, '/');
+  check('frontend host root serves the UI', r.status === 200 && r.body.includes('<html'));
+  r = await viaHost(APIH, `/file/${c.id}`, { headers: { Accept: 'text/html', 'Sec-Fetch-Dest': 'document' } });
+  check('API host redirects browsers to the frontend share page', r.status === 302 && r.headers.location === `https://${FRONT}/file/${c.id}`, `${r.status} ${r.headers.location}`);
+  r = await viaHost(FRONT, `/file/${c.id}`, { headers: { Accept: 'text/html', 'Sec-Fetch-Dest': 'document' } });
+  check('frontend host serves the share page', r.status === 200 && r.body.includes('File Details'));
+  r = await viaHost(APIH, `/file/${c.id}`, { headers: { Accept: 'application/json' } });
+  check('API host still returns JSON for API clients', r.status === 200 && JSON.parse(r.body).id === c.id);
+  await viaHost(APIH, `/file/${c.id}?token=${c.deleteUrl.split('token=')[1]}`, { method: 'DELETE' });
+  await viaHost(APIH, `/file/${viaFront.id}?token=${viaFront.deleteUrl.split('token=')[1]}`, { method: 'DELETE' });
+}
+
 // --- docs
 res = await alice('/README.md');
 check('/README.md served', res.status === 200 && (await res.text()).includes('TETE'));

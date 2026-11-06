@@ -1,12 +1,12 @@
 # TETE — Agent Reference
 
-Context file for AI agents and scripts. Base URL: `{{BASE_URL}}` (Web UI and API share one origin).
+Context file for AI agents and scripts. API base URL: `{{BASE_URL}}`. Production: API and MCP at `https://tetein.apipedia.id`, web UI and share pages at `https://tete.apipedia.id` (one Worker serves both).
 Full endpoint reference: `{{BASE_URL}}/api.md`.
 
 ## What it is
 
 TETE is a temporary file-sharing service that runs entirely on **Cloudflare Workers**: one Worker serves the web
-UI (static assets), the REST API and an MCP server; metadata lives in **D1**, file content in a private **Supabase Storage** bucket (only the Worker talks to it); expired files are purged in the background (and optionally by cron). Everything is reachable under one hostname; Supabase is never exposed.
+UI (static assets), the REST API and an MCP server; metadata lives in **D1**, file content in a private **Supabase Storage** bucket (only the Worker talks to it); expired files are purged in the background (and optionally by cron). Supabase is never exposed. Use the API host for programmatic access; share links returned as `url` point to the frontend host.
 
 ## Quick recipes
 
@@ -62,6 +62,7 @@ worker/index.js     entry point + routing + scheduled handler
 worker/files.js     upload, info, verify, download, delete, list, purge
 worker/admin.js     admin login/session, password change, runtime config
 worker/auth.js      owner cookie, signed admin session
+worker/links.js     public link building for the two hostnames
 worker/storage.js   Supabase Storage client (put/get/delete)
 worker/mcp.js       MCP server (JSON-RPC over POST /mcp)
 worker/crypto.js    AES-256-GCM, PBKDF2, HMAC, hashing (WebCrypto)

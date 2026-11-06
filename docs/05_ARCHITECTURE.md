@@ -16,7 +16,7 @@ flowchart LR
 ```
 
 Static files are answered by the assets layer directly. Only these paths run the Worker first
-(`run_worker_first` in `wrangler.toml`): `/api`, `/api/*`, `/file/*`, `/mcp`, `/README.md`, `/AGENT.md`, `/api.md`.
+(`run_worker_first` in `wrangler.toml`): `/` (to split frontend and API host), `/api`, `/api/*`, `/file/*`, `/mcp`, `/README.md`, `/AGENT.md`, `/api.md`.
 
 ## Modules
 
@@ -70,6 +70,17 @@ Storage until the next upload; they are never readable ([10_RISK_REGISTER.md](10
 
 - Every visitor receives a random `tete_uid` cookie (30 days); uploads record it as owner.
 - Admin login verifies the password and sets a signed `tete_admin` cookie. No server-side session storage exists.
+
+## Two hostnames
+
+| Host | Role |
+|------|------|
+| `tete.apipedia.id` | Frontend: web UI, share page `/file/:id`. The UI calls the API on the same origin so cookies work |
+| `tetein.apipedia.id` | API host: `/api`, `/mcp`, `/file/:id/download`, delete, docs. Its `/` returns the API index; a browser opening `/file/:id` is redirected (302) to the frontend |
+
+Both are custom domains of the same Worker. `worker/links.js` builds links: `url` on the frontend host, `downloadUrl` and
+`deleteUrl` on the API host, but only when the request arrives on one of the two configured hosts (`FRONTEND_HOST`,
+`API_HOST`); on workers.dev or local dev every link uses the request's own origin.
 
 ## Why Supabase stays invisible
 

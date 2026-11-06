@@ -6,10 +6,11 @@
 
 | Service | URL |
 |---------|-----|
-| Web UI | `https://tete.apipedia.id` |
-| Share links | `https://tete.apipedia.id/file/a1b2c3` |
-| API | `https://tete.apipedia.id/api` (also `https://tetein.apipedia.id`, same Worker) |
-| MCP | `https://tete.apipedia.id/mcp` |
+| Web UI and share links | `https://tete.apipedia.id` (e.g. `/file/a1b2c3`) |
+| API, MCP, integrators | `https://tetein.apipedia.id` (`/api`, `/mcp`, `/file/:id/download`) |
+
+Both hostnames are served by the same Worker. API responses point `url` (the share page) at the frontend host and
+`downloadUrl` / `deleteUrl` at the API host. Browsers that open an API-host share link are redirected to the frontend.
 
 ---
 
@@ -66,8 +67,8 @@ npm run migrate:remote
 npm run deploy
 ```
 
-Custom domains: uncomment `routes` in `wrangler.toml` (both `tete.apipedia.id` and `tetein.apipedia.id` can point to
-this same Worker), then deploy again. Full guide: [docs/18_INSTALLATION.md](docs/18_INSTALLATION.md).
+Custom domains: attach `tete.apipedia.id` (frontend) and `tetein.apipedia.id` (API) to this Worker, either in the
+Cloudflare dashboard (*Workers & Pages → tete → Settings → Domains & Routes*) or by uncommenting `routes` in `wrangler.toml`. Full guide: [docs/18_INSTALLATION.md](docs/18_INSTALLATION.md).
 
 > **Plan note:** password-locked uploads and admin login run PBKDF2 (100,000 iterations), which can exceed the
 > 10 ms CPU limit of the Workers **Free** plan. Use the **Paid** plan for these features, or lower
@@ -107,7 +108,7 @@ Complete reference: [api.md](api.md) (also served at `/api.md`). AI agents: [AGE
 
 ### MCP
 
-`POST https://tete.apipedia.id/mcp` speaks MCP (Streamable HTTP, stateless). Tools: `upload_text`, `upload_base64`, `file_info`, `read_text`, `delete_file`. Add it to a client as a remote HTTP server, e.g. `claude mcp add --transport http tete https://tete.apipedia.id/mcp`.
+`POST https://tetein.apipedia.id/mcp` speaks MCP (Streamable HTTP, stateless). Tools: `upload_text`, `upload_base64`, `file_info`, `read_text`, `delete_file`. Add it to a client as a remote HTTP server, e.g. `claude mcp add --transport http tete https://tetein.apipedia.id/mcp`.
 
 ## Configuration
 
@@ -122,6 +123,7 @@ Defaults live in `wrangler.toml` `[vars]`; the admin **Config** tab overrides th
 | `PBKDF2_ITERATIONS` | `100000` | Key-derivation cost for locked files and the admin password |
 | `SESSION_SECRET` (secret) | – | Signs the admin cookie. Required for admin login |
 | `ADMIN_PASSWORD` (secret) | – | Initial admin password; replaced once changed in the UI |
+| `FRONTEND_HOST` / `API_HOST` | `tete.apipedia.id` / `tetein.apipedia.id` | Hostnames used when building links (other hosts such as workers.dev use their own origin) |
 | `SUPABASE_URL` | – | Supabase project URL (not shown to users) |
 | `SUPABASE_SERVICE_KEY` (secret) | – | `service_role` key; only the Worker holds it |
 

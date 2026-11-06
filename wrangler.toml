@@ -14,7 +14,7 @@ fallthrough = true
 [assets]
 directory = "./client"
 binding = "ASSETS"
-run_worker_first = ["/api", "/api/*", "/file/*", "/mcp", "/README.md", "/AGENT.md", "/api.md"]
+run_worker_first = ["/", "/api", "/api/*", "/file/*", "/mcp", "/README.md", "/AGENT.md", "/api.md"]
 
 # Both hostnames serve the same Worker (UI + API). Uncomment after the zone exists in your account.
 # routes = [
@@ -43,6 +43,9 @@ MAX_FILE_SIZE_BYTES = "26214400"
 MAX_FILES_PER_UPLOAD = "10"
 FILE_WHITELIST = ""
 PBKDF2_ITERATIONS = "100000"
+# Two hostnames, one Worker: frontend (UI + share page) and API host (API, MCP, integrators).
+FRONTEND_HOST = "tete.apipedia.id"
+API_HOST = "tetein.apipedia.id"
 # File content lives in a private Supabase Storage bucket named "tete" (see docs/18_INSTALLATION.md).
 # Project URL only; the service key is a secret. Never exposed to browsers.
 SUPABASE_URL = "https://kheniasmdqflwawtopip.supabase.co"

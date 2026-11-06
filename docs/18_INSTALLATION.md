@@ -52,8 +52,23 @@ npx wrangler login
 
 ## Custom domains
 
-In `wrangler.toml` uncomment `routes`; both hostnames can serve the same Worker (UI on `tete.apipedia.id`, API on
-`tetein.apipedia.id`). The zone must be in the same Cloudflare account. Then run `npm run deploy` again.
+Target layout: `tete.apipedia.id` = frontend, `tetein.apipedia.id` = API/MCP, both attached to the **same** Worker `tete`.
+
+Current state (checked 2026-11-06) and what must change:
+
+| Hostname | Today | Needed |
+|----------|-------|--------|
+| `tete.apipedia.id` | DNS `CNAME` to `tegang-upload-share.pages.dev` and a custom domain of the Pages project `tegang-upload-share` (which also serves `tegang.apipedia.id` and `temp.apipedia.id`) | Remove the domain from that Pages project and delete the CNAME, then attach to Worker `tete` |
+| `tetein.apipedia.id` | Custom domain of the Worker `tete-proxy` | Re-attach to Worker `tete` (override the existing binding) |
+
+Dashboard steps: *Workers & Pages → tegang-upload-share → Custom domains* remove `tete.apipedia.id`; *DNS* delete the `tete`
+CNAME; *Workers & Pages → tete → Settings → Domains & Routes → Add → Custom domain* for both hostnames (confirm the
+override of `tetein`). To roll back, attach `tetein.apipedia.id` to `tete-proxy` again and re-add `tete.apipedia.id`
+to `tegang-upload-share`.
+
+The `routes` block in `wrangler.toml` does the same from the CLI, but it changes DNS, so it stays commented out.
+
+The zone must be in the same Cloudflare account.
 
 ## Local development
 

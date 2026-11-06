@@ -33,7 +33,8 @@
 - [ ] Rotate the Supabase secret key and the Cloudflare API token (both were pasted into a chat)
 - [x] `npm run migrate:remote` and `npm run deploy` to `https://tete.apipedia.workers.dev` (2026-11-06)
 - [ ] Run `npm run test:smoke` against the deployed URL
-- [ ] Attach `tete.apipedia.id` and `tetein.apipedia.id` (uncomment `routes`)
+- [x] Host split implemented and tested (`worker/links.js`, 8 checks)
+- [ ] Attach `tete.apipedia.id` (frontend) and `tetein.apipedia.id` (API) to Worker `tete`: blocked, see [18_INSTALLATION.md](18_INSTALLATION.md#custom-domains)
 - [ ] Confirm the Workers plan covers PBKDF2 CPU cost (R-02)
 - [ ] Cron trigger: not registered (Free plan, 5-slot limit); background purge is the fallback (R-15)
 

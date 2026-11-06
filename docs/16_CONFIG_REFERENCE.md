@@ -21,6 +21,8 @@ Only the first four settings can be changed at runtime; the rest require a redep
 | `MAX_FILES_PER_UPLOAD` | `10` | `maxFilesPerUpload` | Files per request (request total capped at 60 MB) |
 | `FILE_WHITELIST` | empty | `fileWhitelist` | Comma-separated extensions without dots; empty allows all |
 | `SUPABASE_URL` | – (set in `wrangler.toml`) | – | Supabase project URL, e.g. `https://<ref>.supabase.co`. Server-side only |
+| `FRONTEND_HOST` | `tete.apipedia.id` | – | Hostname of the web UI and share pages |
+| `API_HOST` | `tetein.apipedia.id` | – | Hostname for API, MCP and integrators |
 | `PURGE_INTERVAL_MS` | `600000` | – | Minimum gap between background purges per isolate |
 | `PBKDF2_ITERATIONS` | `100000` | – | Cost for locked files and the admin password. Stored per file, so changing it never breaks existing files |
 

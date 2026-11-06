@@ -74,3 +74,10 @@ Architecture decision records. Newest decisions are appended; numbers are perman
 - **Context:** The first deployment failed to register the cron: the Cloudflare account is on the Workers Free plan and had used its 5 cron triggers (error 10072).
 - **Alternatives rejected:** Upgrading the plan or removing another project's cron (not ours to decide); a Supabase `pg_cron` job (Postgres is not used here).
 - **Consequence:** Storage is reclaimed only while uploads happen (R-15). Correctness is unaffected because reads reject expired files.
+
+## D-013 — Frontend on tete.apipedia.id, API and MCP on tetein.apipedia.id (2026-11-06)
+
+- **Decision:** One Worker, two custom domains. Share pages and UI on `tete.apipedia.id`; API, MCP and integrators on `tetein.apipedia.id`. Responses link the share page to the frontend and download/delete to the API host.
+- **Context:** Requested by the owner. The UI keeps using same-origin calls on its own host, so cookies need no cross-origin setup.
+- **Alternatives rejected:** Two Workers (duplicated deploys and state); a single host for everything (does not give integrators a stable API hostname).
+- **Consequence:** Owner cookies are per host: files uploaded through the API host are not "owned" by the browser on the frontend host, so deleting them from the UI needs the delete token or an admin session.

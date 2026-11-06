@@ -1,6 +1,6 @@
 # TETE API
 
-> Base URL: `{{BASE_URL}}` — the Web UI and the API are the same Cloudflare Worker, on the same origin.
+> Base URL: `{{BASE_URL}}`. In production, use **`https://tetein.apipedia.id`** for the API and MCP; the web UI and share pages live on `https://tete.apipedia.id`. Both hostnames are the same Cloudflare Worker.
 
 TETE (Transient Endpoint for Transfer & Encryption) is a temporary file-sharing service. Files are stored in
 a private Supabase Storage bucket (never exposed to clients), metadata in D1, and deleted automatically when they expire.
@@ -12,6 +12,7 @@ a private Supabase Storage bucket (never exposed to clients), metadata in D1, an
 | File ID | 6 lowercase hex characters, e.g. `a1b2c3` |
 | Errors | JSON `{ "error": "message" }` with the matching HTTP status |
 | CORS | `Access-Control-Allow-Origin: *`, no credentials. Cookies only work on the same origin |
+| Links | `url` (share page) points at the frontend host `tete.apipedia.id`; `downloadUrl` and `deleteUrl` point at the API host `tetein.apipedia.id`. On other hosts (e.g. workers.dev) all links use that host |
 | Identity | An anonymous `tete_uid` cookie marks you as the owner of your uploads. curl users can ignore it and use the delete token |
 | Expiration | `expiration` is milliseconds. Omitted or empty = server default, `0` = never expires |
 | Limits | Default 25 MB per file, 10 files per request, 60 MB per request (hard cap). Admins can lower the per-file limit; the hard cap per file is 50 MB |

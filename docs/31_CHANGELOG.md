@@ -16,6 +16,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 
+- Two-hostname layout: frontend `tete.apipedia.id`, API/MCP `tetein.apipedia.id` on one Worker (`worker/links.js`, `FRONTEND_HOST`, `API_HOST`). API-host `/` returns the API index; browsers on the API host are redirected to the share page.
 - Background purge after uploads (`maybePurge`, `PURGE_INTERVAL_MS`), so no cron slot is needed.
 - Cloudflare Workers runtime: Worker (`worker/`), Static Assets for `client/`, D1 database, cron purge, `wrangler.toml`.
 - File content in a private Supabase Storage bucket, accessed only by the Worker (`worker/storage.js`, `supabase-storage.sql`). Supabase never appears in a public URL.

@@ -8,6 +8,7 @@ import { isAdmin, resolveUser } from './auth.js';
 import * as files from './files.js';
 import { handleMcp } from './mcp.js';
 import { HttpError, errorResponse, json, withCors } from './http.js';
+import { isApiHost, linksFor } from './links.js';
 
 const DOCS = { '/README.md': readmeDoc, '/AGENT.md': agentDoc, '/api.md': apiDoc };
 
@@ -57,6 +58,11 @@ async function route(request, env, ctx) {
   const method = request.method;
   let m;
 
+  // The API host has no web UI: its root describes the API instead.
+  if (pathname === '/' && method === 'GET') {
+    return isApiHost(request, env) ? apiIndex() : env.ASSETS.fetch(request);
+  }
+
   if (method === 'GET' && DOCS[pathname]) {
     const key = url.origin + pathname;
     let body = renderedDocs.get(key);
@@ -79,7 +85,11 @@ async function route(request, env, ctx) {
 
   if ((m = pathname.match(/^\/file\/([^/]+)$/))) {
     if (method === 'GET') {
-      if (wantsHtml(request)) return env.ASSETS.fetch(new Request(new URL('/file-view', url), request));
+      if (wantsHtml(request)) {
+        // Browsers belong on the frontend host; the API host just redirects there.
+        if (isApiHost(request, env)) return Response.redirect(`${linksFor(request, env).web}/file/${m[1]}`, 302);
+        return env.ASSETS.fetch(new Request(new URL('/file-view', url), request));
+      }
       return files.fileInfo(request, env, m[1]);
     }
     if (method === 'DELETE') return files.deleteFile(request, env, m[1], ctx);

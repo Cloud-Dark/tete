@@ -5,6 +5,7 @@ import {
   decryptContent, decryptMeta, encryptWithPassword, randomHex, safeEqual, sha256Hex, unwrapDataKey,
 } from './crypto.js';
 import { HttpError, attachmentDisposition, json, readJson } from './http.js';
+import { linksFor } from './links.js';
 import { deleteObjects, getObject, putObject } from './storage.js';
 
 // Columns needed to describe a file publicly; excludes the enc blob and delete token.
@@ -43,7 +44,7 @@ function checkExtension(name, cfg) {
   }
 }
 
-function publicView(row, base, { reveal } = {}) {
+function publicView(row, links, { reveal } = {}) {
   const locked = !!row.locked;
   return {
     id: row.id,
@@ -54,13 +55,13 @@ function publicView(row, base, { reveal } = {}) {
     expiresAt: row.expires_at,
     locked,
     encrypted: locked,
-    url: `${base}/file/${row.id}`,
-    downloadUrl: `${base}/file/${row.id}/download`,
+    url: `${links.web}/file/${row.id}`,
+    downloadUrl: `${links.api}/file/${row.id}/download`,
   };
 }
 
 // Persists one file: D1 row first (claims the id), then the Storage object; rolls back the row if the upload fails.
-async function storeFile(env, cfg, { name, mime, data, size, password, expiresAt, userId, base }) {
+async function storeFile(env, cfg, { name, mime, data, size, password, expiresAt, userId, links }) {
   let storedBody = data;
   let enc = null;
   let publicName = name;
@@ -105,8 +106,8 @@ async function storeFile(env, cfg, { name, mime, data, size, password, expiresAt
     id, original_name: publicName, mime_type: publicMime, size, uploaded_at: uploadedAt, expires_at: expiresAt, locked: password ? 1 : 0,
   };
   return {
-    ...publicView(row, base, { reveal: { name, mime } }),
-    deleteUrl: `${base}/file/${id}?token=${deleteToken}`,
+    ...publicView(row, links, { reveal: { name, mime } }),
+    deleteUrl: `${links.api}/file/${id}?token=${deleteToken}`,
     deleteToken,
   };
 }
@@ -142,7 +143,7 @@ export async function uploadFiles(request, env, ctx) {
 
   const password = form.get('password') || null;
   const expiresAt = resolveExpiresAt(form.get('expiration'), cfg);
-  const base = new URL(request.url).origin;
+  const links = linksFor(request, env);
 
   const results = [];
   for (const f of files) {
@@ -154,7 +155,7 @@ export async function uploadFiles(request, env, ctx) {
       password: typeof password === 'string' ? password : null,
       expiresAt,
       userId: ctx.userId,
-      base,
+      links,
     }));
   }
   return json(results.length === 1 ? results[0] : results);
@@ -173,7 +174,7 @@ export async function uploadText(request, env, ctx) {
   const name = typeof filename === 'string' && filename.trim() ? filename.trim() : null;
   if (name) checkExtension(name, cfg);
 
-  const base = new URL(request.url).origin;
+  const links = linksFor(request, env);
   const result = await storeFile(env, cfg, {
     name: name || `${randomHex(3)}.txt`,
     mime: 'text/plain',
@@ -182,7 +183,7 @@ export async function uploadText(request, env, ctx) {
     password: typeof password === 'string' && password ? password : null,
     expiresAt: resolveExpiresAt(expiration, cfg),
     userId: ctx.userId,
-    base,
+    links,
   });
   return json(result);
 }
@@ -190,7 +191,7 @@ export async function uploadText(request, env, ctx) {
 // GET /api/file/:id (also GET /file/:id for non-browser clients)
 export async function fileInfo(request, env, id) {
   const row = await getRow(env, id);
-  return json(publicView(row, new URL(request.url).origin));
+  return json(publicView(row, linksFor(request, env)));
 }
 
 // POST /file/:id/verify - JSON { password }
@@ -272,13 +273,13 @@ export async function deleteFile(request, env, id, ctx) {
 
 // GET /api/files - the caller's own files; an admin sees everything.
 export async function listFiles(request, env, ctx) {
-  const base = new URL(request.url).origin;
+  const links = linksFor(request, env);
   const now = Date.now();
   const query = ctx.isAdmin
     ? env.DB.prepare(`SELECT ${PUBLIC_COLS} FROM files WHERE (expires_at IS NULL OR expires_at > ?) ORDER BY uploaded_at DESC LIMIT 200`).bind(now)
     : env.DB.prepare(`SELECT ${PUBLIC_COLS} FROM files WHERE user_id = ? AND (expires_at IS NULL OR expires_at > ?) ORDER BY uploaded_at DESC LIMIT 200`).bind(ctx.userId, now);
   const { results } = await query.all();
-  return json(results.map((row) => publicView(row, base)));
+  return json(results.map((row) => publicView(row, links)));
 }
 
 // Cron: delete expired objects and rows in batches.

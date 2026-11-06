@@ -33,6 +33,7 @@
 | 19 | Cron purge removes Storage objects | 3 expiring uploads, trigger scheduled handler, count objects in the stand-in | Objects removed with their rows | 13 to 8 objects, log `Purged 5 expired file(s)` | PASS |
 | 20 | Storage down | Stop the stand-in, upload | Error response, no orphan D1 row | `500`, row count 8 before and after | PASS |
 | 22 | Purge without cron | `PURGE_INTERVAL_MS=1`, 3 expiring uploads, one more upload, count objects | Expired objects removed by the upload-triggered purge | 7 to 5 objects (net of the new upload) | PASS |
+| 23 | Host split | Requests with `Host: tetein...` / `tete...` against local dev | Share url on frontend host, download/delete urls on API host, API root JSON vs UI, 302 for browsers on the API host | 8 checks pass (smoke test now 61 checks locally) | PASS |
 | 21 | Storage not configured | Empty `SUPABASE_URL` / key, upload | Clear error, no orphan row | `503 Storage is not configured ...`, row count unchanged | PASS |
 
 ## Not covered
